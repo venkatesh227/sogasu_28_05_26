@@ -11,27 +11,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute([$mobile]);
     $user = $stmt->fetch();
 
+    $error = '';
+
     if ($user && password_verify($password, $user['password'])) {
 
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['role'] = $user['role'];
+        $deviceToken = $_POST['device_token'] ?? '';
+        if (empty($deviceToken)) {
 
-        // Fetch employee preferred language
-        $empStmt = $pdo->prepare("SELECT preferred_language FROM employees WHERE user_id = ?");
-        $empStmt->execute([$user['id']]);
-        $emp = $empStmt->fetch();
-        $_SESSION['language'] = $emp['preferred_language'] ?? 'en';
+            $error = "Device validation failed. Please refresh page.";
 
-        header("Location: dashboard.php");
-        exit();
+        } elseif (
+            $user['is_logged_in'] == 1 &&
+            !empty($user['device_token']) &&
+            $user['device_token'] !== $deviceToken
+        ) {
+
+            $error = "You are already logged in on another device.";
+
+        } else {
+
+            // Generate session token
+            $sessionToken = bin2hex(random_bytes(32));
+
+            // Store session
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['role'] = $user['role'];
+            $_SESSION['session_token'] = $sessionToken;
+
+            // Fetch employee preferred language
+            $empStmt = $pdo->prepare("
+            SELECT preferred_language 
+            FROM employees 
+            WHERE user_id = ?
+        ");
+
+            $empStmt->execute([$user['id']]);
+            $emp = $empStmt->fetch();
+
+            $_SESSION['language'] = $emp['preferred_language'] ?? 'en';
+
+            // Update DB
+            $updateStmt = $pdo->prepare("
+            UPDATE users
+            SET
+                is_logged_in = 1,
+                session_token = ?,
+                device_token = ?    
+            WHERE id = ?
+        ");
+
+            $updateStmt->execute([
+                $sessionToken,
+                $deviceToken,
+                $user['id']
+            ]);
+
+            header("Location: dashboard.php");
+            exit();
+        }
 
     } else {
+
         $error = "Invalid mobile or password";
+
     }
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -159,32 +207,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-size: 0.9rem;
             text-decoration: none;
         }
-
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
+
 <body>
 
     <div class="logo-container">
-        <img src="../images/logo.svg" style="width: 100px; height: 100px; border-radius: 50%; box-shadow: 0 10px 15px -3px rgba(219, 39, 119, 0.3); margin-bottom: 1rem;">
+        <img src="../images/logo.svg"
+            style="width: 100px; height: 100px; border-radius: 50%; box-shadow: 0 10px 15px -3px rgba(219, 39, 119, 0.3); margin-bottom: 1rem;">
         <h1 class="app-name">Sogasu Staff</h1>
         <p class="app-role">Employee Workspace</p>
     </div>
 
     <form class="login-form" method="POST">
+        <input type="hidden" name="device_token" id="device_token">
         <div class="input-group">
             <i class="ri-phone-line input-icon"></i>
             <input type="tel" name="login" class="form-input" placeholder="Phone Number" required>
         </div>
         <div class="input-group">
             <i class="ri-lock-2-line input-icon"></i>
+
             <input type="password" name="password" class="form-input" placeholder="Password" required>
         </div>
-        
+
         <button type="submit" class="btn-login">Login to Workspace</button>
     </form>
-    <?php if (!empty($error)) echo "<p style='color:red;text-align:center;'>$error</p>"; ?>
-
     <a href="#" class="forgot-pass">Forgot Password?</a>
+    <script>
+        function generateDeviceToken() {
+            let token = localStorage.getItem("device_token");
 
+            if (!token) {
+                token =
+                    'DEV-' +
+                    Math.random().toString(36).substr(2, 9) +
+                    Date.now();
+
+                localStorage.setItem("device_token", token);
+            }
+
+            document.getElementById("device_token").value = token;
+        }
+
+        generateDeviceToken();
+    </script>
+    <?php if (!empty($error)): ?>
+        <script>
+            Swal.fire({
+                icon: 'error',
+                title: 'Login Failed',
+                text: '<?= $error ?>',
+                confirmButtonColor: '#db2777'
+            });
+        </script>
+    <?php endif; ?>
 </body>
+
 </html>

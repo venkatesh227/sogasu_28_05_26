@@ -1,7 +1,7 @@
 <?php
 // Database Connection Configuration
 $host = 'localhost';
-$dbname = 'sogasu-new';
+$dbname = 'sogasu';
 $user = 'root';
 $pass = '';
 
