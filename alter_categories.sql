@@ -1,0 +1,4 @@
+ALTER TABLE categories 
+ADD COLUMN created_by int(11) DEFAULT NULL AFTER created_at,
+ADD COLUMN updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ADD COLUMN updated_by int(11) DEFAULT NULL AFTER updated_at;

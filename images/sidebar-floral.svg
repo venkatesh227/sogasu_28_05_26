@@ -1,0 +1,12 @@
+<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
+    <rect width="60" height="60" fill="#C44B2D"/>
+    <g fill="#ffffff" fill-opacity="0.1">
+        <path d="M30 30 C 35 25, 45 25, 50 30 C 55 35, 55 45, 50 50 C 45 55, 35 55, 30 50 C 25 45, 25 35, 30 30 Z M 0 0 C 5 -5, 15 -5, 20 0 C 25 5, 25 15, 20 20 C 15 25, 5 25, 0 20 C -5 15, -5 5, 0 0 Z M 60 0 C 65 -5, 75 -5, 80 0 C 85 5, 85 15, 80 20 C 75 25, 65 25, 60 20 C 55 15, 55 5, 60 0 Z M 0 60 C 5 55, 15 55, 20 60 C 25 65, 25 75, 20 80 C 15 85, 5 85, 0 80 C -5 75, -5 65, 0 60 Z M 60 60 C 65 55, 75 55, 80 60 C 85 65, 85 75, 80 80 C 75 85, 65 85, 60 80 C 55 75, 55 65, 60 60 Z"/>
+        <path d="M30 0 L 30 10 M 30 50 L 30 60 M 0 30 L 10 30 M 50 30 L 60 30" stroke="#ffffff" stroke-width="1" stroke-opacity="0.1" />
+        <circle cx="30" cy="30" r="2" fill="#ffffff" fill-opacity="0.2"/>
+        <circle cx="0" cy="0" r="2" fill="#ffffff" fill-opacity="0.2"/>
+        <circle cx="60" cy="0" r="2" fill="#ffffff" fill-opacity="0.2"/>
+        <circle cx="0" cy="60" r="2" fill="#ffffff" fill-opacity="0.2"/>
+        <circle cx="60" cy="60" r="2" fill="#ffffff" fill-opacity="0.2"/>
+    </g>
+</svg>

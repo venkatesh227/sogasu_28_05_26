@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fce7f3;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#fbcfe8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="95" fill="url(#grad1)" stroke="#db2777" stroke-width="2"/>
+
+  <!-- Hair (Simple Bun with Flowers) -->
+  <circle cx="100" cy="75" r="40" fill="#1e293b"/>
+  <circle cx="130" cy="70" r="15" fill="#1e293b"/> <!-- Bun -->
+  
+  <!-- Flowers in hair -->
+  <circle cx="132" cy="65" r="5" fill="#fdf2f8"/>
+  <circle cx="125" cy="60" r="5" fill="#fdf2f8"/>
+  <circle cx="135" cy="75" r="5" fill="#fdf2f8"/>
+
+  <!-- Face -->
+  <path d="M70,80 Q100,130 130,80 Q130,50 100,50 Q70,50 70,80" fill="#ffedd5"/>
+  
+  <!-- Saree Drape (Pink/Fuchsia) -->
+  <path d="M50,180 Q60,100 100,100 Q140,100 150,180 L50,180" fill="#db2777"/> 
+  <!-- Pallu/Shoulder Drape -->
+  <path d="M100,100 Q130,120 160,80 L180,180 L150,180 Q140,120 110,120" fill="#be185d"/>
+  
+  <!-- Blouse Sleeve -->
+  <path d="M70,100 Q60,130 50,120" stroke="#be185d" stroke-width="2" fill="none"/>
+  
+  <!-- Jewelry/Detail -->
+  <circle cx="100" cy="90" r="2" fill="#be123c"/> <!-- Bindi -->
+  <path d="M90,105 Q100,115 110,105" fill="none" stroke="#be123c" stroke-width="1"/> <!-- Necklace -->
+
+  <!-- Elegant Profile Silhouette details (Minimalist facial features) -->
+  <!-- Eyes -->
+  <path d="M85,75 Q90,72 95,75" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <path d="M105,75 Q110,72 115,75" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <!-- Smile -->
+  <path d="M95,90 Q100,93 105,90" fill="none" stroke="#be123c" stroke-width="1"/>
+
+</svg>
