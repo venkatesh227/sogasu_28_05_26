@@ -77,3 +77,12 @@ Attempting to save: Waist = 6
 Attempting to save: Arm Round = 7
 Attempting to save: Arm Hole = 8
 Attempting to save: Front Length = 9
+Found measurements array for order 5
+Attempting to save: Plain Blouse = 4
+Attempting to save: Sholder = 4
+Attempting to save: Chest = 44
+Attempting to save: Shoulder Strap = 4
+Attempting to save: Waist = 4
+Attempting to save: Arm Round = 4
+Attempting to save: Arm Hole = 4
+Attempting to save: Front Length = 4

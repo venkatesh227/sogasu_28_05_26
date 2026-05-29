@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $desc = $_POST['description'];
     
     // Fetch Rate for specific date range first (Prioritize specific/shorter ranges)
-    $stmt = $pdo->prepare("SELECT hourly_rate FROM ot_rate_settings 
+    $stmt = $pdo->prepare("SELECT ot_percentage FROM ot_rate_settings 
                            WHERE ? BETWEEN from_date AND to_date 
                            ORDER BY (to_date - from_date) ASC, id DESC 
                            LIMIT 1");
@@ -129,10 +129,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $rate = $pdo->query("SELECT setting_value FROM global_settings WHERE setting_key = 'global_ot_rate'")->fetchColumn() ?: 100;
     }
     
-    $amount = $hours * $rate;
+    $salaryStmt = $pdo->prepare("SELECT base_salary FROM employees WHERE id = ?");
+    $salaryStmt->execute([$employee_id]);
+    $salaryAmount = floatval($salaryStmt->fetchColumn() ?: 0);
+
+    // OT payout uses salary percentage. Hours remain for tracking and approval.
+    $amount = ($salaryAmount * $rate) / 100;
     
-    $stmt = $pdo->prepare("INSERT INTO employee_overtime (employee_id, ot_date, hours, hourly_rate, amount, description, status) VALUES (?, ?, ?, ?, ?, ?, 'Pending')");
-    if ($stmt->execute([$employee_id, $date, $hours, $rate, $amount, $desc])) {
+    $stmt = $pdo->prepare("INSERT INTO employee_overtime (employee_id, ot_date, hours, amount, description, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
+    if ($stmt->execute([$employee_id, $date, $hours, $amount, $desc])) {
         header("Location: dashboard.php?ot_success=1");
         exit;
     }
