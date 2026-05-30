@@ -13,8 +13,7 @@ if (
         UPDATE users
         SET
             is_logged_in = 0,
-            session_token = NULL,
-            device_token = NULL
+            session_token = NULL
         WHERE id = ?
     ");
 

@@ -82,7 +82,7 @@ include 'includes/header.php';
             <i class="ri-arrow-right-s-line" style="color: var(--text-muted); font-size: 1.5rem;"></i>
         </a>
 
-        <a href="measurements.php"
+        <a href="saved_measurements.php"
             style="padding: 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 1rem; text-decoration: none; color: inherit;">
             <div
                 style="width: 40px; height: 40px; background: var(--background); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary);">
@@ -131,9 +131,5 @@ include 'includes/header.php';
 
 </div>
 
-<<<<<<< Updated upstream
-<?php include 'includes/bottom-nav.php'; ?>
-=======
 <?php include 'includes/bottom-nav.php'; ?>
 
->>>>>>> Stashed changes

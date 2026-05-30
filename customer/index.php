@@ -1,7 +1,13 @@
 <?php
 session_start();
 require '../includes/db.php';
-if (!isset($_POST['send_otp']) && !isset($_POST['verify_otp'])) {
+if (
+    !isset($_POST['send_otp']) &&
+    !isset($_POST['verify_otp']) &&
+    !(isset($_GET['action']) && $_GET['action'] == 'resend_otp') &&
+    !(isset($_GET['action']) && $_GET['action'] == 'change_mobile') &&
+    !isset($_GET['otp_sent'])
+) {
     unset($_SESSION['otp']);
 }
 
@@ -28,11 +34,12 @@ if (isset($_POST['send_otp'])) {
 }
 
 
-// STEP 2: RESEND OTP (REFERENCE HAS THIS)
+// STEP 2: RESEND OTP
 if (isset($_GET['action']) && $_GET['action'] == 'resend_otp') {
 
     $_SESSION['otp'] = rand(100000, 999999);
-    header("Location: index.php");
+
+    header("Location: index.php?otp_sent=1");
     exit();
 }
 
@@ -41,6 +48,8 @@ if (isset($_GET['action']) && $_GET['action'] == 'resend_otp') {
 if (isset($_GET['action']) && $_GET['action'] == 'change_mobile') {
 
     unset($_SESSION['otp']);
+
+    unset($_SESSION['show_otp_screen']);
     unset($_SESSION['mobile']);
 
     header("Location: index.php");
@@ -62,6 +71,8 @@ if (isset($_POST['verify_otp'])) {
 
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['role'] = 'customer';
+           
+            $_SESSION['customer_name'] = $user['username'];
 
             unset($_SESSION['otp']);
             unset($_SESSION['mobile']);

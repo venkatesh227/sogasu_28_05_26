@@ -1,4 +1,8 @@
 <?php
+session_start();
+require '../includes/db.php';
+// Fetch logged in customer details
+$customerId = $_SESSION['user_id'] ?? 0;
 $pageTitle = "Book Appointment - Sogasu";
 $headerTitle = "New Request";
 $activePage = "new-order";
@@ -80,15 +84,46 @@ include 'includes/header.php';
                 <div class="error" id="timeError"></div>
             </div>
         </div>
-<<<<<<< Updated upstream
 
-        <button class="btn-primary" style="width: 100%; font-size: 1.1rem; padding: 1rem;" id="proceedToMeasurementsBtn">
-            Proceed to Measurements
-        </button>
-=======
-        <button type="button" id="proceedBtn" class="btn-primary" style="width:100%; font-size:1.1rem; padding:1rem;">Proceed to Measurements</button>
->>>>>>> Stashed changes
+<div class="section-title">Pricing Details</div>
+
+<div class="date-time-row">
+
+    <div class="date-box">
+        <label>Base Price</label>
+        <input type="number"
+            id="base_price"
+            class="form-input"
+            placeholder="Base Price"
+            min="0"
+            step="0.01"
+            readonly>
     </div>
+
+    <div class="time-box">
+        <label>Extra Charges</label>
+        <input type="number"
+               id="extra_charges"
+               class="form-input"
+               placeholder="Enter Extra Charges"
+               min="0"
+               step="0.01"
+               value="0">
+    </div>
+
+</div>
+
+<div style="margin-bottom: 2rem;">
+    <label>Total Amount</label>
+    <input type="number"
+           id="total_amount"
+           class="form-input"
+           readonly>
+</div>
+
+<button type="button" id="proceedBtn" class="btn-primary" style="width:100%; font-size:1.1rem; padding:1rem;">
+    Proceed to Measurements
+</button>
 </div>
 <style>
     .category-grid {
@@ -295,7 +330,45 @@ include 'includes/header.php';
 <script>
     const cards = document.querySelectorAll('.service-card');
     const subCategoryDropdown = document.getElementById('subCategory');
+    window.addEventListener('DOMContentLoaded', function () {
 
+    const selectedRadio =
+        document.querySelector('input[name="service"]:checked');
+
+    if (selectedRadio) {
+
+        let categoryId = selectedRadio.value;
+
+        fetch('get-subcategories.php?category_id=' + categoryId + '&t=' + new Date().getTime())
+            .then(res => res.json())
+            .then(data => {
+
+                subCategoryDropdown.innerHTML =
+                    `<option value="">Select Sub Category</option>`;
+
+                if (!data || data.length === 0) {
+
+                    subCategoryDropdown.innerHTML +=
+                        `<option>No Sub Categories Available</option>`;
+
+                    subCategoryDropdown.disabled = true;
+
+                    return;
+                }
+
+                subCategoryDropdown.disabled = false;
+
+                data.forEach(item => {
+
+                    subCategoryDropdown.innerHTML += `
+                        <option value="${item.id}" data-price="${item.base_price}">
+                            ${item.name}
+                        </option>
+                    `;
+                });
+            });
+    }
+});
     cards.forEach(card => {
         card.addEventListener('click', () => {
 
@@ -305,6 +378,7 @@ include 'includes/header.php';
 
             const radio = card.querySelector('input[type="radio"]');
             radio.checked = true;
+            document.getElementById('categoryError').innerText = '';
 
             let categoryId = radio.value;
 
@@ -323,174 +397,156 @@ include 'includes/header.php';
                     }
                     subCategoryDropdown.disabled = false;
                     data.forEach(item => {
-                        subCategoryDropdown.innerHTML += `<option value="${item.id}">${item.name}</option>`;
+                        subCategoryDropdown.innerHTML += `
+                            <option value="${item.id}" data-price="${item.base_price}">
+                                ${item.name}
+                            </option>
+                        `;
                     });
                 })
                 .catch(err => console.error(err));
         });
     });
-<<<<<<< Updated upstream
-    document.getElementById('proceedToMeasurementsBtn')
-    .addEventListener('click', function () {
+    const basePriceInput = document.getElementById('base_price');
+const extraChargesInput = document.getElementById('extra_charges');
+const totalAmountInput = document.getElementById('total_amount');
 
-        const selectedCategory =
-            document.querySelector('input[name="service"]:checked');
+function calculateTotalAmount() {
 
-        const subCategory =
-            document.getElementById('subCategory').value;
+    const basePrice = parseFloat(basePriceInput.value) || 0;
+    const extraCharges = parseFloat(extraChargesInput.value) || 0;
 
-        if (!selectedCategory) {
+    totalAmountInput.value = (basePrice + extraCharges).toFixed(2);
+}
 
-            alert('Please select category');
-            return;
-        }
+basePriceInput.addEventListener('input', calculateTotalAmount);
+extraChargesInput.addEventListener('input', calculateTotalAmount);
+subCategoryDropdown.addEventListener('change', function () {
 
-        if (!subCategory) {
+    const selectedOption =
+        this.options[this.selectedIndex];
 
-            alert('Please select sub category');
-            return;
-        }
+    const basePrice =
+        selectedOption.getAttribute('data-price') || 0;
 
-        window.location.href =
-            'measurements.php?category_id=' +
-            selectedCategory.value +
-            '&subcategory_id=' +
-            subCategory;
-=======
-    const dateInput = document.getElementById('dateInput');
-    const timeInput = document.getElementById('timeInput');
+    document.getElementById('base_price').value = basePrice;
 
-    const today = new Date().toISOString().split('T')[0];
-    dateInput.setAttribute('min', today);
+    calculateTotalAmount();
+});
+    document.getElementById('proceedBtn')
+.addEventListener('click', function () {
 
-    // initial set
-    setTimeRestriction();
+    const selectedCategory =
+        document.querySelector('input[name="service"]:checked');
 
-    dateInput.addEventListener('change', setTimeRestriction);
-    timeInput.addEventListener('change', validateTime);
+    const subCategory =
+        document.getElementById('subCategory').value;
 
-    function setTimeRestriction() {
-        const selectedDate = dateInput.value;
-        const now = new Date();
+    const categoryError =
+    document.getElementById('categoryError');
 
-        now.setSeconds(0, 0);
+categoryError.innerText = '';
 
-        let hours = now.getHours().toString().padStart(2, '0');
-        let minutes = now.getMinutes().toString().padStart(2, '0');
-        let currentTime = `${hours}:${minutes}`;
+if (!selectedCategory) {
 
-        if (selectedDate === today) {
-            timeInput.min = currentTime;
+    categoryError.innerText =
+        'Please select category';
 
-            if (!timeInput.value || timeInput.value < currentTime) {
-                timeInput.value = currentTime;
-            }
-        } else {
-            timeInput.removeAttribute('min');
-        }
+    return;
+}   
+
+    const subCategoryError =
+    document.getElementById('subCategoryError');
+
+    subCategoryError.innerText = '';
+
+    if (
+        !subCategory &&
+        !document.getElementById('subCategory').disabled
+    ) {
+
+        subCategoryError.innerText =
+            'Please select sub category';
+
+        document.getElementById('subCategory')
+            .classList.add('input-error');
+
+        return;
+    } else {
+
+        document.getElementById('subCategory')
+            .classList.remove('input-error');
     }
 
-    function validateTime() {
-        const selectedDate = dateInput.value;
-        const selectedTime = timeInput.value;
+    const visitType =
+    document.querySelector('input[name="visit_type"]:checked').value;
 
-        if (!selectedDate || !selectedTime) return;
+    const appointmentDate =
+        document.getElementById('dateInput').value;
 
-        const now = new Date();
-        const selected = new Date(`${selectedDate}T${selectedTime}`);
-        now.setSeconds(0, 0);
+    const appointmentTime =
+    document.getElementById('timeInput').value;
 
-        if (selectedDate === today && selected < now) {
-            timeInput.classList.add('input-error');
-            document.getElementById('timeError').innerText = "Please select a future time";
-        } else {
-            timeInput.classList.remove('input-error');
-            document.getElementById('timeError').innerText = "";
-        }
+    const timeError =
+        document.getElementById('timeError');
+    const basePrice =
+    document.getElementById('base_price').value;
+
+    const extraCharges =
+    document.getElementById('extra_charges').value;
+
+    const totalAmount =
+    document.getElementById('total_amount').value;
+
+    timeError.innerText = '';
+
+    document.getElementById('timeInput')
+        .classList.remove('input-error');
+
+    if (!appointmentTime) {
+
+        timeError.innerText =
+            'Time is required';
+
+        document.getElementById('timeInput')
+            .classList.add('input-error');
+
+        return;
     }
-    document.getElementById('proceedBtn').addEventListener('click', function() {
 
-        let isValid = true;
-        let category = document.querySelector('input[name="service"]:checked')?.value;
-        const subCategoryEl = document.getElementById('subCategory');
-        let subCategory = subCategoryEl.value;
-        const dateInput = document.getElementById('dateInput');
-        const timeInput = document.getElementById('timeInput');
-        // clear errors
-        document.querySelectorAll('.error').forEach(el => el.innerText = "");
-        document.querySelectorAll('.form-input').forEach(el => el.classList.remove('input-error'));
+    const currentDateTime = new Date();
 
-        // CATEGORY VALIDATION
-        if (!category) {
-            isValid = false;
-            document.getElementById('categoryError').innerText = "Please select a category";
-        }
+    const selectedDateTime = new Date(
+        appointmentDate + 'T' + appointmentTime
+    );
 
-        // SUB CATEGORY
-        if (!subCategory || subCategoryEl.disabled) {
-            isValid = false;
-            subCategoryEl.classList.add('input-error');
-            document.getElementById('subCategoryError').innerText = "Please select a sub category";
-        }
+    if (selectedDateTime < currentDateTime) {
 
-        // DATE
-        if (!dateInput.value) {
-            isValid = false;
-            dateInput.classList.add('input-error');
-            document.getElementById('dateError').innerText = "Please select a date";
-        }
+        timeError.innerText =
+            'Past date and time are not allowed';
 
-        // TIME
-        if (!timeInput.value) {
-            isValid = false;
-            timeInput.classList.add('input-error');
-            document.getElementById('timeError').innerText = "Please select a time";
-        }
+        document.getElementById('timeInput')
+            .classList.add('input-error');
 
-        // PAST TIME CHECK
-        const today = new Date().toISOString().split('T')[0];
-        const now = new Date();
+        return;
+    }
 
-        if (dateInput.value && timeInput.value) {
-            const selected = new Date(`${dateInput.value}T${timeInput.value}`);
-            const now = new Date();
-            now.setSeconds(0, 0); 
-
-            if (dateInput.value === today && selected < now) {
-                isValid = false;
-                timeInput.classList.add('input-error');
-                document.getElementById('timeError').innerText = "Please select a future time";
-            }
-        }
-
-        // STOP
-        if (!isValid) {
-            document.querySelector('.input-error')?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center'
-            });
-            return;
-        }
-
-        // SUCCESS
-        if (!isValid) return;
-
-        // SUCCESS REDIRECT
-        fetch('store-order-session.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                category_id: category,
-                sub_category_id: subCategory,
-                visit_type: document.querySelector('input[name="visit_type"]:checked').value,
-                date: dateInput.value,
-                time: timeInput.value
-            })
-        }).then(() => {
-            window.location.href = `measurements.php?category_id=${category}&sub_category_id=${subCategory}`;
-        });
->>>>>>> Stashed changes
+    window.location.href =
+    'measurements.php?category_id=' +
+    selectedCategory.value +
+    '&sub_category_id=' +
+    subCategory +
+    '&visit_type=' +
+    encodeURIComponent(visitType) +
+    '&appointment_date=' +
+    encodeURIComponent(appointmentDate) +
+    '&appointment_time=' +
+    encodeURIComponent(appointmentTime) +
+    '&base_price=' +
+    encodeURIComponent(basePrice) +
+    '&extra_charges=' +
+    encodeURIComponent(extraCharges) +
+    '&total_amount=' +
+    encodeURIComponent(totalAmount);
     });
 </script>

@@ -1,7 +1,7 @@
 <?php
 // Database Connection Configuration
 $host = 'localhost';
-$dbname = 'sogasu_28';
+$dbname = 'sogasu';
 $user = 'root';
 $pass = '';
 

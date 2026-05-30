@@ -21,7 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "Device validation failed. Please refresh page.";
 
         } elseif (
-            $user['is_logged_in'] == 1 &&
             !empty($user['device_token']) &&
             $user['device_token'] !== $deviceToken
         ) {
@@ -242,7 +241,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!token) {
                 token =
                     'DEV-' +
-                    Math.random().toString(36).substr(2, 9) +
+                    navigator.platform +
+                    '-' +
+                    navigator.userAgent.length +
+                    '-' +
+                    screen.width +
+                    'x' +
+                    screen.height +
+                    '-' +
                     Date.now();
 
                 localStorage.setItem("device_token", token);

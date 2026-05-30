@@ -71,9 +71,13 @@ $fabric_images = array_filter($images, function($img) { return $img['image_type'
 $sample_images = array_filter($images, function($img) { return $img['image_type'] === 'sample'; });
 
 // ===== CALCULATIONS =====
-$total = $order['total_amount'];
-$advance = $order['advance_paid'];
-$balance = $total - $advance;
+$total = (float)$order['total_amount'];
+
+$advance = (float)$order['advance_amount'];
+
+$paid = (float)$order['paid_amount'];
+
+$balance = $total - $paid;
 
 // ===== STATUS BADGE CLASS =====
 $status = strtolower($order['order_status']);

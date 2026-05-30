@@ -1,35 +1,33 @@
 Array
 (
-    [customer_id] => 2
-    [mobile_number] => 8888888888
+    [customer_id] => 4
+    [mobile_number] => 7899395341
     [family_member_id] => 
-    [delivery_address] => Nandulapet, Tenali
-    [category_id] => 1
-    [sub_category_id] => 1
-    [fabric_details] => tjhgdwh
-    [due_date] => 2026-05-31
+    [delivery_address] => Old street near ramalayam, Guntur
+    [category_id] => 2
+    [sub_category_id] => 3
+    [fabric_details] => silk
+    [due_date] => 2026-06-02
     [measurement_unit] => CMS
     [measurements] => Array
         (
-            [Plain Blouse] => 4
-            [Sholder] => 4
-            [Chest] => 44
-            [Shoulder Strap] => 4
-            [Waist] => 4
-            [Arm Round] => 4
-            [Arm Hole] => 4
-            [Front Length] => 4
+            [Shoulder Strap] => 33
+            [Chest] => 33
+            [Waist] => 33
+            [Height] => 33
+            [Width] => 33
         )
 
-    [design_notes] => Side Zipper, Back Zipper
+    [design_notes] => Hip Rope, Back Rope
     [selected_services] => Array
         (
-            [0] => 1
+            [0] => 2
         )
 
-    [base_price] => 800.00
-    [extra_charges] => 100
-    [advance_paid] => 100
-    [advance_payment_mode] => Cash
+    [base_price] => 5000.00
+    [extra_charges] => 300
+    [advance_amount] => 399
+    [advance_payment_mode] => UPI
+    [transaction_reference] => TR123456
     [submit_order] => 1
 )

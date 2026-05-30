@@ -15,7 +15,7 @@ $pending_orders = $pdo->query("SELECT COUNT(*) FROM orders WHERE order_status = 
 $total_employees = $pdo->query("SELECT COUNT(*) FROM employees WHERE is_deleted = 0")->fetchColumn();
 $low_stock_count = $pdo->query("SELECT COUNT(*) FROM inventory WHERE quantity < 10 AND is_deleted = 0")->fetchColumn();
 $hr_alerts = ($pdo->query("SELECT COUNT(*) FROM leave_requests WHERE status = 'Pending'")->fetchColumn() ?: 0) + ($pdo->query("SELECT COUNT(*) FROM employee_overtime WHERE status = 'Pending'")->fetchColumn() ?: 0);
-$total_outstanding = $pdo->query("SELECT SUM(total_amount - advance_paid) FROM orders WHERE is_deleted = 0")->fetchColumn() ?: 0;
+$total_outstanding = $pdo->query("SELECT SUM(total_amount - advance_amount) FROM orders WHERE is_deleted = 0")->fetchColumn() ?: 0;
 
 $chart_labels = []; $chart_data = [];
 for ($i = 6; $i >= 0; $i--) {

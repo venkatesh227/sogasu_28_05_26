@@ -1,0 +1,3 @@
+2026-05-28 18:07:29 - Recurring digits in customer contact are disallowed
+2026-05-28 18:07:30 - Recurring digits in customer contact are disallowed
+2026-05-29 14:44:19 - amount, should be a whole number for e.g. 2234 to create a payment link for 22.34 INR
