@@ -12,7 +12,6 @@ $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ? AND is_deleted
 $stmt->execute([$user_id]);
 $employee = $stmt->fetch();
 $employee_id = $employee['id'];
-
 $current_year = date('Y');
 
 // Ensure balances are initialized for this year

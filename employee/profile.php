@@ -32,6 +32,7 @@ if (!isset($_SESSION['language'])) {
     $language = $_SESSION['language'];
 }
 
+
 // Get notification count
 $notifStmt = $pdo->prepare("SELECT COUNT(*) as count FROM notifications 
     WHERE employee_id = ? AND is_read = 0");

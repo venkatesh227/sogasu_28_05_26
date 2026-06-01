@@ -93,7 +93,16 @@ $totalEarned -= $stmt->fetchColumn() ?: 0;
 $stmt = $pdo->prepare("SELECT SUM(amount) FROM employee_overtime WHERE employee_id = ? AND status = 'Approved' AND ot_date LIKE ?");
 $stmt->execute([$emp['id'], $currentMonth . '%']);
 $totalEarned += $stmt->fetchColumn() ?: 0;
-
+// Add Completed / Delivered Order Earnings
+$stmt = $pdo->prepare("
+    SELECT COALESCE(SUM(total_amount),0)
+    FROM orders
+    WHERE assigned_employee_id = ?
+    AND order_status IN ('completed','delivered')
+    AND is_deleted = 0
+");
+$stmt->execute([$emp['id']]);
+$totalEarned += $stmt->fetchColumn() ?: 0;
 // Get Active Tasks Count
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE assigned_employee_id = ? AND order_status NOT IN ('delivered', 'cancelled') AND is_deleted = 0");
 $stmt->execute([$emp['id']]);

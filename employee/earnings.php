@@ -42,8 +42,24 @@ $stmt = $pdo->prepare("SELECT id, ot_date as date, description, 'OT' as type, am
 $stmt->execute([$employee_id]);
 $overtimes = $stmt->fetchAll();
 
+// 3. Fetch completed / delivered task order earnings
+$stmt = $pdo->prepare("SELECT id, updated_at as date, order_code, total_amount, order_status FROM orders WHERE assigned_employee_id = ? AND order_status IN ('completed','delivered') AND is_deleted = 0 ORDER BY updated_at DESC LIMIT 20");
+$stmt->execute([$employee_id]);
+$orderEarnings = [];
+foreach ($stmt->fetchAll() as $order) {
+    $orderEarnings[] = [
+        'id' => $order['id'],
+        'date' => $order['date'],
+        'description' => 'Order #' . $order['order_code'],
+        'type' => 'Order',
+        'amount' => $order['total_amount'],
+        'status' => ucfirst($order['order_status']),
+        'source' => 'order',
+    ];
+}
+
 // Merge and sort by date
-$history = array_merge($payments, $overtimes);
+$history = array_merge($payments, $overtimes, $orderEarnings);
 usort($history, function($a, $b) {
     return strtotime($b['date']) - strtotime($a['date']);
 });
@@ -55,7 +71,9 @@ $pendingAmount = 0;
 
 foreach ($history as $item) {
     if (strpos($item['date'], $currentMonth) === 0) {
-        if ($item['status'] === 'Paid' || $item['status'] === 'Approved') {
+        if ($item['source'] === 'order') {
+            $totalEarned += $item['amount'];
+        } elseif ($item['status'] === 'Paid' || $item['status'] === 'Approved') {
             if ($item['type'] === 'Advance Deduction') {
                 $totalEarned -= $item['amount'];
             } else {
