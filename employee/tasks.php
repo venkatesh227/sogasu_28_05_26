@@ -70,7 +70,7 @@ foreach ($tasks as $t) {
     }
 }
 
-// ================== FILTER TASKS ==================
+// ================== FILTER TASKS =================
 $filtered_tasks = [];
 foreach ($tasks as $task) {
     $task_date = date('Y-m-d', strtotime($task['due_date']));

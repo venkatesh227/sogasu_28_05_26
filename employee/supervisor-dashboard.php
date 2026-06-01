@@ -247,6 +247,7 @@ $today_holiday = $h_stmt->fetch();
         <?php endforeach; ?>
     </div>
     <?php endif; ?>
+    
     <!-- Supervisor Stats -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
         <div class="card" style="background: #eff6ff; border-color: #bfdbfe; color: #1e40af; margin-bottom: 0;">

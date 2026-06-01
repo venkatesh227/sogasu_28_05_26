@@ -13,7 +13,7 @@ $conn = mysqli_connect(
     "localhost",
     "root",
     "",
-    "sogasu"
+    "sogasu_28"
 );
 
 if(!$conn){
