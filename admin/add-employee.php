@@ -9,9 +9,6 @@ $branchList = $branchStmt->fetchAll();
 $jobRoleStmt = $pdo->query("SELECT role_name FROM job_roles WHERE status='active' AND is_deleted=0 ORDER BY role_name ASC");
 $jobRoleList = $jobRoleStmt->fetchAll();
 
-$supervisorStmt = $pdo->query("SELECT id, first_name, last_name, job_role FROM employees WHERE status = 1 ORDER BY first_name ASC");
-$supervisorList = $supervisorStmt->fetchAll();
-
 $payCycleStmt = $pdo->query("SELECT cycle_name FROM pay_cycles WHERE status='active' AND is_deleted=0 ORDER BY cycle_name ASC");
 $payCycleList = $payCycleStmt->fetchAll();
 
@@ -33,6 +30,7 @@ if ($id) {
         die("Employee not found");
 
     $old = $employee;
+    $old['supervisor'] = $employee['supervisor_id'] ?? '';
     // GET STATUS FROM USERS TABLE
     $userStmt = $pdo->prepare("SELECT status FROM users WHERE id = ?");
     $userStmt->execute([$employee['user_id']]);
@@ -40,6 +38,20 @@ if ($id) {
 
     $old['status'] = $user['status'] ?? 1;
 }
+$selectedBranch = $_POST['branch'] ?? ($old['branch'] ?? '');
+
+$supervisorStmt = $pdo->prepare("
+    SELECT id, first_name, last_name, job_role
+    FROM employees
+    WHERE status = 1
+    AND job_role = 'Supervisor'
+    AND branch = ?
+    ORDER BY first_name ASC
+");
+
+$supervisorStmt->execute([$selectedBranch]);
+
+$supervisorList = $supervisorStmt->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
@@ -104,6 +116,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if ($old['job_role'] == '') {
         $errors['job_role'] = "Job role is required";
     }
+    if ($old['job_role'] === 'Supervisor' && !empty($old['supervisor'])) {
+        $errors['supervisor'] = "Supervisor cannot report to another supervisor";
+    }
+
+    if (!empty($old['supervisor']) && !empty($old['branch'])) {
+
+        $supervisorCheck = $pdo->prepare("
+        SELECT id
+        FROM employees
+        WHERE id = ?
+        AND branch = ?
+        AND job_role = 'Supervisor'
+        AND status = 1
+    ");
+
+        $supervisorCheck->execute([
+            $old['supervisor'],
+            $old['branch']
+        ]);
+
+        if (!$supervisorCheck->fetch()) {
+            $errors['supervisor'] = "Selected supervisor must belong to same branch";
+        }
+    }
 
     if ($old['branch'] == '') {
         $errors['branch'] = "Branch is required";
@@ -136,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt = $pdo->prepare("
                 UPDATE employees SET 
                 first_name=?, last_name=?, phone=?, email=?, address=?,
-                job_role=?, joining_date=?, branch=?, default_shift_id=?, employment_status=?,
+                job_role=?, supervisor_id=?, joining_date=?, branch=?, default_shift_id=?, employment_status=?,
                 payment_model=?, base_salary=?, pay_cycle=?,
                 status=?, updated_at=NOW(), updated_by=?
                 WHERE id=?
@@ -150,6 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $old['email'],
                     $old['address'],
                     $old['job_role'],
+                    $old['supervisor'] ?: null,
                     $old['joining_date'],
                     $old['branch'],
                     $old['default_shift_id'],
@@ -243,9 +280,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $empStmt = $pdo->prepare("
                             INSERT INTO employees 
                             (user_id,first_name,last_name,phone,email,address,
-                            job_role,joining_date,branch,default_shift_id,employment_status,
+                            job_role,supervisor_id,joining_date,branch,default_shift_id,employment_status,
                             payment_model,base_salary,pay_cycle,status,created_at,created_by)
-                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW(),?)
+                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW(),?)
                         ");
 
                         $empStmt->execute([
@@ -256,6 +293,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             $old['email'],
                             $old['address'],
                             $old['job_role'],
+                            $old['supervisor'] ?: null,
                             $old['joining_date'],
                             $old['branch'],
                             $old['default_shift_id'],
@@ -287,7 +325,7 @@ include 'includes/header.php'; ?>
 <main class="main-content">
     <?php include 'includes/topbar.php'; ?>
 
-    <div >
+    <div>
         <div style="display: flex; align-items: center; justify-content: space-between;">
             <div>
                 <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b;">Add New Employee</h2>
@@ -379,9 +417,12 @@ include 'includes/header.php'; ?>
                     <div class="form-group">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <label class="form-label">Job Role <span style="color:red">*</span></label>
-                            <a href="add-job-role.php" style="font-size: 0.75rem; color: var(--primary); text-decoration: none; font-weight: 500;">+ Create New</a>
+                            <a href="add-job-role.php"
+                                style="font-size: 0.75rem; color: var(--primary); text-decoration: none; font-weight: 500;">+
+                                Create New</a>
                         </div>
-                        <select class="form-select" name="job_role" id="job_role_select" onchange="toggleSupervisorField()">
+                        <select class="form-select" name="job_role" id="job_role_select"
+                            onchange="toggleSupervisorField()">
                             <option value="">Select Job Role</option>
                             <?php foreach ($jobRoleList as $role): ?>
                                 <option value="<?= htmlspecialchars($role['role_name']) ?>" <?= ($old['job_role'] ?? '') == $role['role_name'] ? 'selected' : '' ?>>
@@ -436,10 +477,12 @@ include 'includes/header.php'; ?>
                         <label class="form-label">Supervisor (Reporting To)</label>
                         <select class="form-select" name="supervisor" id="supervisor_select">
                             <option value="">Select Supervisor</option>
-                            <?php foreach($supervisorList as $sup): ?>
-                                <option value="<?= $sup['id'] ?>" <?= ($old['supervisor'] ?? '') == $sup['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars(trim($sup['first_name'] . ' ' . $sup['last_name'])) ?> 
-                                    <?= $sup['job_role'] ? '(' . htmlspecialchars($sup['job_role']) . ')' : '' ?>
+                            <?php foreach ($supervisorList as $supervisor): ?>
+                                <option value="<?= $supervisor['id'] ?>" <?= ($old['supervisor'] ?? '') == $supervisor['id'] ? 'selected' : '' ?>>
+
+                                    <?= htmlspecialchars($supervisor['first_name'] . ' ' . $supervisor['last_name']) ?>
+                                    (<?= htmlspecialchars($supervisor['job_role']) ?>)
+
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -449,13 +492,14 @@ include 'includes/header.php'; ?>
                         <label class="form-label">Default Work Shift</label>
                         <select class="form-select" name="default_shift_id">
                             <option value="">-- No Default Shift --</option>
-                            <?php foreach($shiftList as $shift): ?>
+                            <?php foreach ($shiftList as $shift): ?>
                                 <option value="<?= $shift['id'] ?>" <?= ($old['default_shift_id'] ?? '') == $shift['id'] ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($shift['name']) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <p style="font-size: 0.7rem; color: #94a3b8; margin-top: 0.25rem;">This shift will be auto-assigned during roster creation.</p>
+                        <p style="font-size: 0.7rem; color: #94a3b8; margin-top: 0.25rem;">This shift will be
+                            auto-assigned during roster creation.</p>
                     </div>
                 </div>
             </div>
@@ -502,7 +546,7 @@ include 'includes/header.php'; ?>
                     <label class="form-label">Pay Cycle <span style="color:red">*</span></label>
                     <select class="form-select" name="pay_cycle">
                         <option value="">Select Pay Cycle</option>
-                        <?php foreach($payCycleList as $pc): ?>
+                        <?php foreach ($payCycleList as $pc): ?>
                             <option value="<?= htmlspecialchars($pc['cycle_name']) ?>" <?= ($old['pay_cycle'] ?? '') == $pc['cycle_name'] ? 'selected' : '' ?>>
                                 <?= htmlspecialchars($pc['cycle_name']) ?>
                             </option>
@@ -594,6 +638,28 @@ include 'includes/header.php'; ?>
 
     // Run on page load
     document.addEventListener('DOMContentLoaded', toggleSupervisorField);
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+        const roleSelect = document.querySelector('[name="job_role"]');
+        const supervisorGroup = document.querySelector('#supervisor-group');
+        const supervisorSelect = document.querySelector('[name="supervisor"]');
+
+        function toggleSupervisor() {
+
+            if (roleSelect.value === 'Supervisor') {
+                supervisorGroup.style.display = 'none';
+                supervisorSelect.value = '';
+            } else {
+                supervisorGroup.style.display = 'block';
+            }
+        }
+
+        roleSelect.addEventListener('change', toggleSupervisor);
+
+        toggleSupervisor();
+    });
 </script>
 
 <?php
