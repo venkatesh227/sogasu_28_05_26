@@ -14,8 +14,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     if ($order_id) {
         try {
-            $stmt = $pdo->prepare("UPDATE orders SET supervisor_id = ? WHERE id = ?");
+            $stmt = $pdo->prepare("
+                UPDATE orders 
+                SET supervisor_id = ? 
+                WHERE id = ?
+            ");
             $stmt->execute([$supervisor_id, $order_id]);
+
+            $stmt2 = $pdo->prepare("
+                UPDATE customer_orders 
+                SET supervisor_id = ? 
+                WHERE id = ?
+            ");
+            $stmt2->execute([$supervisor_id, $order_id]);
             $_SESSION['success'] = "supervisor_assigned";
         } catch (PDOException $e) {
             $_SESSION['error'] = "Error: " . $e->getMessage();
@@ -27,13 +38,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Fetch Supervisor Workload / Active Orders
 $activeOrders = $pdo->query("
-    SELECT o.id, o.order_code, o.total_amount, o.advance_amount, o.paid_amount, o.due_date, o.order_status, o.supervisor_id, o.payment_link, o.payment_status, sc.name as garment
-    FROM orders o
-    LEFT JOIN sub_categories sc ON o.sub_category_id = sc.id
-    WHERE o.is_deleted = 0 
-      AND o.supervisor_id IS NOT NULL 
-      AND o.order_status NOT IN ('completed', 'delivered', 'cancelled')
-    ORDER BY o.due_date ASC
+        SELECT 
+            o.id,
+            o.order_code,
+            o.total_amount,
+            o.advance_amount,
+            o.paid_amount,
+            o.due_date,
+            o.order_status,
+            o.supervisor_id,
+            o.payment_link,
+            o.payment_status,
+            sc.name as garment
+        FROM orders o
+        LEFT JOIN sub_categories sc ON o.sub_category_id = sc.id
+        WHERE o.is_deleted = 0 
+        AND o.supervisor_id IS NOT NULL 
+        AND o.order_status NOT IN ('completed', 'delivered', 'cancelled')
+
+        UNION ALL
+
+        SELECT 
+            co.id,
+            co.order_code,
+            co.total_amount,
+            0 as advance_amount,
+            0 as paid_amount,
+            co.appointment_date as due_date,
+            co.status as order_status,
+            co.supervisor_id,
+            NULL as payment_link,
+            NULL as payment_status,
+            sc.name as garment
+        FROM customer_orders co
+        LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
+        WHERE co.is_deleted = 0 
+        AND co.supervisor_id IS NOT NULL 
+        AND co.status NOT IN ('completed', 'delivered', 'cancelled')
+
+        ORDER BY due_date ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
 $supervisorWorkloads = [];
@@ -46,7 +89,19 @@ $supervisors = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) as nam
 
 // Logic
 $tab = $_GET['tab'] ?? 'all';
-$statuses = ['pending', 'processing', 'stitching', 'ready', 'delivered', 'cancelled'];
+// Fetch order status ENUM values dynamically
+$statusQuery = $pdo->query("SHOW COLUMNS FROM orders LIKE 'order_status'");
+$statusRow = $statusQuery->fetch(PDO::FETCH_ASSOC);
+
+preg_match("/^enum\((.*)\)$/", $statusRow['Type'], $matches);
+
+$statuses = [];
+
+if (!empty($matches[1])) {
+    $statuses = array_map(function ($value) {
+        return trim($value, "'");
+    }, explode(',', $matches[1]));
+}
 
 // Mark orders as viewed to clear the notification badge
 $pdo->query("UPDATE orders SET is_viewed = 1 WHERE is_viewed = 0 AND is_deleted = 0");
@@ -108,21 +163,38 @@ include 'includes/header.php';
                 box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
             }
         </style>
-        <div style="display: flex; gap: 0.75rem;  overflow-x: auto; ">
-            <a href="orders.php?tab=all" class="status-tab"
-                style="background: <?= $tab == 'all' ? '#4f46e5' : '#ffffff' ?>; color: <?= $tab == 'all' ? 'white' : '#64748b' ?>; border: 1px solid <?= $tab == 'all' ? '#4f46e5' : '#e2e8f0' ?>;">All
-                Orders</a>
-            <a href="orders.php?tab=pending" class="status-tab"
-                style="background: <?= $tab == 'pending' ? '#4f46e5' : '#ffffff' ?>; color: <?= $tab == 'pending' ? 'white' : '#64748b' ?>; border: 1px solid <?= $tab == 'pending' ? '#4f46e5' : '#e2e8f0' ?>;">Pending</a>
-            <a href="orders.php?tab=processing" class="status-tab"
-                style="background: <?= $tab == 'processing' ? '#4f46e5' : '#ffffff' ?>; color: <?= $tab == 'processing' ? 'white' : '#64748b' ?>; border: 1px solid <?= $tab == 'processing' ? '#4f46e5' : '#e2e8f0' ?>;">Processing</a>
-            <a href="orders.php?tab=stitching" class="status-tab"
-                style="background: <?= $tab == 'stitching' ? '#4f46e5' : '#ffffff' ?>; color: <?= $tab == 'stitching' ? 'white' : '#64748b' ?>; border: 1px solid <?= $tab == 'stitching' ? '#4f46e5' : '#e2e8f0' ?>;">Stitching</a>
-            <a href="orders.php?tab=ready" class="status-tab"
-                style="background: <?= $tab == 'ready' ? '#4f46e5' : '#ffffff' ?>; color: <?= $tab == 'ready' ? 'white' : '#64748b' ?>; border: 1px solid <?= $tab == 'ready' ? '#4f46e5' : '#e2e8f0' ?>;">Ready
-                for Delivery</a>
-            <a href="orders.php?tab=delivered" class="status-tab"
-                style="background: <?= $tab == 'delivered' ? '#4f46e5' : '#ffffff' ?>; color: <?= $tab == 'delivered' ? 'white' : '#64748b' ?>; border: 1px solid <?= $tab == 'delivered' ? '#4f46e5' : '#e2e8f0' ?>;">Delivered</a>
+        <div style="display: flex; gap: 0.75rem; overflow-x: auto; flex-wrap: wrap;">
+
+            <!-- All Orders Tab -->
+            <a href="orders.php?tab=all" class="status-tab" style="
+            background: <?= $tab == 'all' ? '#4f46e5' : '#ffffff' ?>;
+            color: <?= $tab == 'all' ? 'white' : '#64748b' ?>;
+            border: 1px solid <?= $tab == 'all' ? '#4f46e5' : '#e2e8f0' ?>;
+        ">
+                All Orders
+            </a>
+
+            <?php foreach ($statuses as $status): ?>
+
+                <?php
+                $label = ucwords(str_replace('_', ' ', $status));
+
+                // Optional custom labels
+                if ($status == 'ready') {
+                    $label = 'Ready for Delivery';
+                }
+                ?>
+
+                <a href="orders.php?tab=<?= urlencode($status) ?>" class="status-tab" style="
+                background: <?= $tab == $status ? '#4f46e5' : '#ffffff' ?>;
+                color: <?= $tab == $status ? 'white' : '#64748b' ?>;
+                border: 1px solid <?= $tab == $status ? '#4f46e5' : '#e2e8f0' ?>;
+            ">
+                    <?= $label ?>
+                </a>
+
+            <?php endforeach; ?>
+
         </div>
 
         <!-- Orders Table (Standard Table Box) -->
@@ -158,13 +230,40 @@ include 'includes/header.php';
                             c.first_name,
                             c.last_name,
                             sc.name as garment,
-                            (SELECT image_path FROM order_images WHERE order_id = o.id AND image_type = 'fabric' LIMIT 1) as fabric_img
+                            (SELECT image_path 
+                            FROM order_images 
+                            WHERE order_id = o.id 
+                            AND image_type = 'fabric' 
+                            LIMIT 1) as fabric_img
                         FROM orders o
                         LEFT JOIN customers c ON o.customer_id = c.id
                         LEFT JOIN sub_categories sc ON o.sub_category_id = sc.id
                         WHERE $whereClause
-                        ORDER BY o.id DESC
+
+                        UNION ALL
+
+                        SELECT 
+                            co.id,
+                            co.order_code,
+                            co.appointment_date as due_date,
+                            co.status as order_status,
+                            co.supervisor_id,
+                            NULL as payment_link,
+                            NULL as payment_status,
+                            cc.first_name,
+                            cc.last_name,
+                            sc.name as garment,
+                            co.material_image as fabric_img
+                        FROM customer_orders co
+                        LEFT JOIN customers cc ON co.user_id = cc.user_id
+                        LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
+                        WHERE co.is_deleted = 0
                     ";
+                    if ($tab != 'all' && in_array($tab, $statuses)) {
+                        $query .= " AND co.status = " . $pdo->quote($tab);
+                    }
+
+                    $query .= " ORDER BY id DESC";
                     $orders_list = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
 
                     foreach ($orders_list as $o):

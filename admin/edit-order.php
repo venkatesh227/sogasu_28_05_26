@@ -24,10 +24,104 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             WHERE id = ?
         ");
         $stmt->execute([$assigned_id, $status, $notes, $rack_id, $id]);
+// ======================================================
+// SYNC CUSTOMER ORDERS IF EXISTS
+// ======================================================
+
+// Get current order details
+$orderFetch = $pdo->prepare("
+    SELECT order_code, category_id, sub_category_id, customer_id
+    FROM orders
+    WHERE id = ?
+");
+$orderFetch->execute([$id]);
+
+$currentOrder = $orderFetch->fetch(PDO::FETCH_ASSOC);
+
+if ($currentOrder) {
+
+    // Check matching customer order
+    $customerOrderStmt = $pdo->prepare("
+        SELECT id, customer_measurement_id
+        FROM customer_orders
+        WHERE order_code = ?
+        LIMIT 1
+    ");
+
+    $customerOrderStmt->execute([$currentOrder['order_code']]);
+
+    $customerOrder = $customerOrderStmt->fetch(PDO::FETCH_ASSOC);
+
+    // If customer-created order exists
+    if ($customerOrder) {
+
+        // =========================================
+        // UPDATE customer_orders TABLE
+        // =========================================
+
+        $updateCustomerOrder = $pdo->prepare("
+            UPDATE customer_orders
+            SET
+                assigned_employee_id = ?,
+                status = ?,
+                additional_notes = ?,
+                rack_id = ?,
+                updated_at = NOW()
+            WHERE order_code = ?
+        ");
+
+        $updateCustomerOrder->execute([
+            $assigned_id,
+            $status,
+            $notes,
+            $rack_id,
+            $currentOrder['order_code']
+        ]);
+
+        // =========================================
+        // UPDATE customer_measurements TABLE
+        // =========================================
+
+        if (!empty($customerOrder['customer_measurement_id'])) {
+
+            // Fetch measurements from orders table
+            $measurementStmt = $pdo->prepare("
+                SELECT measurements
+                FROM order_measurements
+                WHERE order_id = ?
+                LIMIT 1
+            ");
+
+            $measurementStmt->execute([$id]);
+
+            $measurementData = $measurementStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($measurementData) {
+
+                $updateMeasurement = $pdo->prepare("
+                    UPDATE customer_measurements
+                    SET
+                        category_id = ?,
+                        sub_category_id = ?,
+                        measurements = ?,
+                        updated_at = NOW()
+                    WHERE id = ?
+                ");
+
+                $updateMeasurement->execute([
+                    $currentOrder['category_id'],
+                    $currentOrder['sub_category_id'],
+                    $measurementData['measurements'],
+                    $customerOrder['customer_measurement_id']
+                ]);
+            }
+        }
+    }
+}
 
 $_SESSION['success_message'] = "Order updated successfully!";
 header("Location: orders.php");
-exit;        exit;
+exit;
     } catch (PDOException $e) {
         $error = "Update failed: " . $e->getMessage();
     }

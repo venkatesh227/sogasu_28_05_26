@@ -41,16 +41,78 @@ $order = $stmt->fetch();
 if (!$order) {
     die("Order not found");
 }
+// ======================================================
+// CHECK CUSTOMER ORDER DATA
+// ======================================================
+
+$customerOrderStmt = $pdo->prepare("
+    SELECT 
+        co.*,
+        cm.measurements AS customer_measurements_json
+    FROM customer_orders co
+    LEFT JOIN customer_measurements cm 
+        ON co.customer_measurement_id = cm.id
+    WHERE co.order_code = ?
+    LIMIT 1
+");
+
+$customerOrderStmt->execute([$order['order_code']]);
+
+$customerOrder = $customerOrderStmt->fetch(PDO::FETCH_ASSOC);
+
+// If customer-created order exists,
+// override required fields dynamically
+if ($customerOrder) {
+
+    // Override order values
+    $order['appointment_date'] = $customerOrder['appointment_date'];
+    $order['appointment_time'] = $customerOrder['appointment_time'];
+    $order['additional_notes'] = $customerOrder['additional_notes'];
+    $order['assigned_employee_id'] = $customerOrder['assigned_employee_id'];
+    $order['supervisor_id'] = $customerOrder['supervisor_id'];
+    $order['rack_id'] = $customerOrder['rack_id'];
+    $order['base_price'] = $customerOrder['base_price'];
+    $order['extra_charges'] = $customerOrder['extra_charges'];
+    $order['total_amount'] = $customerOrder['total_amount'];
+    $order['order_status'] = $customerOrder['status'];
+
+    // Store customer measurements
+    $customerMeasurements = json_decode(
+        $customerOrder['customer_measurements_json'],
+        true
+    );
+}
 $pageTitle = "View Order #" . ($order['order_code'] ?? '') . " - Sogasu";
 
 // ===== MEASUREMENTS =====
-$stmt = $pdo->prepare("
-    SELECT key_name, measurement_value
-    FROM order_measurements
-    WHERE order_id = ?
-");
-$stmt->execute([$id]);
-$measurements = $stmt->fetchAll();
+// ===== MEASUREMENTS =====
+
+$measurements = [];
+
+// If customer measurements exist
+if (!empty($customerMeasurements) && is_array($customerMeasurements)) {
+
+    foreach ($customerMeasurements as $key => $value) {
+
+        $measurements[] = [
+            'key_name' => $key,
+            'measurement_value' => $value
+        ];
+    }
+
+} else {
+
+    // Fallback to admin measurements
+    $stmt = $pdo->prepare("
+        SELECT key_name, measurement_value
+        FROM order_measurements
+        WHERE order_id = ?
+    ");
+
+    $stmt->execute([$id]);
+
+    $measurements = $stmt->fetchAll();
+}
 
 // ===== ADDITIONAL SERVICES =====
 $stmt = $pdo->prepare("
@@ -67,15 +129,19 @@ $stmt = $pdo->prepare("SELECT image_path, image_type FROM order_images WHERE ord
 $stmt->execute([$id]);
 $images = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$fabric_images = array_filter($images, function($img) { return $img['image_type'] === 'fabric'; });
-$sample_images = array_filter($images, function($img) { return $img['image_type'] === 'sample'; });
+$fabric_images = array_filter($images, function ($img) {
+    return $img['image_type'] === 'fabric';
+});
+$sample_images = array_filter($images, function ($img) {
+    return $img['image_type'] === 'sample';
+});
 
 // ===== CALCULATIONS =====
-$total = (float)$order['total_amount'];
+$total = (float) $order['total_amount'];
 
-$advance = (float)$order['advance_amount'];
+$advance = (float) $order['advance_amount'];
 
-$paid = (float)$order['paid_amount'];
+$paid = (float) $order['paid_amount'];
 
 $balance = $total - $paid;
 
@@ -103,7 +169,7 @@ include 'includes/header.php';
 <main class="main-content">
     <?php include 'includes/topbar.php'; ?>
 
-    <div >
+    <div>
         <div style="display: flex; align-items: center; justify-content: space-between;">
             <div>
                 <div style="display: flex; align-items: center; gap: 1rem;">
@@ -179,7 +245,8 @@ include 'includes/header.php';
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1rem;">
 
                     <?php if (empty($measurements)): ?>
-                        <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: #94a3b8; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0;">
+                        <div
+                            style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: #94a3b8; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0;">
                             No measurements recorded for this order.
                         </div>
                     <?php else: ?>
@@ -189,7 +256,8 @@ include 'includes/header.php';
                                     <?= htmlspecialchars($m['key_name']) ?>
                                 </div>
                                 <div style="font-weight: 600; color: #0f172a;">
-                                    <?= htmlspecialchars($m['measurement_value']) ?><?= strtoupper($order['measurement_unit'] ?? 'CMS') === 'CMS' ? ' cm' : '"' ?>
+                                    <?= htmlspecialchars($m['measurement_value']) ?>
+                                    <?= strtoupper($order['measurement_unit'] ?? 'CMS') === 'CMS' ? ' cm' : '"' ?>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -210,35 +278,47 @@ include 'includes/header.php';
 
             <!-- Reference Images -->
             <?php if (!empty($fabric_images) || !empty($sample_images)): ?>
-            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5rem;">
-                <h3 style="font-size: 1rem; font-weight: 600; color: #1e293b; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px;">Attached Images</h3>
-                
-                <?php if (!empty($fabric_images)): ?>
-                <div style="margin-bottom: 1rem;">
-                    <div style="font-size: 0.85rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem;">Fabric Photos</div>
-                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                        <?php foreach ($fabric_images as $img): ?>
-                            <a href="../<?= htmlspecialchars($img['image_path']) ?>" target="_blank" style="display: block; width: 80px; height: 80px; border-radius: 6px; overflow: hidden; border: 1px solid #e2e8f0; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                                <img src="../<?= htmlspecialchars($img['image_path']) ?>" style="width: 100%; height: 100%; object-fit: cover;">
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
+                <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5rem;">
+                    <h3
+                        style="font-size: 1rem; font-weight: 600; color: #1e293b; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                        Attached Images</h3>
 
-                <?php if (!empty($sample_images)): ?>
-                <div>
-                    <div style="font-size: 0.85rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem;">Sample References</div>
-                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                        <?php foreach ($sample_images as $img): ?>
-                            <a href="../<?= htmlspecialchars($img['image_path']) ?>" target="_blank" style="display: block; width: 80px; height: 80px; border-radius: 6px; overflow: hidden; border: 1px solid #e2e8f0; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                                <img src="../<?= htmlspecialchars($img['image_path']) ?>" style="width: 100%; height: 100%; object-fit: cover;">
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
+                    <?php if (!empty($fabric_images)): ?>
+                        <div style="margin-bottom: 1rem;">
+                            <div style="font-size: 0.85rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem;">Fabric
+                                Photos</div>
+                            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                                <?php foreach ($fabric_images as $img): ?>
+                                    <a href="../<?= htmlspecialchars($img['image_path']) ?>" target="_blank"
+                                        style="display: block; width: 80px; height: 80px; border-radius: 6px; overflow: hidden; border: 1px solid #e2e8f0; transition: transform 0.2s;"
+                                        onmouseover="this.style.transform='scale(1.05)'"
+                                        onmouseout="this.style.transform='scale(1)'">
+                                        <img src="../<?= htmlspecialchars($img['image_path']) ?>"
+                                            style="width: 100%; height: 100%; object-fit: cover;">
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($sample_images)): ?>
+                        <div>
+                            <div style="font-size: 0.85rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem;">Sample
+                                References</div>
+                            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                                <?php foreach ($sample_images as $img): ?>
+                                    <a href="../<?= htmlspecialchars($img['image_path']) ?>" target="_blank"
+                                        style="display: block; width: 80px; height: 80px; border-radius: 6px; overflow: hidden; border: 1px solid #e2e8f0; transition: transform 0.2s;"
+                                        onmouseover="this.style.transform='scale(1.05)'"
+                                        onmouseout="this.style.transform='scale(1)'">
+                                        <img src="../<?= htmlspecialchars($img['image_path']) ?>"
+                                            style="width: 100%; height: 100%; object-fit: cover;">
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
-                <?php endif; ?>
-            </div>
             <?php endif; ?>
 
         </div>
@@ -249,31 +329,45 @@ include 'includes/header.php';
             <!-- Assignment Info -->
             <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5rem;">
                 <h3 style="font-size: 1rem; font-weight: 600; color: #1e293b; margin-bottom: 1rem;">Workflow Status</h3>
-                
+
                 <div style="margin-bottom: 1.5rem;">
-                    <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; margin-bottom: 0.5rem;">Supervisor</div>
+                    <div
+                        style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; margin-bottom: 0.5rem;">
+                        Supervisor</div>
                     <div style="display: flex; align-items: center; gap: 0.75rem;">
-                        <img src="https://ui-avatars.com/api/?name=<?= urlencode($order['sup_first'] ?? 'S') ?>&background=fdf2f8&color=db2777" style="width: 36px; height: 36px; border-radius: 50%;">
+                        <img src="https://ui-avatars.com/api/?name=<?= urlencode($order['sup_first'] ?? 'S') ?>&background=fdf2f8&color=db2777"
+                            style="width: 36px; height: 36px; border-radius: 50%;">
                         <div>
-                            <div style="font-weight: 600; color: #1e293b;"><?= $order['sup_first'] ? ($order['sup_first'] . ' ' . $order['sup_last']) : '<span style="color:#94a3b8; font-style:italic;">Not Assigned</span>' ?></div>
+                            <div style="font-weight: 600; color: #1e293b;">
+                                <?= $order['sup_first'] ? ($order['sup_first'] . ' ' . $order['sup_last']) : '<span style="color:#94a3b8; font-style:italic;">Not Assigned</span>' ?>
+                            </div>
                             <div style="font-size: 0.8rem; color: #64748b;">Managing Order</div>
                         </div>
                     </div>
                 </div>
 
                 <div style="margin-bottom: 1.5rem;">
-                    <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; margin-bottom: 0.5rem;">Assigned Employee</div>
+                    <div
+                        style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; margin-bottom: 0.5rem;">
+                        Assigned Employee</div>
                     <div style="display: flex; align-items: center; gap: 0.75rem;">
-                        <img src="https://ui-avatars.com/api/?name=<?= urlencode($order['emp_first'] ?? 'E') ?>&background=eef2ff&color=4338ca" style="width: 36px; height: 36px; border-radius: 50%;">
+                        <img src="https://ui-avatars.com/api/?name=<?= urlencode($order['emp_first'] ?? 'E') ?>&background=eef2ff&color=4338ca"
+                            style="width: 36px; height: 36px; border-radius: 50%;">
                         <div>
-                            <div style="font-weight: 600; color: #1e293b;"><?= $order['emp_first'] ? ($order['emp_first'] . ' ' . $order['emp_last']) : '<span style="color:#94a3b8; font-style:italic;">Waiting for Supervisor</span>' ?></div>
-                            <div style="font-size: 0.8rem; color: #64748b;"><?= $order['job_role'] ?: 'Tailor / Master' ?></div>
+                            <div style="font-weight: 600; color: #1e293b;">
+                                <?= $order['emp_first'] ? ($order['emp_first'] . ' ' . $order['emp_last']) : '<span style="color:#94a3b8; font-style:italic;">Waiting for Supervisor</span>' ?>
+                            </div>
+                            <div style="font-size: 0.8rem; color: #64748b;">
+                                <?= $order['job_role'] ?: 'Tailor / Master' ?>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div>
-                    <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; margin-bottom: 0.5rem;">Rack Location</div>
+                    <div
+                        style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; margin-bottom: 0.5rem;">
+                        Rack Location</div>
                     <div style="display: flex; align-items: center; gap: 0.5rem; color: #1e293b; font-weight: 600;">
                         <i class="ri-archive-line" style="color: #f59e0b;"></i>
                         <?= $order['rack_name'] ?: '<span style="color:#94a3b8; font-style:italic; font-weight:400;">Not Allocated</span>' ?>
@@ -295,10 +389,14 @@ include 'includes/header.php';
                 </div>
 
                 <?php if (!empty($order_services)): ?>
-                    <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; margin: 0.5rem 0;">Additional Services</div>
+                    <div
+                        style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; margin: 0.5rem 0;">
+                        Additional Services</div>
                     <?php foreach ($order_services as $srv): ?>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: #64748b; font-size: 0.9rem;">
-                            <span><i class="ri-add-circle-line" style="font-size: 0.8rem;"></i> <?= htmlspecialchars($srv['service_name']) ?></span>
+                        <div
+                            style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: #64748b; font-size: 0.9rem;">
+                            <span><i class="ri-add-circle-line" style="font-size: 0.8rem;"></i>
+                                <?= htmlspecialchars($srv['service_name']) ?></span>
                             <span>₹ <?= number_format($srv['service_price'], 2) ?></span>
                         </div>
                     <?php endforeach; ?>
@@ -317,7 +415,8 @@ include 'includes/header.php';
                         <span style="font-weight: 600; color: #15803d;">
                             ₹ <?= number_format($advance, 2) ?>
                             <?php if (!empty($order['advance_payment_mode'])): ?>
-                                <span style="font-size: 0.75rem; color: #64748b; font-weight: normal; margin-left: 0.25rem;">(<?= htmlspecialchars($order['advance_payment_mode']) ?>)</span>
+                                <span
+                                    style="font-size: 0.75rem; color: #64748b; font-weight: normal; margin-left: 0.25rem;">(<?= htmlspecialchars($order['advance_payment_mode']) ?>)</span>
                             <?php endif; ?>
                         </span>
                     </div>
@@ -342,31 +441,31 @@ include 'includes/header.php';
 </main>
 <style>
     .badge {
-    display: inline-block;
-    padding: 4px 10px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    border-radius: 6px;
-    text-transform: capitalize;
-}
+        display: inline-block;
+        padding: 4px 10px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 6px;
+        text-transform: capitalize;
+    }
 
-/* Pending */
-.badge-warning {
-    background: #fff7ed;
-    color: #c2410c;
-}
+    /* Pending */
+    .badge-warning {
+        background: #fff7ed;
+        color: #c2410c;
+    }
 
-/* Processing */
-.badge-info {
-    background: #eff6ff;
-    color: #1d4ed8;
-}
+    /* Processing */
+    .badge-info {
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
 
-/* Completed */
-.badge-success {
-    background: #ecfdf5;
-    color: #047857;
-}
+    /* Completed */
+    .badge-success {
+        background: #ecfdf5;
+        color: #047857;
+    }
 </style>
 
 <?php include 'includes/footer.php'; ?>
