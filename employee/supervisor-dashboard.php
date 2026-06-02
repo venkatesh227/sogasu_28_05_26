@@ -93,7 +93,36 @@ $issueStmt = $pdo->query("
     ORDER BY oi.created_at DESC
 ");
 $open_issues = $issueStmt->fetchAll();
+$message = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_ot') {
+    $date = $_POST['ot_date'];
+    $hours = (float)$_POST['hours'];
+    $desc = $_POST['description'];
+    
+    $stmt = $pdo->prepare("SELECT ot_percentage FROM ot_rate_settings 
+                           WHERE ? BETWEEN from_date AND to_date 
+                           ORDER BY (to_date - from_date) ASC, id DESC 
+                           LIMIT 1");
+    $stmt->execute([$date]);
+    $rate = $stmt->fetchColumn();
+    
+    if (!$rate) {
+        $rate = $pdo->query("SELECT setting_value FROM global_settings WHERE setting_key = 'global_ot_rate'")->fetchColumn() ?: 100;
+    }
+    
+    $salaryStmt = $pdo->prepare("SELECT base_salary FROM employees WHERE id = ?");
+    $salaryStmt->execute([$employee_id]);
+    $salaryAmount = floatval($salaryStmt->fetchColumn() ?: 0);
 
+    $amount = ($salaryAmount * $rate) / 100;
+    
+    $stmt = $pdo->prepare("INSERT INTO employee_overtime (employee_id, ot_date, hours, amount, description, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
+    
+    if ($stmt->execute([$employee_id, $date, $hours, $amount, $desc])) {
+        header("Location: dashboard.php?ot_success=1");
+        exit;
+    }
+}
 // Fetch Supervisor Earnings Stats
 $currentMonth = date('Y-m');
 $totalEarned = 0;
@@ -830,5 +859,60 @@ $today_holiday = $h_stmt->fetch();
         }
     }
 </script>
+<!-- Add OT Modal -->
+<div id="add-ot-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; align-items: flex-end;">
+    <div style="background: white; width: 100%; border-radius: 24px 24px 0 0; padding: 1.5rem; animation: slideUp 0.3s ease-out;">
 
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h3 style="font-size: 1.25rem; font-weight: 800; color: #1e293b;">Log Overtime</h3>
+
+            <button type="button"
+                onclick="document.getElementById('add-ot-modal').style.display='none';"
+                style="border: none; background: #f1f5f9; width: 32px; height: 32px; border-radius: 50%; color: #64748b;">
+                &times;
+            </button>
+        </div>
+
+        <form id="add-ot-form" method="POST" novalidate>
+
+            <input type="hidden" name="action" value="add_ot">
+
+            <div style="margin-bottom: 1rem;">
+                <label>Date</label>
+                <input type="date"
+                    name="ot_date"
+                    value="<?= date('Y-m-d') ?>"
+                    required
+                    style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;">
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <label>Hours Worked</label>
+                <input type="number"
+                    name="hours"
+                    step="0.5"
+                    required
+                    placeholder="e.g. 2.0"
+                    style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;">
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label>Description</label>
+                <textarea
+                    name="description"
+                    required
+                    rows="3"
+                    placeholder="What did you work on?"
+                    style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;"></textarea>
+            </div>
+
+            <button type="submit"
+                style="width:100%;background:#4338ca;color:white;border:none;padding:1rem;border-radius:12px;font-weight:700;">
+                Submit Request
+            </button>
+
+        </form>
+
+    </div>
+</div>
 <?php include 'includes/bottom-nav.php'; ?>
