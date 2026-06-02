@@ -11,31 +11,121 @@ $stmt->execute([$user_id]);
 $employeeData = $stmt->fetch();
 
 $employee_id = $employeeData['id'] ?? 0;
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE supervisor_id = ? AND is_deleted = 0");
-$stmt->execute([$employee_id]);
+$stmt = $pdo->prepare("
+    SELECT (
+        (SELECT COUNT(*) 
+         FROM orders 
+         WHERE supervisor_id = ?
+         AND order_status NOT IN ('completed', 'delivered', 'cancelled')
+         AND is_deleted = 0)
+
+        +
+
+        (SELECT COUNT(*) 
+         FROM customer_orders 
+         WHERE supervisor_id = ?
+         AND status NOT IN ('completed', 'delivered', 'cancelled')
+         AND is_deleted = 0)
+    ) as total_count
+");
+
+$stmt->execute([
+    $employee_id,
+    $employee_id
+]);
 $total_assigned = $stmt->fetchColumn();
 
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE supervisor_id = ? AND assigned_employee_id IS NULL AND is_deleted = 0");
-$stmt->execute([$employee_id]);
+$stmt = $pdo->prepare("
+    SELECT (
+        (SELECT COUNT(*) 
+         FROM orders 
+         WHERE supervisor_id = ? 
+         AND assigned_employee_id IS NULL 
+         AND is_deleted = 0)
+
+        +
+
+        (SELECT COUNT(*) 
+         FROM customer_orders 
+         WHERE supervisor_id = ? 
+         AND assigned_employee_id IS NULL 
+         AND is_deleted = 0)
+    ) as total_pending
+");
+
+$stmt->execute([$employee_id,$employee_id]);
 $needs_delegation = $stmt->fetchColumn();
 
 // Fetch orders assigned to this supervisor
 $stmt = $pdo->prepare("
-    SELECT o.*, c.first_name as cust_first, c.last_name as cust_last, sc.name as garment, r.rack_name, e.first_name as emp_first
+
+    SELECT 
+        o.id,
+        o.order_code,
+        o.assigned_employee_id,
+        o.order_status,
+        o.total_amount,
+        o.created_at,
+        c.first_name as cust_first,
+        c.last_name as cust_last,
+        sc.name as garment,
+        r.rack_name,
+        e.first_name as emp_first
     FROM orders o
     LEFT JOIN customers c ON o.customer_id = c.id
     LEFT JOIN sub_categories sc ON o.sub_category_id = sc.id
     LEFT JOIN racks r ON o.rack_id = r.id
     LEFT JOIN employees e ON o.assigned_employee_id = e.id
-    WHERE o.supervisor_id = ? AND o.is_deleted = 0
-    ORDER BY o.id DESC
+    WHERE o.supervisor_id = ? 
+    AND o.is_deleted = 0
+
+    UNION ALL
+
+    SELECT 
+        co.id,
+        co.order_code,
+        co.assigned_employee_id,
+        co.status as order_status,
+        co.total_amount,
+        co.created_at,
+        cu.first_name as cust_first,
+        cu.last_name as cust_last,
+        sc.name as garment,
+        r.rack_name,
+        e.first_name as emp_first
+    FROM customer_orders co
+    LEFT JOIN customers cu ON co.user_id = cu.user_id
+    LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
+    LEFT JOIN racks r ON co.rack_id = r.id
+    LEFT JOIN employees e ON co.assigned_employee_id = e.id
+    WHERE co.supervisor_id = ?
+    AND co.is_deleted = 0
+
+    ORDER BY id DESC
 ");
-$stmt->execute([$employee_id]);
+$stmt->execute([
+    $employee_id,
+    $employee_id
+]);
 $my_orders = $stmt->fetchAll();
 
 // Fetch all employees for delegation (excluding self)
-$stmt = $pdo->prepare("SELECT id, first_name, last_name FROM employees WHERE is_deleted = 0 AND status = 1 AND id != ?");
-$stmt->execute([$employee_id]);
+$stmt = $pdo->prepare("
+    SELECT id, first_name, last_name
+    FROM employees
+    WHERE is_deleted = 0
+    AND status = 1
+    AND (
+    supervisor_id = ?
+    OR id = ?
+)
+    AND id != ?
+");
+$stmt->execute([
+    $employee_id,
+    $employee_id,
+    $employee_id
+]);
 $all_employees = $stmt->fetchAll();
 
 // Fetch all racks
@@ -43,16 +133,49 @@ $stmt = $pdo->query("SELECT * FROM racks");
 $all_racks = $stmt->fetchAll();
 
 // Fetch Employee Workload for Chart
-$workloadStmt = $pdo->query("
-    SELECT e.first_name, COUNT(o.id) as order_count
+$workloadStmt = $pdo->prepare("
+    SELECT 
+        e.first_name,
+
+        (
+            COUNT(DISTINCT o.id)
+            +
+            COUNT(DISTINCT co.id)
+        ) as order_count
+
     FROM employees e
-    LEFT JOIN orders o ON e.id = o.assigned_employee_id AND o.order_status NOT IN ('completed', 'delivered', 'cancelled') AND o.is_deleted = 0
-    WHERE e.status = 1 AND e.is_deleted = 0 AND e.job_role != 'Supervisor'
+
+    LEFT JOIN orders o 
+        ON e.id = o.assigned_employee_id
+        AND o.order_status NOT IN ('completed', 'delivered', 'cancelled')
+        AND o.is_deleted = 0
+
+    LEFT JOIN customer_orders co
+        ON e.id = co.assigned_employee_id
+        AND co.status NOT IN ('completed', 'delivered', 'cancelled')
+        AND co.is_deleted = 0
+
+    WHERE e.status = 1
+    AND e.is_deleted = 0
+    AND e.job_role != 'Supervisor'
+
+    AND (
+        e.supervisor_id = ?
+        OR e.id = ?
+    )
+
     GROUP BY e.id
     ORDER BY order_count DESC
     LIMIT 6
 ");
-$workloadData = $workloadStmt->fetchAll();
+
+$workloadStmt->execute([
+    $employee_id,
+    $employee_id
+]);
+
+$workloadData = $workloadStmt->fetchAll(PDO::FETCH_ASSOC);
+
 $chartLabels = array_column($workloadData, 'first_name');
 $chartCounts = array_column($workloadData, 'order_count');
 
@@ -72,14 +195,82 @@ $employee_workloads = $empWorkloadStmt->fetchAll();
 // Fetch Overall Order Status Counts for Supervisor
 $statusCountsStmt = $pdo->prepare("
     SELECT 
-        SUM(CASE WHEN assigned_employee_id IS NULL THEN 1 ELSE 0 END) as pending_delegation,
-        SUM(CASE WHEN order_status IN ('pending', 'processing', 'pattern_making', 'cutting', 'embroidery', 'stitching', 'finishing') AND assigned_employee_id IS NOT NULL THEN 1 ELSE 0 END) as in_progress,
-        SUM(CASE WHEN order_status IN ('ready', 'completed') THEN 1 ELSE 0 END) as ready_completed,
-        SUM(CASE WHEN order_status = 'delivered' THEN 1 ELSE 0 END) as delivered
-    FROM orders
-    WHERE supervisor_id = ? AND is_deleted = 0
+        (
+            (SELECT COUNT(*) 
+             FROM orders
+             WHERE supervisor_id = ?
+             AND assigned_employee_id IS NULL
+             AND is_deleted = 0)
+
+            +
+
+            (SELECT COUNT(*) 
+             FROM customer_orders
+             WHERE supervisor_id = ?
+             AND assigned_employee_id IS NULL
+             AND is_deleted = 0)
+        ) as pending_delegation,
+
+        (
+            (SELECT COUNT(*) 
+             FROM orders
+             WHERE supervisor_id = ?
+             AND order_status IN ('pending', 'processing', 'pattern_making', 'cutting', 'embroidery', 'stitching', 'finishing')
+             AND assigned_employee_id IS NOT NULL
+             AND is_deleted = 0)
+
+            +
+
+            (SELECT COUNT(*) 
+             FROM customer_orders
+             WHERE supervisor_id = ?
+             AND status IN ('pending', 'processing', 'pattern_making', 'cutting', 'embroidery', 'stitching', 'finishing')
+             AND assigned_employee_id IS NOT NULL
+             AND is_deleted = 0)
+        ) as in_progress,
+
+        (
+            (SELECT COUNT(*) 
+             FROM orders
+             WHERE supervisor_id = ?
+             AND order_status IN ('ready', 'completed')
+             AND is_deleted = 0)
+
+            +
+
+            (SELECT COUNT(*) 
+             FROM customer_orders
+             WHERE supervisor_id = ?
+             AND status IN ('ready', 'completed')
+             AND is_deleted = 0)
+        ) as ready_completed,
+
+        (
+            (SELECT COUNT(*) 
+             FROM orders
+             WHERE supervisor_id = ?
+             AND order_status = 'delivered'
+             AND is_deleted = 0)
+
+            +
+
+            (SELECT COUNT(*) 
+             FROM customer_orders
+             WHERE supervisor_id = ?
+             AND status = 'delivered'
+             AND is_deleted = 0)
+        ) as delivered
 ");
-$statusCountsStmt->execute([$employee_id]);
+$statusCountsStmt->execute([
+    $employee_id,
+    $employee_id,
+    $employee_id,
+    $employee_id,
+    $employee_id,
+    $employee_id,
+    $employee_id,
+    $employee_id
+]);
 $status_counts = $statusCountsStmt->fetch();
 
 // Fetch Reported Issues
@@ -96,28 +287,28 @@ $open_issues = $issueStmt->fetchAll();
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_ot') {
     $date = $_POST['ot_date'];
-    $hours = (float)$_POST['hours'];
+    $hours = (float) $_POST['hours'];
     $desc = $_POST['description'];
-    
+
     $stmt = $pdo->prepare("SELECT ot_percentage FROM ot_rate_settings 
                            WHERE ? BETWEEN from_date AND to_date 
                            ORDER BY (to_date - from_date) ASC, id DESC 
                            LIMIT 1");
     $stmt->execute([$date]);
     $rate = $stmt->fetchColumn();
-    
+
     if (!$rate) {
         $rate = $pdo->query("SELECT setting_value FROM global_settings WHERE setting_key = 'global_ot_rate'")->fetchColumn() ?: 100;
     }
-    
+
     $salaryStmt = $pdo->prepare("SELECT base_salary FROM employees WHERE id = ?");
     $salaryStmt->execute([$employee_id]);
     $salaryAmount = floatval($salaryStmt->fetchColumn() ?: 0);
 
     $amount = ($salaryAmount * $rate) / 100;
-    
+
     $stmt = $pdo->prepare("INSERT INTO employee_overtime (employee_id, ot_date, hours, amount, description, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
-    
+
     if ($stmt->execute([$employee_id, $date, $hours, $amount, $desc])) {
         header("Location: dashboard.php?ot_success=1");
         exit;
@@ -203,7 +394,8 @@ $today_holiday = $h_stmt->fetch();
             </div>
             <div>
                 <div style="font-weight: 800; color: #9d174d; font-size: 1.1rem;">
-                    <?= htmlspecialchars($today_holiday['name']) ?></div>
+                    <?= htmlspecialchars($today_holiday['name']) ?>
+                </div>
                 <div style="font-size: 0.85rem; color: #db2777; font-weight: 600;">Today is a <?= $today_holiday['type'] ?>!
                     Enjoy your day.</div>
             </div>
@@ -392,9 +584,11 @@ $today_holiday = $h_stmt->fetch();
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
                     <div>
                         <div style="font-weight: 700; color: #1e293b; font-size: 0.9rem;">
-                            <?= htmlspecialchars($wl['first_name'] . ' ' . $wl['last_name']) ?></div>
+                            <?= htmlspecialchars($wl['first_name'] . ' ' . $wl['last_name']) ?>
+                        </div>
                         <div style="font-size: 0.75rem; color: #64748b; font-weight: 600;">
-                            <?= htmlspecialchars($wl['job_role']) ?></div>
+                            <?= htmlspecialchars($wl['job_role']) ?>
+                        </div>
                     </div>
                     <div style="text-align: right;">
                         <span class="badge"
@@ -580,7 +774,8 @@ $today_holiday = $h_stmt->fetch();
                     <option value="">Choose rack...</option>
                     <?php foreach ($all_racks as $r): ?>
                         <option value="<?= $r['id'] ?>" <?= $r['status'] == 'Occupied' ? 'disabled' : '' ?>>
-                            <?= $r['rack_name'] ?> (<?= $r['status'] ?>)</option>
+                            <?= $r['rack_name'] ?> (<?= $r['status'] ?>)
+                        </option>
                     <?php endforeach; ?>
                 </select>
                 <div id="rackError" style="color:red; font-size:0.8rem; margin-top:5px;"></div>
@@ -860,14 +1055,15 @@ $today_holiday = $h_stmt->fetch();
     }
 </script>
 <!-- Add OT Modal -->
-<div id="add-ot-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; align-items: flex-end;">
-    <div style="background: white; width: 100%; border-radius: 24px 24px 0 0; padding: 1.5rem; animation: slideUp 0.3s ease-out;">
+<div id="add-ot-modal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; align-items: flex-end;">
+    <div
+        style="background: white; width: 100%; border-radius: 24px 24px 0 0; padding: 1.5rem; animation: slideUp 0.3s ease-out;">
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
             <h3 style="font-size: 1.25rem; font-weight: 800; color: #1e293b;">Log Overtime</h3>
 
-            <button type="button"
-                onclick="document.getElementById('add-ot-modal').style.display='none';"
+            <button type="button" onclick="document.getElementById('add-ot-modal').style.display='none';"
                 style="border: none; background: #f1f5f9; width: 32px; height: 32px; border-radius: 50%; color: #64748b;">
                 &times;
             </button>
@@ -879,30 +1075,19 @@ $today_holiday = $h_stmt->fetch();
 
             <div style="margin-bottom: 1rem;">
                 <label>Date</label>
-                <input type="date"
-                    name="ot_date"
-                    value="<?= date('Y-m-d') ?>"
-                    required
+                <input type="date" name="ot_date" value="<?= date('Y-m-d') ?>" required
                     style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;">
             </div>
 
             <div style="margin-bottom: 1rem;">
                 <label>Hours Worked</label>
-                <input type="number"
-                    name="hours"
-                    step="0.5"
-                    required
-                    placeholder="e.g. 2.0"
+                <input type="number" name="hours" step="0.5" required placeholder="e.g. 2.0"
                     style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;">
             </div>
 
             <div style="margin-bottom: 1.5rem;">
                 <label>Description</label>
-                <textarea
-                    name="description"
-                    required
-                    rows="3"
-                    placeholder="What did you work on?"
+                <textarea name="description" required rows="3" placeholder="What did you work on?"
                     style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;"></textarea>
             </div>
 

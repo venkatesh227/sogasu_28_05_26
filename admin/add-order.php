@@ -188,14 +188,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
             }
 
+
             // Save Additional Services
             if (!empty($selected_services)) {
-                $stmt_s = $pdo->prepare("INSERT INTO order_services (order_id, service_id, service_price) VALUES (?, ?, ?)");
+
+                // remove duplicate service ids
+                $selected_services = array_unique($selected_services);
+
+                $stmt_s = $pdo->prepare("
+        INSERT INTO order_services 
+        (order_id, service_id, service_price) 
+        VALUES (?, ?, ?)
+    ");
+
                 foreach ($selected_services as $service_id) {
-                    $stmt_sp = $pdo->prepare("SELECT base_price FROM services WHERE id = ?");
+
+                    $stmt_sp = $pdo->prepare("
+            SELECT base_price 
+            FROM services 
+            WHERE id = ?
+        ");
+
                     $stmt_sp->execute([$service_id]);
+
                     $s_price = $stmt_sp->fetchColumn() ?: 0;
-                    $stmt_s->execute([$order_id, $service_id, $s_price]);
+
+                    $stmt_s->execute([
+                        $order_id,
+                        $service_id,
+                        $s_price
+                    ]);
                 }
             }
 

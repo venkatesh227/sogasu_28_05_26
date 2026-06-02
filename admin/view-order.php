@@ -36,7 +36,83 @@ $stmt = $pdo->prepare("
 ");
 
 $stmt->execute([$id]);
-$order = $stmt->fetch();
+$order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$is_customer_order = false;
+
+if (!$order) {
+
+    $stmt = $pdo->prepare("
+        SELECT 
+            co.id,
+            co.order_code,
+            co.user_id as customer_id,
+            co.category_id,
+            co.sub_category_id,
+            NULL as fabric_details,
+            co.additional_notes as notes,
+            co.status as order_status,
+            co.supervisor_id,
+            co.assigned_employee_id,
+            co.rack_id,
+            co.base_price,
+            co.extra_charges,
+            co.total_amount,
+
+            0 as advance_amount,
+            0 as paid_amount,
+
+            co.appointment_date as due_date,
+            co.created_at,
+
+            c.first_name,
+            c.address,
+            COALESCE(u.mobile, c.phone) AS mobile,
+
+            cat.category_name AS category_name,
+            sc.name AS sub_category_name,
+
+            e.first_name AS emp_first,
+            e.last_name AS emp_last,
+            e.job_role,
+
+            s.first_name AS sup_first,
+            s.last_name AS sup_last,
+
+            r.rack_name
+
+        FROM customer_orders co
+
+        JOIN customers c 
+            ON co.user_id = c.user_id
+
+        LEFT JOIN users u 
+            ON c.user_id = u.id
+
+        LEFT JOIN categories cat 
+            ON co.category_id = cat.id
+
+        LEFT JOIN sub_categories sc 
+            ON co.sub_category_id = sc.id
+
+        LEFT JOIN employees e 
+            ON co.assigned_employee_id = e.id
+
+        LEFT JOIN employees s 
+            ON co.supervisor_id = s.id
+
+        LEFT JOIN racks r 
+            ON co.rack_id = r.id
+
+        WHERE co.id = ?
+    ");
+
+    $stmt->execute([$id]);
+
+    $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $is_customer_order = true;
+}
 
 if (!$order) {
     die("Order not found");
@@ -115,19 +191,58 @@ if (!empty($customerMeasurements) && is_array($customerMeasurements)) {
 }
 
 // ===== ADDITIONAL SERVICES =====
-$stmt = $pdo->prepare("
-    SELECT os.service_price, s.service_name 
-    FROM order_services os
-    JOIN services s ON os.service_id = s.id
-    WHERE os.order_id = ?
-");
-$stmt->execute([$id]);
-$order_services = $stmt->fetchAll();
+if ($is_customer_order) {
+
+    $order_services = [];
+
+} else {
+
+    $stmt = $pdo->prepare("
+        SELECT os.service_price, s.service_name 
+        FROM order_services os
+        JOIN services s ON os.service_id = s.id
+        WHERE os.order_id = ?
+    ");
+
+    $stmt->execute([$id]);
+
+    $order_services = $stmt->fetchAll();
+}
 
 // ===== IMAGES =====
-$stmt = $pdo->prepare("SELECT image_path, image_type FROM order_images WHERE order_id = ? AND is_deleted = 0");
-$stmt->execute([$id]);
-$images = $stmt->fetchAll(PDO::FETCH_ASSOC);
+if ($is_customer_order) {
+
+    $images = [];
+
+    if (!empty($customerOrder['material_image'])) {
+
+        $images[] = [
+            'image_path' => $customerOrder['material_image'],
+            'image_type' => 'fabric'
+        ];
+    }
+
+    if (!empty($customerOrder['referral_image'])) {
+
+        $images[] = [
+            'image_path' => $customerOrder['referral_image'],
+            'image_type' => 'sample'
+        ];
+    }
+
+} else {
+
+    $stmt = $pdo->prepare("
+        SELECT image_path, image_type 
+        FROM order_images 
+        WHERE order_id = ? 
+        AND is_deleted = 0
+    ");
+
+    $stmt->execute([$id]);
+
+    $images = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
 $fabric_images = array_filter($images, function ($img) {
     return $img['image_type'] === 'fabric';

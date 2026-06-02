@@ -104,8 +104,29 @@ $stmt = $pdo->prepare("
 $stmt->execute([$emp['id']]);
 $totalEarned += $stmt->fetchColumn() ?: 0;
 // Get Active Tasks Count
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE assigned_employee_id = ? AND order_status NOT IN ('delivered', 'cancelled') AND is_deleted = 0");
-$stmt->execute([$emp['id']]);
+$stmt = $pdo->prepare("
+    SELECT (
+        (SELECT COUNT(*) 
+         FROM orders
+         WHERE assigned_employee_id = ?
+         AND order_status NOT IN ('delivered', 'cancelled')
+         AND is_deleted = 0)
+
+        +
+
+        (SELECT COUNT(*) 
+         FROM customer_orders
+         WHERE assigned_employee_id = ?
+         AND status NOT IN ('delivered', 'cancelled')
+         AND is_deleted = 0)
+    ) as total_tasks
+");
+
+$stmt->execute([
+    $emp['id'],
+    $emp['id']
+]);
+
 $activeTasksCount = $stmt->fetchColumn();
 
 

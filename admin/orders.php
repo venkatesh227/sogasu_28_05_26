@@ -9,24 +9,33 @@ if (!isset($_SESSION['user_id'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'assign_supervisor') {
     $order_id = $_POST['order_id'] ?? null;
+    $order_type = $_POST['order_type'] ?? '';
     $supervisor_id = $_POST['supervisor_id'] ?: null;
     $tab = $_GET['tab'] ?? 'all';
 
     if ($order_id) {
         try {
-            $stmt = $pdo->prepare("
-                UPDATE orders 
-                SET supervisor_id = ? 
-                WHERE id = ?
-            ");
-            $stmt->execute([$supervisor_id, $order_id]);
+            if ($order_type === 'admin') {
 
-            $stmt2 = $pdo->prepare("
-                UPDATE customer_orders 
-                SET supervisor_id = ? 
-                WHERE id = ?
-            ");
-            $stmt2->execute([$supervisor_id, $order_id]);
+                $stmt = $pdo->prepare("
+                    UPDATE orders
+                    SET supervisor_id = ?
+                    WHERE id = ?
+                ");
+
+                $stmt->execute([$supervisor_id, $order_id]);
+
+            } elseif ($order_type === 'customer') {
+
+                $stmt = $pdo->prepare("
+                    UPDATE customer_orders
+                    SET supervisor_id = ?
+                    WHERE id = ?
+                ");
+
+                $stmt->execute([$supervisor_id, $order_id]);
+            }
+
             $_SESSION['success'] = "supervisor_assigned";
         } catch (PDOException $e) {
             $_SESSION['error'] = "Error: " . $e->getMessage();
@@ -221,6 +230,7 @@ include 'includes/header.php';
                     $query = "
                         SELECT 
                             o.id,
+                            'admin' as order_type,
                             o.order_code,
                             o.due_date,
                             o.order_status,
@@ -244,6 +254,7 @@ include 'includes/header.php';
 
                         SELECT 
                             co.id,
+                            'customer' as order_type,
                             co.order_code,
                             co.appointment_date as due_date,
                             co.status as order_status,
@@ -333,10 +344,12 @@ include 'includes/header.php';
                             </td>
                             <td style="padding: 1rem; text-align: right;">
                                 <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                                    <button
-                                        onclick="openSupervisorModal(<?= $o['id'] ?>, '<?= htmlspecialchars($o['order_code']) ?>', '<?= htmlspecialchars($o['supervisor_id'] ?? '') ?>')"
-                                        class="btn btn-sm"
-                                        style="background: #f8fafc; color: #f59e0b; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; cursor: pointer;"
+                                    <button onclick="openSupervisorModal(
+                                        <?= $o['id'] ?>,
+                                        '<?= $o['order_type'] ?>',
+                                        '<?= htmlspecialchars($o['order_code']) ?>',
+                                        '<?= htmlspecialchars($o['supervisor_id'] ?? '') ?>'
+                                    )" class="btn btn-sm" style="background: #f8fafc; color: #f59e0b; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; cursor: pointer;"
                                         title="Assign Supervisor"><i class="ri-user-star-line"></i> Supervisor</button>
                                     <a href="view-order.php?id=<?= $o['id'] ?>" class="btn btn-sm"
                                         style="background: #f8fafc; color: #6366f1; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; text-decoration: none;"><i
@@ -349,7 +362,7 @@ include 'includes/header.php';
                                         </a>
 
                                     <?php endif; ?>
-                                    <a href="edit-order.php?id=<?= $o['id'] ?>" class="btn btn-sm"
+                                    <a href="edit-order.php?id=<?= $o['id'] ?>&type=<?= $o['order_type'] ?>" class="btn btn-sm"
                                         style="background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; text-decoration: none;"><i
                                             class="ri-pencil-line"></i> Edit</a>
                                 </div>
@@ -380,6 +393,7 @@ include 'includes/header.php';
         <form method="POST">
             <input type="hidden" name="action" value="assign_supervisor">
             <input type="hidden" name="order_id" id="modalOrderId">
+            <input type="hidden" name="order_type" id="modalOrderType">
 
             <p style="font-size: 0.85rem; color: #64748b; margin-top: -0.25rem; margin-bottom: 1.25rem;">
                 Select a supervisor for Order <strong id="modalOrderCode" style="color: #4f46e5;"></strong>.
@@ -426,8 +440,9 @@ include 'includes/header.php';
         });
     });
 
-    function openSupervisorModal(orderId, orderCode, currentSupId) {
+    function openSupervisorModal(orderId, orderType, orderCode, currentSupId){
         document.getElementById('modalOrderId').value = orderId;
+        document.getElementById('modalOrderType').value = orderType;
         document.getElementById('modalOrderCode').innerText = '#' + orderCode;
         document.getElementById('modalSupervisorSelect').value = currentSupId;
 

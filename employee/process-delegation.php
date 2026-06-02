@@ -11,8 +11,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $order_id = $_POST['order_id'];
     $employee_id = $_POST['employee_id'];
 
-    $stmt = $pdo->prepare("UPDATE orders SET assigned_employee_id = ?, employee_taken_at = NOW() WHERE id = ?");
-    if ($stmt->execute([$employee_id, $order_id])) {
+    $stmt = $pdo->prepare("
+    UPDATE orders 
+    SET assigned_employee_id = ?, 
+        employee_taken_at = NOW() 
+    WHERE id = ?
+");
+
+$result = $stmt->execute([$employee_id, $order_id]);
+
+if ($stmt->rowCount() == 0) {
+
+    $stmt = $pdo->prepare("
+        UPDATE customer_orders 
+        SET assigned_employee_id = ?
+        WHERE id = ?
+    ");
+
+    $result = $stmt->execute([$employee_id, $order_id]);
+}
+    if ($result) {
 
     $_SESSION['delegate_success'] = "Order assigned successfully!";
 
