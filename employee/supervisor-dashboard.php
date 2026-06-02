@@ -221,7 +221,7 @@ $today_holiday = $h_stmt->fetch();
                 <div style="font-size: 0.75rem; opacity: 0.8; margin-bottom: 0.1rem;">My Role</div>
                 <div style="font-size: 1.1rem; font-weight: 700;">Supervisor</div>
             </div>
-            <button onclick="window.location.href='earnings.php'"
+            <button onclick="window.location.href='supervisor-earnings.php'"
                 style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 0.4rem 0.8rem; border-radius: 8px; font-size: 0.75rem; font-weight: 600;">Full
                 Report <i class="ri-arrow-right-s-line"></i></button>
         </div>
@@ -268,7 +268,7 @@ $today_holiday = $h_stmt->fetch();
             <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Add OT</span>
         </button>
 
-        <button onclick="window.location.href='earnings.php'"
+<button onclick="window.location.href='supervisor-earnings.php'"
             style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
             <div
                 style="width: 36px; height: 36px; background: #f0fdf4; color: #166534; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
