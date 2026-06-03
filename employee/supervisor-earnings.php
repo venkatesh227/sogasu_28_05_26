@@ -51,28 +51,40 @@ usort($history, function($a, $b) {
 });
 
 // 3. Calculate Stats for Current Month
-$currentMonth = date('Y-m');
+// 3. Calculate Total Net Earnings (All Time)
 $totalEarned = 0;
 $pendingAmount = 0;
 
-foreach ($history as $item) {
-    if (strpos($item['date'], $currentMonth) === 0) {
+$stmt = $pdo->prepare("
+    SELECT payment_type, amount, status
+    FROM employee_payments
+    WHERE employee_id = ?
+");
+$stmt->execute([$employee_id]);
+$allPayments = $stmt->fetchAll();
 
-        if ($item['status'] === 'Paid' || $item['status'] === 'Approved') {
+foreach ($allPayments as $row) {
 
-            if ($item['type'] === 'Advance Deduction') {
-                $totalEarned -= $item['amount'];
-            } else {
-                $totalEarned += $item['amount'];
-            }
+    if ($row['status'] == 'Paid') {
 
-        } elseif ($item['status'] === 'Pending') {
+        // Add Salary, OT, Bonus
+        if (in_array($row['payment_type'], ['Salary', 'Overtime', 'Bonus', 'Bonus/Incentive'])) {
+            $totalEarned += $row['amount'];
+        }
 
-            $pendingAmount += $item['amount'];
-
+        // Subtract Advance Given
+        if ($row['payment_type'] == 'Advance') {
+            $totalEarned -= $row['amount'];
         }
     }
+
+    // Subtract Deducted items
+    if ($row['status'] == 'Deducted') {
+        $totalEarned -= $row['amount'];
+    }
 }
+
+            
 
 $pageTitle = $t['my_earnings'] . " - Sogasu Staff";
 $headerTitle = $t['earnings'];
@@ -89,7 +101,7 @@ include 'includes/header.php';
         </div>
         
         <div style="position: relative; z-index: 1;">
-            <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; margin-bottom: 0.5rem;"><?= date('F Y') ?> Earnings</div>
+            <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; margin-bottom: 0.5rem;">Total Earnings</div>
             <div style="font-size: 2.75rem; font-weight: 800; line-height: 1; margin-bottom: 1.5rem;">₹<?= number_format($totalEarned, 0) ?></div>
             
             <div style="display: flex; gap: 0.75rem;">

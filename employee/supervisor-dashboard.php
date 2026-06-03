@@ -175,7 +175,6 @@ $workloadStmt->execute([
 ]);
 
 $workloadData = $workloadStmt->fetchAll(PDO::FETCH_ASSOC);
-
 $chartLabels = array_column($workloadData, 'first_name');
 $chartCounts = array_column($workloadData, 'order_count');
 
