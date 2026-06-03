@@ -25,7 +25,6 @@ $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE employee_id = ? AND is
 $pageTitle = "Notifications - Sogasu";
 $headerTitle = "Notifications";
 $activePage = "dashboard";
-
 include 'includes/header.php';
 ?>
 

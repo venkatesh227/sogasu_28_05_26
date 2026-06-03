@@ -85,7 +85,6 @@ foreach ($allPayments as $row) {
 }
 
             
-
 $pageTitle = $t['my_earnings'] . " - Sogasu Staff";
 $headerTitle = $t['earnings'];
 $activePage = "earnings";
