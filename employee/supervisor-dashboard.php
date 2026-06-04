@@ -13,18 +13,16 @@ $employeeData = $stmt->fetch();
 $employee_id = $employeeData['id'] ?? 0;
 $stmt = $pdo->prepare("
     SELECT (
-        (SELECT COUNT(*) 
-         FROM orders 
+        (SELECT COUNT(*)
+         FROM orders
          WHERE supervisor_id = ?
-         AND order_status NOT IN ('completed', 'delivered', 'cancelled')
          AND is_deleted = 0)
 
         +
 
-        (SELECT COUNT(*) 
-         FROM customer_orders 
+        (SELECT COUNT(*)
+         FROM customer_orders
          WHERE supervisor_id = ?
-         AND status NOT IN ('completed', 'delivered', 'cancelled')
          AND is_deleted = 0)
     ) as total_count
 ");

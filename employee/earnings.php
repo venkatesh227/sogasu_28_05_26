@@ -25,7 +25,13 @@ if (!$emp) {
 }
 
 $employee_id = $emp['id'];
-
+$stmt = $pdo->prepare("
+    SELECT pay_cycle
+    FROM employees
+    WHERE id = ?
+");
+$stmt->execute([$employee_id]);
+$payCycle = $stmt->fetchColumn();
 if (!isset($_SESSION['language'])) {
     $_SESSION['language'] = $emp['preferred_language'] ?? 'en';
     $language = $_SESSION['language'];
@@ -106,8 +112,19 @@ include 'includes/header.php';
             <div style="display: flex; gap: 0.75rem;">
                 <div style="background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.3); padding: 0.5rem 1rem; border-radius: 12px; display: flex; align-items: center; gap: 0.5rem;">
                     <div style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%;"></div>
-                    <span style="font-size: 0.75rem; font-weight: 600;">Salary Paid</span>
-                </div>
+<span style="font-size: 0.75rem; font-weight: 600;">
+<?php
+if (stripos($payCycle, 'Monthly') !== false) {
+    echo 'Monthly Salary';
+} elseif (stripos($payCycle, 'Weekly') !== false) {
+    echo 'Weekly Salary';
+} elseif (stripos($payCycle, 'Daily') !== false) {
+    echo 'Daily Salary';
+} else {
+    echo 'Salary Paid';
+}
+?>
+</span>                </div>
                 <?php if ($pendingAmount > 0): ?>
                 <div style="background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.3); padding: 0.5rem 1rem; border-radius: 12px; display: flex; align-items: center; gap: 0.5rem;">
                     <div style="width: 8px; height: 8px; background: #f59e0b; border-radius: 50%;"></div>
@@ -133,8 +150,15 @@ include 'includes/header.php';
         </div>
     <?php else: ?>
         <div class="card" style="padding: 0; overflow: hidden; border-radius: 20px;">
-            <?php foreach ($history as $index => $item): ?>
-                <div style="padding: 1.25rem; border-bottom: <?= ($index === count($history)-1) ? 'none' : '1px solid #f1f5f9' ?>; display: flex; justify-content: space-between; align-items: center;">
+<?php
+$currentMonth = date('Y-m');
+
+$filteredHistory = array_filter($history, function($item) use ($currentMonth) {
+    return strpos($item['date'], $currentMonth) === 0;
+});
+
+foreach ($filteredHistory as $index => $item):
+?>                <div style="padding: 1.25rem; border-bottom: <?= ($index === count($filteredHistory)-1) ? 'none' : '1px solid #f1f5f9' ?>; display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; gap: 1rem; align-items: center;">
                         <div style="width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; 
                             background: <?= ($item['source'] === 'ot') ? '#f0f9ff' : ($item['type'] === 'Advance Deduction' ? '#fef2f2' : '#f0fdf4') ?>; 
@@ -143,7 +167,26 @@ include 'includes/header.php';
                         </div>
                         <div>
                             <div style="font-weight: 700; font-size: 1rem; color: #1e293b;"><?= htmlspecialchars($item['description'] ?: ($item['source'] === 'ot' ? 'Overtime Pay' : 'Salary Payout')) ?></div>
-                            <div style="font-size: 0.75rem; color: #64748b; font-weight: 500;"><?= date('D, d M', strtotime($item['date'])) ?> • <?= $item['type'] ?></div>
+                            <div style="font-size: 0.75rem; color: #64748b; font-weight: 500;"><?= date('D, d M', strtotime($item['date'])) ?> •
+
+<?php
+if ($item['type'] == 'Salary') {
+
+    if (stripos($payCycle, 'Monthly') !== false) {
+        echo 'Monthly Salary';
+    } elseif (stripos($payCycle, 'Weekly') !== false) {
+        echo 'Weekly Salary';
+    } elseif (stripos($payCycle, 'Daily') !== false) {
+        echo 'Daily Salary';
+    } else {
+        echo 'Salary';
+    }
+
+} else {
+    echo $item['type'];
+}
+?>
+                        </div>
                         </div>
                     </div>
                     <div style="text-align: right;">

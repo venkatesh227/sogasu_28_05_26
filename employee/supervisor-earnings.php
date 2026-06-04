@@ -25,7 +25,13 @@ if (!$emp) {
 }
 
 $employee_id = $emp['id'];
-
+$stmt = $pdo->prepare("
+    SELECT pay_cycle
+    FROM employees
+    WHERE id = ?
+");
+$stmt->execute([$employee_id]);
+$payCycle = $stmt->fetchColumn();
 if (!isset($_SESSION['language'])) {
     $_SESSION['language'] = $emp['preferred_language'] ?? 'en';
     $language = $_SESSION['language'];
@@ -46,20 +52,63 @@ $overtimes = $stmt->fetchAll();
 
 // Merge and sort by date
 $history = array_merge($payments, $overtimes);
+
 usort($history, function($a, $b) {
     return strtotime($b['date']) - strtotime($a['date']);
 });
+
+// Show only current month activity
+$currentMonth = date('Y-m');
+
+$history = array_filter($history, function ($item) use ($currentMonth) {
+    return strpos($item['date'], $currentMonth) === 0;
+});
+
+$history = array_values($history);
 
 // 3. Calculate Stats for Current Month
 // 3. Calculate Total Net Earnings (All Time)
 $totalEarned = 0;
 $pendingAmount = 0;
 
-$stmt = $pdo->prepare("
-    SELECT payment_type, amount, status
-    FROM employee_payments
-    WHERE employee_id = ?
-");
+if (stripos($payCycle, 'Monthly') !== false) {
+
+    $stmt = $pdo->prepare("
+        SELECT payment_type, amount, status
+        FROM employee_payments
+        WHERE employee_id = ?
+        AND MONTH(payment_date) = MONTH(CURDATE())
+        AND YEAR(payment_date) = YEAR(CURDATE())
+    ");
+
+} elseif (stripos($payCycle, 'Weekly') !== false) {
+
+    $stmt = $pdo->prepare("
+        SELECT payment_type, amount, status
+        FROM employee_payments
+        WHERE employee_id = ?
+        AND YEARWEEK(payment_date,1) = YEARWEEK(CURDATE(),1)
+    ");
+
+} elseif (stripos($payCycle, 'Daily') !== false) {
+
+    $stmt = $pdo->prepare("
+        SELECT payment_type, amount, status
+        FROM employee_payments
+        WHERE employee_id = ?
+        AND DATE(payment_date) = CURDATE()
+    ");
+
+} else {
+
+    $stmt = $pdo->prepare("
+        SELECT payment_type, amount, status
+        FROM employee_payments
+        WHERE employee_id = ?
+    ");
+
+}
+
 $stmt->execute([$employee_id]);
 $allPayments = $stmt->fetchAll();
 
