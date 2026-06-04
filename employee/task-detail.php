@@ -20,7 +20,6 @@ if (!$order_id) {
     header("Location: dashboard.php");
     exit();
 }
-
 // Fetch order details
 $stmt = $pdo->prepare(" 
         SELECT 

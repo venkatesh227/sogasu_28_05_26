@@ -14,7 +14,6 @@ $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ? AND is_deleted
 $stmt->execute([$user_id]);
 $emp = $stmt->fetch();
 $employee_id = $emp['id'];
-
 $today = date('Y-m-d');
 
 // Fetch today's summary

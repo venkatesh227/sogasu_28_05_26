@@ -558,8 +558,22 @@ function submitShiftTypeUpdate() {
     });
 }
 
-function showRequestsModal() { Swal.fire('Coming Soon', 'Shift requests modal modernization is in progress.', 'info'); }
+function showRequestsModal() {
 
+    fetch('shift-requests.php')
+    .then(response => response.text())
+    .then(html => {
+
+        Swal.fire({
+            title: 'Shift Requests',
+            html: html,
+            width: '1000px',
+            showConfirmButton: false
+        });
+
+    });
+
+}
 function updateShift(shiftTypeId) {
     const loader = Swal.fire({
         title: 'Updating Schedule...',

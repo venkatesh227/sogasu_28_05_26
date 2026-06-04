@@ -152,7 +152,6 @@ if (stripos($payCycle, 'Monthly') !== false) {
         <div class="card" style="padding: 0; overflow: hidden; border-radius: 20px;">
 <?php
 $currentMonth = date('Y-m');
-
 $filteredHistory = array_filter($history, function($item) use ($currentMonth) {
     return strpos($item['date'], $currentMonth) === 0;
 });

@@ -25,7 +25,6 @@ $employee = $stmt->fetch();
 if (!$employee) {
     die("Employee not found");
 }
-
 // Set language from DB if not in session
 if (!isset($_SESSION['language'])) {
     $_SESSION['language'] = $employee['preferred_language'] ?? 'en';
