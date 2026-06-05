@@ -275,3 +275,9 @@ Attempting to save: Sholder = 22
 Attempting to save: hand = 22
 Attempting to save: Height = 22
 Attempting to save: Width = 22
+Found measurements array for order 1
+Attempting to save: Shoulder Strap = 11
+Attempting to save: Chest = 11
+Attempting to save: Waist = 11
+Attempting to save: Height = 11
+Attempting to save: Width = 11

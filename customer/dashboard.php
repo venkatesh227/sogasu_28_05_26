@@ -82,32 +82,31 @@ foreach ($data as $row) {
 
     /*
     |--------------------------------------------------------------------------
-    | FETCH CUSTOMER ACTIVE ORDERS
+    | FETCH ACTIVE ORDERS
     |--------------------------------------------------------------------------
     */
 
     $activeOrdersStmt = $pdo->prepare("
 
     SELECT
-        co.order_code,
-        co.status AS final_status,
-        co.status_history,
-        co.created_at,
+        o.order_code,
+        o.order_status AS final_status,
+        o.status_history,
+        o.created_at,
         sc.name AS sub_category_name
 
-    FROM customer_orders co
+    FROM orders o
 
     LEFT JOIN sub_categories sc
-        ON co.sub_category_id = sc.id
+        ON o.sub_category_id = sc.id
 
-    WHERE co.user_id = ?
-    AND co.status NOT IN ('completed', 'cancelled')
+    WHERE o.order_status != 'completed'
 
-    ORDER BY co.created_at DESC
+    ORDER BY o.created_at DESC
 
 ");
 
-    $activeOrdersStmt->execute([$customerId]);
+    $activeOrdersStmt->execute();
 
     $activeOrders = $activeOrdersStmt->fetchAll(PDO::FETCH_ASSOC);
 
