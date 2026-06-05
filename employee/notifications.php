@@ -27,7 +27,6 @@ $headerTitle = "Notifications";
 $activePage = "dashboard";
 include 'includes/header.php';
 ?>
-
 <div class="container" style="padding-bottom: 100px;">
     <?php if (empty($notifications)): ?>
         <div class="card" style="text-align: center; padding: 3rem 1.5rem; border-style: dashed; border-radius: 20px;">

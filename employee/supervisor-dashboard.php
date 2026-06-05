@@ -365,26 +365,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         exit;
     }
 }
-// Fetch Supervisor Earnings Stats
 $currentMonth = date('Y-m');
 $totalEarned = 0;
 
-// Get Salary/Payments
-$stmt = $pdo->prepare("SELECT SUM(amount) FROM employee_payments WHERE employee_id = ? AND status = 'Paid' AND payment_date LIKE ? AND payment_type != 'Advance Deduction'");
-$stmt->execute([$employee_id, $currentMonth . '%']);
-$totalEarned += $stmt->fetchColumn() ?: 0;
+$stmt = $pdo->prepare("
+    SELECT pay_cycle
+    FROM employees
+    WHERE id = ?
+");
+$stmt->execute([$employee_id]);
+$payCycle = $stmt->fetchColumn();
 
-// Subtract Deductions
-$stmt = $pdo->prepare("SELECT SUM(amount) FROM employee_payments WHERE employee_id = ? AND status = 'Paid' AND payment_date LIKE ? AND payment_type = 'Advance Deduction'");
-$stmt->execute([$employee_id, $currentMonth . '%']);
-$totalEarned -= $stmt->fetchColumn() ?: 0;
+if (stripos($payCycle, 'Monthly') !== false) {
 
-// Add Approved OT
-$stmt = $pdo->prepare("SELECT SUM(amount) FROM employee_overtime WHERE employee_id = ? AND status = 'Approved' AND ot_date LIKE ?");
-$stmt->execute([$employee_id, $currentMonth . '%']);
-$totalEarned += $stmt->fetchColumn() ?: 0;
+    $stmt = $pdo->prepare("
+        SELECT payment_type, amount, status
+        FROM employee_payments
+        WHERE employee_id = ?
+        AND MONTH(payment_date) = MONTH(CURDATE())
+        AND YEAR(payment_date) = YEAR(CURDATE())
+    ");
 
-$pageTitle = "Supervisor Dashboard - Sogasu";
+} elseif (stripos($payCycle, 'Weekly') !== false) {
+
+    $stmt = $pdo->prepare("
+        SELECT payment_type, amount, status
+        FROM employee_payments
+        WHERE employee_id = ?
+        AND YEARWEEK(payment_date,1) = YEARWEEK(CURDATE(),1)
+    ");
+
+} elseif (stripos($payCycle, 'Daily') !== false) {
+
+    $stmt = $pdo->prepare("
+        SELECT payment_type, amount, status
+        FROM employee_payments
+        WHERE employee_id = ?
+        AND DATE(payment_date) = CURDATE()
+    ");
+
+} else {
+
+    $stmt = $pdo->prepare("
+        SELECT payment_type, amount, status
+        FROM employee_payments
+        WHERE employee_id = ?
+    ");
+
+}
+
+$stmt->execute([$employee_id]);
+$allPayments = $stmt->fetchAll();
+
+foreach ($allPayments as $row) {
+
+    if ($row['status'] == 'Paid') {
+
+        if (in_array($row['payment_type'], ['Salary', 'Overtime', 'Bonus', 'Bonus/Incentive'])) {
+            $totalEarned += $row['amount'];
+        }
+
+        if ($row['payment_type'] == 'Advance') {
+            $totalEarned -= $row['amount'];
+        }
+    }
+
+    if ($row['status'] == 'Deducted') {
+        $totalEarned -= $row['amount'];
+    }
+}
 $headerTitle = "Supervisor Panel";
 $activePage = "dashboard";
 include 'includes/header.php';
