@@ -8,13 +8,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $name = trim($_POST['name'] ?? '');
         $assetCode = trim($_POST['asset_code'] ?? '');
         $categoryId = intval($_POST['category_id'] ?? 0);
-        $stockQuantity = intval($_POST['stock_quantity'] ?? 0);
+$stockQuantity = 1;
         $unit = trim($_POST['unit'] ?? 'Piece');
         $conditionStatus = in_array($_POST['condition_status'] ?? '', ['Good', 'Needs Repair', 'Broken']) ? $_POST['condition_status'] : 'Good';
         $assignedEmployeeId = !empty($_POST['assigned_employee_id']) ? intval($_POST['assigned_employee_id']) : null;
         $lastMaintenance = !empty($_POST['last_maintenance']) ? $_POST['last_maintenance'] : null;
         $purchaseDate = !empty($_POST['purchase_date']) ? $_POST['purchase_date'] : null;
-        $amcDetails = trim($_POST['amc_details'] ?? '');
+$amcStatus = $_POST['amc_status'] ?? 'No';
         $nextServiceDate = !empty($_POST['next_service_date']) ? $_POST['next_service_date'] : null;
 
         $errors = [];
@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         if (empty($errors)) {
             if ($assetId) {
-                $stmt = $pdo->prepare("UPDATE assets SET asset_code = ?, name = ?, category_id = ?, stock_quantity = ?, condition_status = ?, assigned_employee_id = ?, last_maintenance = ?, purchase_date = ?, amc_details = ?, next_service_date = ? WHERE id = ?");
+                $stmt = $pdo->prepare("UPDATE assets SET asset_code = ?, name = ?, category_id = ?, stock_quantity = ?, condition_status = ?, assigned_employee_id = ?, last_maintenance = ?, purchase_date = ?, amc_status = ?, next_service_date = ? WHERE id = ?");
                 $success = $stmt->execute([
                     $assetCode,
                     $name,
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $assignedEmployeeId,
                     $lastMaintenance,
                     $purchaseDate,
-                    $amcDetails,
+                    $amcStatus,
                     $nextServiceDate,
                     $assetId
                 ]);
@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $_SESSION['success'] = 'updated';
                 }
             } else {
-                $stmt = $pdo->prepare("INSERT INTO assets (asset_code, name, category_id, stock_quantity, condition_status, assigned_employee_id, last_maintenance, purchase_date, amc_details, next_service_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt = $pdo->prepare("INSERT INTO assets (asset_code, name, category_id, stock_quantity, condition_status, assigned_employee_id, last_maintenance, purchase_date, amc_status, next_service_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $success = $stmt->execute([
                     $assetCode,
                     $name,
@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $assignedEmployeeId,
                     $lastMaintenance,
                     $purchaseDate,
-                    $amcDetails,
+                    $amcStatus,
                     $nextServiceDate
                 ]);
                 if ($success) {
@@ -126,12 +126,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     } elseif ($_POST['action'] === 'save_maintenance') {
         $assetId = intval($_POST['asset_id'] ?? 0);
         $repairDate = !empty($_POST['repair_date']) ? $_POST['repair_date'] : date('Y-m-d');
+        $nextServiceDate = !empty($_POST['next_service_date']) ? $_POST['next_service_date'] : null;
         $cost = floatval($_POST['cost'] ?? 0);
         $notes = trim($_POST['notes'] ?? '');
         
         if ($assetId) {
-            $stmt = $pdo->prepare("INSERT INTO asset_maintenance_logs (asset_id, repair_date, cost, notes) VALUES (?, ?, ?, ?)");
-            if ($stmt->execute([$assetId, $repairDate, $cost, $notes])) {
+            $stmt = $pdo->prepare("INSERT INTO asset_maintenance_logs (asset_id, repair_date, next_service_date, cost, notes) VALUES (?, ?, ?, ?, ?)");
+            if ($stmt->execute([$assetId, $repairDate, $nextServiceDate, $cost, $notes])) {
                 $_SESSION['success'] = 'maintenance_logged';
                 header('Content-Type: application/json');
                 echo json_encode(['success' => true]);
@@ -240,12 +241,13 @@ include 'includes/header.php';
                         <th style="padding: 1rem; text-align: left; color: #64748b; font-size: 0.85rem;">Asset Name</th>
                         <th style="padding: 1rem; text-align: left; color: #64748b; font-size: 0.85rem;">Category</th>
                         <th style="padding: 1rem; text-align: left; color: #64748b; font-size: 0.85rem;">Code</th>
-                        <th style="padding: 1rem; text-align: left; color: #64748b; font-size: 0.85rem;">Quantity</th>
                         <th style="padding: 1rem; text-align: left; color: #64748b; font-size: 0.85rem;">Unit</th>
                         <th style="padding: 1rem; text-align: left; color: #64748b; font-size: 0.85rem;">Assigned</th>
-                        <th style="padding: 1rem; text-align: left; color: #64748b; font-size: 0.85rem;">Status</th>
-                        <th style="padding: 1rem; text-align: left; color: #64748b; font-size: 0.85rem;">Actions</th>
-                    </tr>
+<th style="padding: 1rem; text-align: left; color: #64748b; font-size: 0.85rem;">Status</th>
+<th style="padding: 1rem; text-align: left; color: #64748b; font-size: 0.85rem;">AMC</th>
+<th style="padding: 1rem; text-align: left; color: #64748b; font-size: 0.85rem;">Actions</th>         
+           </tr>
+
                 </thead>
                 <tbody>
                     <?php if (!empty($assets)): ?>
@@ -266,7 +268,6 @@ include 'includes/header.php';
                                 </td>
                                 <td style="padding: 1rem;"><?= htmlspecialchars($asset['category_name'] ?? 'Uncategorized') ?></td>
                                 <td style="padding: 1rem; font-family: monospace;"><?= htmlspecialchars($asset['asset_code']) ?></td>
-                                <td style="padding: 1rem;"><?= htmlspecialchars($asset['stock_quantity']) ?></td>
                                 <td style="padding: 1rem;">Piece</td>
                                 <td style="padding: 1rem;"><?= htmlspecialchars($asset['assigned_to'] ?? 'Unassigned') ?></td>
                              <td style="padding: 1rem;">
@@ -291,14 +292,25 @@ include 'includes/header.php';
 
     </span>
 
+<td style="padding: 1rem;">
+    <?= htmlspecialchars($asset['amc_status'] ?? 'No') ?>
 </td>
                                 <td style="padding: 1rem;">
                                     <div style="display: flex; gap: 0.5rem;">
                                         <button class="btn-icon" title="Edit" type="button" data-action="edit" data-id="<?= $asset['id'] ?>"><i class="ri-edit-line"></i></button>
                                         <button class="btn-icon" title="Manage Stock" type="button" data-action="stock" data-id="<?= $asset['id'] ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" data-code="<?= htmlspecialchars($asset['asset_code']) ?>" data-qty="<?= intval($asset['stock_quantity']) ?>"><i class="ri-stack-line"></i></button>
                                         <button class="btn-icon" title="Assign" type="button" data-action="assign" data-id="<?= $asset['id'] ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" data-code="<?= htmlspecialchars($asset['asset_code']) ?>" data-qty="<?= intval($asset['stock_quantity']) ?>"><i class="ri-user-add-line"></i></button>
-                                        <button class="btn-icon" title="Maintenance Logs" type="button" data-action="maintenance" data-id="<?= $asset['id'] ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" data-code="<?= htmlspecialchars($asset['asset_code']) ?>"><i class="ri-tools-line"></i></button>
-                                        <button class="btn-icon" title="Delete" type="button" style="color: #ef4444;" data-action="delete" data-id="<?= $asset['id'] ?>"><i class="ri-delete-bin-line"></i></button>
+<?php if(($asset['amc_status'] ?? 'No') == 'Yes'): ?>
+<button class="btn-icon"
+        title="AMC Maintenance Logs"
+        type="button"
+        data-action="maintenance"
+        data-id="<?= $asset['id'] ?>"
+        data-name="<?= htmlspecialchars($asset['name']) ?>"
+        data-code="<?= htmlspecialchars($asset['asset_code']) ?>">
+    <i class="ri-tools-line"></i>
+</button>
+<?php endif; ?>                                        <button class="btn-icon" title="Delete" type="button" style="color: #ef4444;" data-action="delete" data-id="<?= $asset['id'] ?>"><i class="ri-delete-bin-line"></i></button>
                                     </div>
                                 </td>
                             </tr>
@@ -349,10 +361,7 @@ include 'includes/header.php';
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                    <div class="form-group">
-                        <label class="form-label">Quantity</label>
-                        <input type="number" name="stock_quantity" id="assetQuantity" class="form-control" value="1" min="0">
-                    </div>
+
                     <div class="form-group">
                         <label class="form-label">Condition</label>
                         <select name="condition_status" id="assetCondition" class="form-select">
@@ -369,9 +378,23 @@ include 'includes/header.php';
                         <input type="date" name="purchase_date" id="assetPurchaseDate" class="form-control">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">AMC Details</label>
-                        <input type="text" name="amc_details" id="assetAmcDetails" class="form-control" placeholder="Contract # or Provider">
-                    </div>
+<div class="form-group">
+    <label class="form-label">AMC Available?</label>
+
+    <div style="display:flex;gap:10px;margin-top:8px;">
+
+        <label>
+            <input type="radio" name="amc_status" value="Yes">
+            Yes
+        </label>
+
+        <label>
+            <input type="radio" name="amc_status" value="No" checked>
+            No
+        </label>
+
+    </div>
+</div>                    </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
@@ -384,17 +407,7 @@ include 'includes/header.php';
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Last Maintenance</label>
-                        <input type="date" name="last_maintenance" id="assetMaintenance" class="form-control">
-                    </div>
-                </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                    <div class="form-group">
-                        <label class="form-label">Next Service Due</label>
-                        <input type="date" name="next_service_date" id="assetNextService" class="form-control">
-                    </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Save Asset</button>
@@ -488,7 +501,7 @@ include 'includes/header.php';
 <div id="maintenanceModal" class="modal">
     <div class="modal-card" style="width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
         <div class="modal-header" style="background: #f59e0b; color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0;"><i class="ri-tools-fill"></i> Maintenance Logs</h3>
+            <h3 style="margin: 0;"><i class="ri-tools-fill"></i>AMC  Maintenance Logs</h3>
             <i class="ri-close-line" style="cursor: pointer; font-size: 1.5rem;" onclick="closeModal('maintenanceModal')"></i>
         </div>
         <div class="modal-body" style="padding: 1.5rem; overflow-y: auto;">
@@ -505,17 +518,34 @@ include 'includes/header.php';
 
             <form id="maintenanceForm" style="display: grid; gap: 1rem; margin-bottom: 2rem; background: #fffbeb; padding: 1rem; border: 1px dashed #fcd34d; border-radius: 8px;">
                 <input type="hidden" id="maintAssetId" value="">
-                <h5 style="margin: 0; color: #b45309;">Log New Service</h5>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div class="form-group">
-                        <label class="form-label">Repair/Service Date</label>
-                        <input type="date" id="maintDate" class="form-control" required value="<?= date('Y-m-d') ?>">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Cost (₹)</label>
-                        <input type="number" step="0.01" id="maintCost" class="form-control" value="0.00" min="0">
-                    </div>
-                </div>
+                <h5 style="margin: 0; color: #b45309;"> New Service</h5>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+
+    <div class="form-group">
+        <label class="form-label">Last service date</label>
+        <input type="date" id="maintDate" class="form-control" required>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">Next Service Due</label>
+        <input type="date" id="maintNextService" class="form-control">
+    </div>
+
+</div>
+
+<div style="margin-top:1rem;">
+
+    <div class="form-group">
+        <label class="form-label">Cost (₹)</label>
+        <input type="number"
+               step="0.01"
+               id="maintCost"
+               class="form-control"
+               value="0.00"
+               min="0">
+    </div>
+
+</div>
                 <div class="form-group">
                     <label class="form-label">Notes/Details</label>
                     <textarea id="maintNotes" class="form-control" rows="2" placeholder="e.g. Replaced motor belt, oil change..."></textarea>
@@ -528,7 +558,8 @@ include 'includes/header.php';
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                     <thead style="background: #f1f5f9;">
                         <tr>
-                            <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e2e8f0;">Date</th>
+                            <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e2e8f0;">Last Service Date</th>
+                            <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e2e8f0;">Next Service Date</th>
                             <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e2e8f0;">Details</th>
                             <th style="padding: 0.75rem; text-align: right; border-bottom: 1px solid #e2e8f0;">Cost</th>
                         </tr>
@@ -589,13 +620,16 @@ include 'includes/header.php';
             document.getElementById('assetName').value = asset.name || '';
             document.getElementById('assetCode').value = asset.asset_code || '';
             document.getElementById('assetCategory').value = asset.category_id || '';
-            document.getElementById('assetQuantity').value = asset.stock_quantity || 0;
             document.getElementById('assetCondition').value = asset.condition_status || 'Good';
             document.getElementById('assetAssigned').value = asset.assigned_employee_id || '';
-            document.getElementById('assetMaintenance').value = asset.last_maintenance || '';
             document.getElementById('assetPurchaseDate').value = asset.purchase_date || '';
-            document.getElementById('assetAmcDetails').value = asset.amc_details || '';
-            document.getElementById('assetNextService').value = asset.next_service_date || '';
+            const amcRadio = document.querySelector(
+    `input[name="amc_status"][value="${asset.amc_status || 'No'}"]`
+);
+
+if (amcRadio) {
+    amcRadio.checked = true;
+}
         }
 
         modal.style.display = 'flex';
@@ -739,15 +773,21 @@ include 'includes/header.php';
         });
     }
 
-    function openAssetModal() {
-        const modal = document.getElementById('assetModal');
-        const form = document.getElementById('assetForm');
-        form.reset();
-        document.getElementById('asset_id').value = '';
-        document.getElementById('assetModalTitle').innerText = 'Add New Asset';
-        modal.style.display = 'flex';
-    }
+function openAssetModal() {
+    const modal = document.getElementById('assetModal');
+    const form = document.getElementById('assetForm');
 
+    form.reset();
+
+    document.querySelector(
+        'input[name="amc_status"][value="No"]'
+    ).checked = true;
+
+    document.getElementById('asset_id').value = '';
+    document.getElementById('assetModalTitle').innerText = 'Add New Asset';
+
+    modal.style.display = 'flex';
+}
     function manageMaintenance(id, name, code) {
         document.getElementById('maintAssetId').value = id;
         document.getElementById('maintAssetName').innerText = name;
@@ -772,13 +812,16 @@ include 'includes/header.php';
                 } else {
                     let html = '';
                     data.logs.forEach(log => {
-                        html += `
-                            <tr style="border-bottom: 1px solid #f1f5f9;">
-                                <td style="padding: 0.75rem;">${log.repair_date}</td>
-                                <td style="padding: 0.75rem;">${log.notes || '-'}</td>
-                                <td style="padding: 0.75rem; text-align: right; font-weight: 600;">₹${parseFloat(log.cost).toFixed(2)}</td>
-                            </tr>
-                        `;
+html += `
+<tr style="border-bottom: 1px solid #f1f5f9;">
+    <td style="padding: 0.75rem;">${log.repair_date || '-'}</td>
+    <td style="padding: 0.75rem;">${log.next_service_date || '-'}</td>
+    <td style="padding: 0.75rem;">${log.notes || '-'}</td>
+    <td style="padding: 0.75rem; text-align: right; font-weight: 600;">
+        ₹${parseFloat(log.cost).toFixed(2)}
+    </td>
+</tr>
+`;
                     });
                     tbody.innerHTML = html;
                 }
@@ -790,6 +833,7 @@ include 'includes/header.php';
         const date = document.getElementById('maintDate').value;
         const cost = document.getElementById('maintCost').value;
         const notes = document.getElementById('maintNotes').value;
+        const nextService = document.getElementById('maintNextService').value;
 
         if (!assetId || !date) {
             Swal.fire('Error', 'Please enter a valid date', 'error');
@@ -799,8 +843,7 @@ include 'includes/header.php';
         fetch(window.location.href, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `action=save_maintenance&asset_id=${assetId}&repair_date=${date}&cost=${cost}&notes=${encodeURIComponent(notes)}`
-        })
+body: `action=save_maintenance&asset_id=${assetId}&repair_date=${date}&next_service_date=${nextService}&cost=${cost}&notes=${encodeURIComponent(notes)}`        })
         .then(r => r.json())
         .then(data => {
             if (data.success) {

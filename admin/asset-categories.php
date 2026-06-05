@@ -638,6 +638,5 @@ window.onload = function () {
 </script>
 
 <?php unset($_SESSION['success']); ?>
-
 <?php endif; ?>
 <?php include 'includes/footer.php'; ?>

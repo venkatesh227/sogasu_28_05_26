@@ -33,7 +33,6 @@ $totalMaintenanceCost = 0;
 foreach($maintenanceLogs as $log) {
     $totalMaintenanceCost += floatval($log['cost']);
 }
-
 // 2. Upcoming Service Schedule
 $serviceParams = [];
 $serviceQuery = "SELECT id, name, asset_code, next_service_date, condition_status 
