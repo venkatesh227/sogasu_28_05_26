@@ -88,8 +88,10 @@ $order = $stmt->fetch();
 // ===== HANDLE POST UPDATE =====
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        $assigned_id = $_POST['assigned_employee_id'] ?: null;
-        $status = $_POST['order_status'] ?? 'pending';
+$assigned_id = !empty($_POST['assigned_employee_id'])
+    ? $_POST['assigned_employee_id']
+    : $order['assigned_employee_id'];
+            $status = $_POST['order_status'] ?? 'pending';
         $notes = $_POST['notes'] ?? '';
         $rack_id = $_POST['rack_id'] ?: null;
         $existingHistory = $order['status_history'] ?? '';
