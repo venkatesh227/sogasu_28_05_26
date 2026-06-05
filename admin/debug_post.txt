@@ -1,33 +1,29 @@
 Array
 (
-    [customer_id] => 2
-    [mobile_number] => 8888888888
+    [customer_id] => 1
+    [mobile_number] => 7981242293
     [family_member_id] => 
     [delivery_address] => Nandulapet, Tenali
-    [category_id] => 1
-    [sub_category_id] => 1
+    [category_id] => 3
+    [sub_category_id] => 4
     [fabric_details] => cotton
-    [due_date] => 2026-06-06
+    [due_date] => 2026-06-07
     [measurement_unit] => CMS
     [measurements] => Array
         (
-            [Plain Blouse] => 11
-            [Sholder] => 11
-            [Chest] => 11
-            [Shoulder Strap] => 11
-            [Waist] => 11
-            [Arm Round] => 11
-            [Arm Hole] => 11
-            [Front Length] => 11
+            [Sholder] => 22
+            [hand] => 22
+            [Height] => 22
+            [Width] => 22
         )
 
-    [design_notes] => Back Zipper
+    [design_notes] => test
     [selected_services] => Array
         (
-            [0] => 1
+            [0] => 2
         )
 
-    [base_price] => 800.00
+    [base_price] => 1.00
     [extra_charges] => 300
     [advance_amount] => 200
     [advance_payment_mode] => Cash

@@ -133,6 +133,7 @@ $stmt = $pdo->query("SELECT * FROM racks");
 $all_racks = $stmt->fetchAll();
 
 // Fetch Employee Workload for Chart
+// Fetch Employee Workload for Chart
 $workloadStmt = $pdo->prepare("
     SELECT 
         e.first_name,
@@ -179,17 +180,68 @@ $chartLabels = array_column($workloadData, 'first_name');
 $chartCounts = array_column($workloadData, 'order_count');
 
 // Fetch Detailed Employee Workload statistics
-$empWorkloadStmt = $pdo->query("
-    SELECT e.id, e.first_name, e.last_name, e.job_role,
-           COUNT(o.id) as total_assigned,
-           SUM(CASE WHEN o.order_status NOT IN ('completed', 'delivered', 'cancelled') AND o.order_status IS NOT NULL THEN 1 ELSE 0 END) as pending_tasks
+$empWorkloadStmt = $pdo->prepare("
+    SELECT 
+        e.id,
+        e.first_name,
+        e.last_name,
+        e.job_role,
+
+        (
+            COUNT(DISTINCT o.id)
+            +
+            COUNT(DISTINCT co.id)
+        ) as total_assigned,
+
+        (
+            COUNT(
+                DISTINCT CASE
+                    WHEN o.order_status NOT IN ('completed', 'delivered', 'cancelled')
+                    THEN o.id
+                END
+            )
+            +
+            COUNT(
+                DISTINCT CASE
+                    WHEN co.status NOT IN ('completed', 'delivered', 'cancelled')
+                    THEN co.id
+                END
+            )
+        ) as pending_tasks
+
     FROM employees e
-    LEFT JOIN orders o ON e.id = o.assigned_employee_id AND o.is_deleted = 0
-    WHERE e.status = 1 AND e.is_deleted = 0 AND e.job_role != 'Supervisor'
+
+    LEFT JOIN orders o 
+        ON e.id = o.assigned_employee_id
+        AND o.is_deleted = 0
+
+    LEFT JOIN customer_orders co
+        ON e.id = co.assigned_employee_id
+        AND co.is_deleted = 0
+
+    WHERE 
+        e.status = 1
+        AND e.is_deleted = 0
+        AND e.job_role != 'Supervisor'
+        AND (
+            e.supervisor_id = ?
+            OR e.id = ?
+        )
+
     GROUP BY e.id
+
+    HAVING total_assigned > 0
+
     ORDER BY pending_tasks DESC
 ");
-$employee_workloads = $empWorkloadStmt->fetchAll();
+
+$empWorkloadStmt->execute([
+    $employee_id,
+    $employee_id
+]);
+
+$employee_workloads = $empWorkloadStmt->fetchAll(PDO::FETCH_ASSOC);
+
 
 // Fetch Overall Order Status Counts for Supervisor
 $statusCountsStmt = $pdo->prepare("

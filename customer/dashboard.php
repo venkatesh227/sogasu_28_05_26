@@ -78,6 +78,40 @@ foreach ($data as $row) {
         <i class="ri-t-shirt-air-line"
             style="position: absolute; right: -20px; bottom: -20px; font-size: 8rem; opacity: 0.2; transform: rotate(-15deg);"></i>
     </div>
+    <?php
+
+    /*
+    |--------------------------------------------------------------------------
+    | FETCH CUSTOMER ACTIVE ORDERS
+    |--------------------------------------------------------------------------
+    */
+
+    $activeOrdersStmt = $pdo->prepare("
+
+    SELECT
+        co.order_code,
+        co.status AS final_status,
+        co.status_history,
+        co.created_at,
+        sc.name AS sub_category_name
+
+    FROM customer_orders co
+
+    LEFT JOIN sub_categories sc
+        ON co.sub_category_id = sc.id
+
+    WHERE co.user_id = ?
+    AND co.status NOT IN ('completed', 'cancelled')
+
+    ORDER BY co.created_at DESC
+
+");
+
+    $activeOrdersStmt->execute([$customerId]);
+
+    $activeOrders = $activeOrdersStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    ?>
 
     <!-- Active Orders -->
     <div class="section-title">
@@ -85,44 +119,197 @@ foreach ($data as $row) {
         <a href="my-orders.php" style="color: var(--primary); font-size: 0.85rem; text-decoration: none;">View All</a>
     </div>
 
-    <div class="card">
-        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
-            <div
-                style="width: 60px; height: 60px; background: var(--background); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
-                <i class="ri-t-shirt-line" style="font-size: 1.5rem;"></i>
-            </div>
-            <div style="flex: 1;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                    <div style="font-weight: 600; color: var(--text-main);">Silk Blouse</div>
-                    <span class="badge progress">Stitching</span>
+    <?php if (!empty($activeOrders)): ?>
+
+        <?php foreach ($activeOrders as $order): ?>
+
+            <?php
+
+            $currentStatus = strtolower(trim($order['final_status']));
+
+            $steps = [];
+
+            if (!empty($order['status_history'])) {
+
+                $steps = array_filter(array_map('trim', explode(',', $order['status_history'])));
+
+                $steps = array_unique($steps);
+
+                if (!in_array($currentStatus, $steps)) {
+                    $steps[] = $currentStatus;
+                }
+
+            } else {
+
+                $steps = ['pending'];
+
+            }
+
+            $totalSteps = count($steps);
+            $lastIndex = $totalSteps - 1;
+
+            ?>
+
+            <a href="track-order.php?order_code=<?= urlencode($order['order_code']) ?>"
+                style="text-decoration:none;color:inherit;display:block;">
+
+                <div class="card" style="margin-bottom:1rem;">
+
+                    <div style="display:flex;gap:1rem;margin-bottom:1rem;">
+
+                        <div style="
+                        width:60px;
+                        height:60px;
+                        background:var(--background);
+                        border-radius:8px;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        color:var(--text-muted);
+                    ">
+                            <i class="ri-t-shirt-line" style="font-size:1.5rem;"></i>
+                        </div>
+
+                        <div style="flex:1;">
+
+                            <div style="
+                            display:flex;
+                            justify-content:space-between;
+                            margin-bottom:0.25rem;
+                            gap:1rem;
+                        ">
+
+                                <div style="
+                                font-weight:600;
+                                color:var(--text-main);
+                            ">
+                                    <?= htmlspecialchars($order['sub_category_name'] ?: 'Custom Order') ?>
+                                </div>
+
+                                <span class="badge progress">
+                                    <?= ucwords(str_replace('_', ' ', $currentStatus)) ?>
+                                </span>
+
+                            </div>
+
+                            <div style="
+                            color:var(--text-muted);
+                            font-size:0.85rem;
+                        ">
+                                Order #<?= htmlspecialchars($order['order_code']) ?>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- PROGRESS BAR -->
+
+                    <div style="
+                    display:flex;
+                    align-items:center;
+                    gap:0.5rem;
+                    margin-top:1rem;
+                ">
+
+                        <?php foreach ($steps as $index => $step): ?>
+
+                            <?php
+
+                            $completed = $index < $lastIndex;
+                            $current = $index == $lastIndex;
+
+                            ?>
+
+                            <div style="
+                            flex:1;
+                            height:4px;
+                            background:var(--border);
+                            border-radius:2px;
+                            overflow:hidden;
+                        ">
+
+                                <div style="
+                                width:
+                                <?= $completed
+                                    ? '100%'
+                                    : ($current ? '50%' : '0%') ?>;
+
+                                height:100%;
+
+                                background:
+                                <?= $completed
+                                    ? 'var(--success)'
+                                    : ($current ? 'var(--primary)' : 'transparent') ?>;
+
+                                border-radius:2px;
+                            "></div>
+
+                            </div>
+
+                        <?php endforeach; ?>
+
+                    </div>
+
+                    <!-- STEP LABELS -->
+
+                    <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    margin-top:0.5rem;
+                    font-size:0.75rem;
+                    color:var(--text-muted);
+                    gap:0.5rem;
+                    flex-wrap:wrap;
+                ">
+
+                        <?php foreach ($steps as $index => $step): ?>
+
+                            <span style="
+                            <?= $index == $lastIndex
+                                ? 'color:var(--primary);font-weight:600;'
+                                : '' ?>
+                        ">
+                                <?= ucwords(str_replace('_', ' ', $step)) ?>
+                            </span>
+
+                        <?php endforeach; ?>
+
+                    </div>
+
                 </div>
-                <div style="color: var(--text-muted); font-size: 0.85rem;">
-                    Order #2458 • Expected Feb 15
-                </div>
+
+            </a>
+
+        <?php endforeach; ?>
+
+    <?php else: ?>
+
+        <div class="card" style="text-align:center;padding:2rem;">
+
+            <i class="ri-shopping-bag-line" style="
+                font-size:2rem;
+                color:var(--text-muted);
+                margin-bottom:0.5rem;
+                display:block;
+            ">
+            </i>
+
+            <div style="font-weight:600;margin-bottom:0.25rem;">
+                No Active Orders
             </div>
+
+            <div style="
+            font-size:0.9rem;
+            color:var(--text-muted);
+        ">
+                Your active orders will appear here.
+            </div>
+
         </div>
 
-        <!-- Progress Steps -->
-        <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem;">
-            <div style="flex: 1; height: 4px; background: var(--border); border-radius: 2px;">
-                <div style="width: 100%; height: 100%; background: var(--success); border-radius: 2px;"></div>
-            </div>
-            <div style="flex: 1; height: 4px; background: var(--border); border-radius: 2px;">
-                <div style="width: 100%; height: 100%; background: var(--success); border-radius: 2px;"></div>
-            </div>
-            <div style="flex: 1; height: 4px; background: var(--border); border-radius: 2px;">
-                <div style="width: 50%; height: 100%; background: var(--primary); border-radius: 2px;"></div>
-            </div>
-            <div style="flex: 1; height: 4px; background: var(--border); border-radius: 2px;"></div>
-        </div>
-        <div
-            style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">
-            <span>Cut</span>
-            <span>Design</span>
-            <span style="color: var(--primary); font-weight: 600;">Stitch</span>
-            <span>Finish</span>
-        </div>
-    </div>
+    <?php endif; ?>
 
 
     <!-- Services / Categories -->
