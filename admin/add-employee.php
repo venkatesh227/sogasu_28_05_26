@@ -40,18 +40,34 @@ if ($id) {
 }
 $selectedBranch = $_POST['branch'] ?? ($old['branch'] ?? '');
 
-$supervisorStmt = $pdo->prepare("
-    SELECT id, first_name, last_name, job_role
-    FROM employees
-    WHERE status = 1
-    AND job_role = 'Supervisor'
-    AND branch = ?
-    ORDER BY first_name ASC
-");
+if (!empty($selectedBranch)) {
 
-$supervisorStmt->execute([$selectedBranch]);
+    $supervisorStmt = $pdo->prepare("
+        SELECT id, first_name, last_name, job_role
+        FROM employees
+        WHERE status = 1
+        AND job_role = 'Supervisor'
+        AND branch = ?
+        ORDER BY first_name ASC
+    ");
+
+    $supervisorStmt->execute([$selectedBranch]);
+
+} else {
+
+    $supervisorStmt = $pdo->prepare("
+        SELECT id, first_name, last_name, job_role
+        FROM employees
+        WHERE status = 1
+        AND job_role = 'Supervisor'
+        ORDER BY first_name ASC
+    ");
+
+    $supervisorStmt->execute();
+}
 
 $supervisorList = $supervisorStmt->fetchAll();
+
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
@@ -639,29 +655,6 @@ include 'includes/header.php'; ?>
     // Run on page load
     document.addEventListener('DOMContentLoaded', toggleSupervisorField);
 </script>
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-
-        const roleSelect = document.querySelector('[name="job_role"]');
-        const supervisorGroup = document.querySelector('#supervisor-group');
-        const supervisorSelect = document.querySelector('[name="supervisor"]');
-
-        function toggleSupervisor() {
-
-            if (roleSelect.value === 'Supervisor') {
-                supervisorGroup.style.display = 'none';
-                supervisorSelect.value = '';
-            } else {
-                supervisorGroup.style.display = 'block';
-            }
-        }
-
-        roleSelect.addEventListener('change', toggleSupervisor);
-
-        toggleSupervisor();
-    });
-</script>
-
 <?php
 include 'includes/footer.php';
 ob_end_flush();

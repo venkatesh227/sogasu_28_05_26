@@ -19,6 +19,7 @@ if ($type === 'customer') {
             co.sub_category_id,
 
             co.status as order_status,
+            co.status_history,
             co.additional_notes as notes,
 
             co.assigned_employee_id,
@@ -55,6 +56,7 @@ if ($type === 'customer') {
             o.sub_category_id,
 
             o.order_status as order_status,
+            o.status_history,
             o.notes as notes,
 
             o.assigned_employee_id,
@@ -90,6 +92,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $status = $_POST['order_status'] ?? 'pending';
         $notes = $_POST['notes'] ?? '';
         $rack_id = $_POST['rack_id'] ?: null;
+        $existingHistory = $order['status_history'] ?? '';
+
+        if (!empty($existingHistory)) {
+
+            $historyArray = explode(',', $existingHistory);
+
+            if (!in_array($status, $historyArray)) {
+                $existingHistory .= ',' . $status;
+            }
+
+        } else {
+
+            $existingHistory = 'pending';
+
+            if ($status !== 'pending') {
+                $existingHistory .= ',' . $status;
+            }
+
+        }
 
         if (($order['order_type'] ?? '') === 'customer') {
 
@@ -98,6 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         SET assigned_employee_id = ?, 
             status = ?, 
             additional_notes = ?,
+            status_history = ?,
             rack_id = ?,
             updated_at = NOW()
         WHERE id = ?
@@ -107,6 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $assigned_id,
                 $status,
                 $notes,
+                $existingHistory,
                 $rack_id,
                 $id
             ]);
@@ -118,6 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         SET assigned_employee_id = ?, 
             order_status = ?, 
             notes = ?,
+            status_history = ?,
             rack_id = ?
         WHERE id = ?
     ");
@@ -126,6 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $assigned_id,
                 $status,
                 $notes,
+                $existingHistory,
                 $rack_id,
                 $id
             ]);

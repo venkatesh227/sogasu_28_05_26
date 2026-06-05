@@ -95,6 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 fabric_details,
                 notes,
                 order_status,
+                status_history,
                 payment_status,
                 supervisor_id,
                 base_price,
@@ -106,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 transaction_reference,
                 due_date,
                 measurement_unit
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
             $stmt->execute([
@@ -119,6 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $design_notes,
                 $order_status,
                 'pending',
+                'unpaid',
                 $supervisor_id,
                 $base_price,
                 $extra_charges,

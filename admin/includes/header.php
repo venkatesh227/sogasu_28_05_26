@@ -717,6 +717,10 @@ if ($required_permission && !has_permission($required_permission)) {
                     <a href="payments.php" class="sub-nav-item <?php echo ($activePage == 'payments') ? 'active' : ''; ?>">
                         <i class="ri-secure-payment-line"></i> Transactions
                     </a>
+                    <a href="expense-categories.php"
+                        class="sub-nav-item <?php echo ($activePage == 'expense-categories') ? 'active' : ''; ?>">
+                        <i class="ri-price-tag-3-line"></i> Expense Categories
+                    </a>
                     <a href="expenses.php" class="sub-nav-item <?php echo ($activePage == 'expenses') ? 'active' : ''; ?>">
                         <i class="ri-creative-commons-nc-line"></i> Expenses
                     </a>

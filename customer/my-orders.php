@@ -242,7 +242,7 @@ include 'includes/header.php';
 
                         </div>
 
-                        <button onclick="window.location.href='track-order.php?id=<?= $order['id'] ?>'"
+                        <button onclick="window.location.href='track-order.php?order_code=<?= urlencode($order['order_code']) ?>'"
                             style="width: 100%; border: 1px solid var(--primary); background: transparent; color: var(--primary); padding: 0.85rem; border-radius: 12px; font-weight: 700; font-size: 0.9rem;">
                             Track Order
                         </button>

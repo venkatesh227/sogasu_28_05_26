@@ -18,8 +18,8 @@ try {
 
     // 1. Fetch current rack_id of the order before we update status
     $stmt_fetch = $pdo->prepare("
-    SELECT rack_id 
-    FROM orders 
+    SELECT rack_id, status_history
+    FROM orders
     WHERE id = ?
 ");
 
@@ -31,8 +31,8 @@ try {
     if (!$order_data) {
 
         $stmt_fetch = $pdo->prepare("
-        SELECT rack_id 
-        FROM customer_orders 
+        SELECT rack_id, status_history
+        FROM customer_orders
         WHERE id = ?
     ");
 
@@ -43,6 +43,23 @@ try {
     }
 
     $current_rack_id = $order_data['rack_id'] ?? null;
+    $existingHistory = $order_data['status_history'] ?? '';
+
+    $historyArray = [];
+
+    if (!empty($existingHistory)) {
+
+        $historyArray = explode(',', $existingHistory);
+
+    }
+
+    if (!in_array($status, $historyArray)) {
+
+        $historyArray[] = $status;
+
+    }
+
+    $newHistory = implode(',', $historyArray);
 
     // 2. Update order status
     if (!$is_customer_order) {
@@ -50,22 +67,24 @@ try {
         $stmt = $pdo->prepare("
         UPDATE orders 
         SET order_status = ?, 
+            status_history = ?,
             updated_at = NOW() 
         WHERE id = ?
     ");
 
-        $stmt->execute([$status, $order_id]);
+        $stmt->execute([$status, $newHistory, $order_id]);
 
     } else {
 
         $stmt = $pdo->prepare("
         UPDATE customer_orders 
         SET status = ?, 
+            status_history = ?,
             updated_at = NOW() 
         WHERE id = ?
     ");
 
-        $stmt->execute([$status, $order_id]);
+        $stmt->execute([$status, $newHistory, $order_id]);
     }
 
     // 3. If order has an assigned rack and status is updated to anything other than 'pending' (started)
