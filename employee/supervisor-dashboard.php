@@ -354,7 +354,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $salaryStmt->execute([$employee_id]);
     $salaryAmount = floatval($salaryStmt->fetchColumn() ?: 0);
 
-    $amount = ($salaryAmount * $rate) / 100;
+    $hourlyRate = $salaryAmount / 30 / 8;
+    $baseAmount = $hourlyRate * $hours;
+    $amount = $baseAmount + ($baseAmount * $rate / 100);
 
     $stmt = $pdo->prepare("INSERT INTO employee_overtime (employee_id, ot_date, hours, amount, description, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
 

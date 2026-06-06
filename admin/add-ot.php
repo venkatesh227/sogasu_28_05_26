@@ -36,9 +36,10 @@ $otPercentage = $otStmt->fetchColumn() ?: 0;
 
 $salaryAmount = floatval($employee['base_salary']);
 
-// OT is calculated as a percentage of the employee's salary for the selected date range.
-// Hours are recorded for tracking, but the payout is based on salary percentage.
-$amount = ($salaryAmount * $otPercentage) / 100;
+// Calculate hourly pay from monthly salary assuming 30 days and 8 working hours per day.
+$hourlyRate = $salaryAmount / 30 / 8;
+$baseOvertime = $hourlyRate * $hours;
+$amount = $baseOvertime + ($baseOvertime * $otPercentage / 100);
     // Auto-approve if entered by Admin or Supervisor
     $status = (isset($_SESSION['role']) && ($_SESSION['role'] === 'super_admin' || $_SESSION['role'] === 'supervisor')) ? 'Approved' : 'Pending';
     
@@ -142,7 +143,7 @@ include 'includes/header.php';
                  <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 1.25rem; border-radius: 8px; text-align: center;">
                      <div style="font-size: 0.8rem; color: #166534; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Total OT Amount</div>
                      <div id="estimated_amount" style="font-size: 1.75rem; font-weight: 800; color: #15803d;">₹ 0.00</div>
-                     <div id="estimated_note" style="font-size: 0.75rem; color: #166534; margin-top: 0.5rem;">Amount = Salary × OT rate (%)</div>
+                     <div id="estimated_note" style="font-size: 0.75rem; color: #166534; margin-top: 0.5rem;">Amount = (Salary ÷ 30 ÷ 8) × Hours × (1 + OT rate)</div>
                  </div>
 
             </div>
@@ -206,7 +207,11 @@ include 'includes/header.php';
 function calculateOT() {
     const salary = <?= floatval($employee['base_salary']) ?>;
     const rate = <?= floatval($otPercentage ?? 0) ?>;
-    const amount = ((salary * rate) / 100).toFixed(2);
+    const hours = parseFloat(document.getElementById('hours').value) || 0;
+    const hourlyRate = salary / 30 / 8;
+    const baseAmount = hourlyRate * hours;
+    const totalAmount = baseAmount + (baseAmount * rate / 100);
+    const amount = totalAmount.toFixed(2);
     const display = isFinite(amount) ? `₹ ${amount}` : '₹ 0.00';
     document.getElementById('estimated_amount').innerText = display;
 }

@@ -163,8 +163,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $salaryStmt->execute([$employee_id]);
     $salaryAmount = floatval($salaryStmt->fetchColumn() ?: 0);
 
-    // OT payout uses salary percentage. Hours remain for tracking and approval.
-    $amount = ($salaryAmount * $rate) / 100;
+    // OT payout calculates hourly pay from monthly salary and adds the OT premium.
+    $hourlyRate = $salaryAmount / 30 / 8;
+    $baseAmount = $hourlyRate * $hours;
+    $amount = $baseAmount + ($baseAmount * $rate / 100);
     
     $stmt = $pdo->prepare("INSERT INTO employee_overtime (employee_id, ot_date, hours, amount, description, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
     if ($stmt->execute([$employee_id, $date, $hours, $amount, $desc])) {

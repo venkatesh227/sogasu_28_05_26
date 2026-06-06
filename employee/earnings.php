@@ -185,7 +185,7 @@ if ($item['type'] == 'Salary') {
     echo $item['type'];
 }
 ?>
-                        </div>
+             </div>
                         </div>
                     </div>
                     <div style="text-align: right;">

@@ -75,7 +75,8 @@ $totalOT = 0;
 
 foreach ($employees as &$row) {
     $monthly_base = floatval($row['base_salary']);
-    $per_day = $monthly_base / 30; // Assuming 30 days for daily rate
+    $per_day = $monthly_base / 30; 
+    // Assuming 30 days for daily rate
     
     $present_days = intval($row['present_days']);
     $half_days = intval($row['half_days']);
