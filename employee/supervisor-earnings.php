@@ -51,8 +51,7 @@ $overtimes = $stmt->fetchAll();
 
 
 // Merge and sort by date
-$history = array_merge($payments, $overtimes);
-
+$history = $payments;
 usort($history, function($a, $b) {
     return strtotime($b['date']) - strtotime($a['date']);
 });

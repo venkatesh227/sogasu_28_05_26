@@ -517,7 +517,6 @@ $today_holiday = $h_stmt->fetch();
                 style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 0.4rem 0.8rem; border-radius: 8px; font-size: 0.75rem; font-weight: 600;">Full
                 Report <i class="ri-arrow-right-s-line"></i></button>
         </div>
-
         <!-- Decoration -->
         <i class="ri-shield-user-line"
             style="position: absolute; right: -10px; top: -10px; font-size: 5rem; opacity: 0.1; transform: rotate(-15deg);"></i>

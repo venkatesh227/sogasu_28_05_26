@@ -16,7 +16,7 @@ require_once __DIR__ . '/includes/translations.php';
 $t = $translations[$language] ?? $translations['en'];
 
 // Fetch employee data
-$stmt = $pdo->prepare("SELECT id, preferred_language FROM employees WHERE user_id = ? AND is_deleted = 0");
+$stmt = $pdo->prepare("SELECT id, preferred_language, job_role, pay_cycle FROM employees WHERE user_id = ? AND is_deleted = 0");
 $stmt->execute([$user_id]);
 $emp = $stmt->fetch();
 
@@ -24,18 +24,41 @@ if (!$emp) {
     die("Employee record not found.");
 }
 
+if (isset($emp['job_role']) && strcasecmp($emp['job_role'], 'Supervisor') === 0) {
+    include 'supervisor-earnings.php';
+    exit();
+}
+
 $employee_id = $emp['id'];
-$stmt = $pdo->prepare("
-    SELECT pay_cycle
-    FROM employees
-    WHERE id = ?
-");
-$stmt->execute([$employee_id]);
-$payCycle = $stmt->fetchColumn();
+$payCycle = $emp['pay_cycle'];
 if (!isset($_SESSION['language'])) {
     $_SESSION['language'] = $emp['preferred_language'] ?? 'en';
     $language = $_SESSION['language'];
     $t = $translations[$language] ?? $translations['en'];
+}
+
+function isInCurrentPayCycle($date, $payCycle) {
+    $timestamp = strtotime($date);
+    if (!$timestamp) {
+        return false;
+    }
+    if (stripos($payCycle, 'Weekly') !== false) {
+        return date('oW', $timestamp) === date('oW');
+    }
+    if (stripos($payCycle, 'Daily') !== false) {
+        return date('Y-m-d', $timestamp) === date('Y-m-d');
+    }
+    return date('Y-m', $timestamp) === date('Y-m');
+}
+
+function getPayCycleLabel($payCycle) {
+    if (stripos($payCycle, 'Weekly') !== false) {
+        return 'This Week';
+    }
+    if (stripos($payCycle, 'Daily') !== false) {
+        return date('d M Y');
+    }
+    return date('F Y');
 }
 
 // 1. Fetch Payments (Salary, Advance Deductions, etc.)
@@ -43,51 +66,24 @@ $stmt = $pdo->prepare("SELECT id, payment_date as date, description, payment_typ
 $stmt->execute([$employee_id]);
 $payments = $stmt->fetchAll();
 
-// 2. Fetch Overtime
-$stmt = $pdo->prepare("SELECT id, ot_date as date, description, 'OT' as type, amount, status, 'ot' as source FROM employee_overtime WHERE employee_id = ? ORDER BY ot_date DESC LIMIT 20");
-$stmt->execute([$employee_id]);
-$overtimes = $stmt->fetchAll();
-
-// 3. Fetch completed / delivered task order earnings
-$stmt = $pdo->prepare("SELECT id, updated_at as date, order_code, total_amount, order_status FROM orders WHERE assigned_employee_id = ? AND order_status IN ('completed','delivered') AND is_deleted = 0 ORDER BY updated_at DESC LIMIT 20");
-$stmt->execute([$employee_id]);
-$orderEarnings = [];
-foreach ($stmt->fetchAll() as $order) {
-    $orderEarnings[] = [
-        'id' => $order['id'],
-        'date' => $order['date'],
-        'description' => 'Order #' . $order['order_code'],
-        'type' => 'Order',
-        'amount' => $order['total_amount'],
-        'status' => ucfirst($order['order_status']),
-        'source' => 'order',
-    ];
-}
-
-// Merge and sort by date
-$history = array_merge($payments, $overtimes, $orderEarnings);
-usort($history, function($a, $b) {
-    return strtotime($b['date']) - strtotime($a['date']);
-});
-
-// 3. Calculate Stats for Current Month
-$currentMonth = date('Y-m');
+// 3. Calculate Stats for Current Period
+$periodLabel = getPayCycleLabel($payCycle);
 $totalEarned = 0;
 $pendingAmount = 0;
 
-foreach ($history as $item) {
-    if (strpos($item['date'], $currentMonth) === 0) {
-        if ($item['source'] === 'order') {
+$filteredHistory = array_values(array_filter($payments, function ($item) use ($payCycle) {
+    return isInCurrentPayCycle($item['date'], $payCycle);
+}));
+
+foreach ($filteredHistory as $item) {
+    if (strtolower($item['status']) === 'paid' || strtolower($item['status']) === 'approved') {
+        if ($item['type'] === 'Advance Deduction') {
+            $totalEarned -= $item['amount'];
+        } else {
             $totalEarned += $item['amount'];
-        } elseif ($item['status'] === 'Paid' || $item['status'] === 'Approved') {
-            if ($item['type'] === 'Advance Deduction') {
-                $totalEarned -= $item['amount'];
-            } else {
-                $totalEarned += $item['amount'];
-            }
-        } elseif ($item['status'] === 'Pending') {
-            $pendingAmount += $item['amount'];
         }
+    } elseif (strtolower($item['status']) === 'pending') {
+        $pendingAmount += $item['amount'];
     }
 }
 
@@ -106,7 +102,7 @@ include 'includes/header.php';
         </div>
         
         <div style="position: relative; z-index: 1;">
-            <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; margin-bottom: 0.5rem;"><?= date('F Y') ?> Earnings</div>
+            <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; margin-bottom: 0.5rem;"><?= htmlspecialchars($periodLabel) ?> Earnings</div>
             <div style="font-size: 2.75rem; font-weight: 800; line-height: 1; margin-bottom: 1.5rem;">₹<?= number_format($totalEarned, 0) ?></div>
             
             <div style="display: flex; gap: 0.75rem;">
@@ -141,7 +137,7 @@ if (stripos($payCycle, 'Monthly') !== false) {
         <i class="ri-filter-3-line" style="color: #64748b;"></i>
     </div>
 
-    <?php if (empty($history)): ?>
+    <?php if (empty($filteredHistory)): ?>
         <div class="card" style="text-align: center; padding: 3rem 1.5rem; border-style: dashed;">
             <div style="width: 60px; height: 60px; background: #f1f5f9; color: #94a3b8; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
                 <i class="ri-history-line" style="font-size: 1.5rem;"></i>
@@ -151,11 +147,6 @@ if (stripos($payCycle, 'Monthly') !== false) {
     <?php else: ?>
         <div class="card" style="padding: 0; overflow: hidden; border-radius: 20px;">
 <?php
-$currentMonth = date('Y-m');
-$filteredHistory = array_filter($history, function($item) use ($currentMonth) {
-    return strpos($item['date'], $currentMonth) === 0;
-});
-
 foreach ($filteredHistory as $index => $item):
 ?>                <div style="padding: 1.25rem; border-bottom: <?= ($index === count($filteredHistory)-1) ? 'none' : '1px solid #f1f5f9' ?>; display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; gap: 1rem; align-items: center;">

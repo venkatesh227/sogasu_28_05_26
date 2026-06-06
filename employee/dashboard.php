@@ -17,7 +17,7 @@ $t = $translations[$language] ?? $translations['en'];
 
 // Fetch employee data and job role
 $stmt = $pdo->prepare("
-    SELECT e.id, e.first_name, e.last_name, e.preferred_language, e.job_role
+    SELECT e.id, e.first_name, e.last_name, e.preferred_language, e.job_role, e.pay_cycle
     FROM employees e 
     WHERE e.user_id = ? AND e.is_deleted = 0
 ");
@@ -25,34 +25,47 @@ $stmt->execute([$user_id]);
 $emp = $stmt->fetch();
 
 $employee_id = null;
+$payCycle = '';
+$periodLabel = date('M');
 if ($emp) {
     $employee_id = $emp['id'];
     $employee_name = $emp['first_name'] . ' ' . ($emp['last_name'] ?? '');
     $role_name = $emp['job_role'] ?? '';
+    $payCycle = $emp['pay_cycle'] ?? '';
 
-    if ($role_name === 'Supervisor') {
+    if (isset($role_name) && strcasecmp($role_name, 'Supervisor') === 0) {
         include 'supervisor-dashboard.php';
         exit();
     }
 }
+
+function getCurrentPayCycleCondition($column, $payCycle) {
+    if (stripos($payCycle, 'Weekly') !== false) {
+        return "YEARWEEK($column, 1) = YEARWEEK(CURRENT_DATE(), 1)";
+    }
+    if (stripos($payCycle, 'Daily') !== false) {
+        return "DATE($column) = CURRENT_DATE()";
+    }
+    return "MONTH($column) = MONTH(CURRENT_DATE()) AND YEAR($column) = YEAR(CURRENT_DATE())";
+}
+
+function getCurrentPeriodLabel($payCycle) {
+    if (stripos($payCycle, 'Weekly') !== false) {
+        return 'This Week';
+    }
+    if (stripos($payCycle, 'Daily') !== false) {
+        return date('d M Y');
+    }
+    return date('F Y');
+}
+
+$periodLabel = getCurrentPeriodLabel($payCycle);
 
 // Fetch pending tasks count
 $stmt = $pdo->prepare("SELECT COUNT(*) as pending_count FROM orders WHERE assigned_employee_id = ? AND order_status IN ('pending', 'processing', 'ready', 'pattern_making', 'cutting', 'embroidery', 'stitching', 'finishing', 'completed') AND is_deleted = 0");
 $stmt->execute([$employee_id]);
 $pending = $stmt->fetch();
 $pending_tasks = $pending['pending_count'] ?? 0;
-
-// Fetch earnings for the current month
-$stmt = $pdo->prepare("
-    SELECT COALESCE(SUM(total_amount), 0) as total
-    FROM orders
-    WHERE assigned_employee_id = ?
-    AND order_status = 'delivered'
-    AND is_deleted = 0
-    AND MONTH(updated_at) = MONTH(CURRENT_DATE())
-");
-$stmt->execute([$employee_id]);
-$earnings_month = $stmt->fetchColumn();
 
 // Fetch Active Tasks (Urgent first)
 $stmt = $pdo->prepare("
@@ -79,30 +92,15 @@ $active_tasks = $stmt->fetchAll();
 $currentMonth = date('Y-m');
 $totalEarned = 0;
 
-// Get Salary/Payments
-$stmt = $pdo->prepare("SELECT SUM(amount) FROM employee_payments WHERE employee_id = ? AND status = 'Paid' AND payment_date LIKE ? AND payment_type != 'Advance Deduction'");
-$stmt->execute([$emp['id'], $currentMonth . '%']);
-$totalEarned += $stmt->fetchColumn() ?: 0;
-
-// Subtract Deductions
-$stmt = $pdo->prepare("SELECT SUM(amount) FROM employee_payments WHERE employee_id = ? AND status = 'Paid' AND payment_date LIKE ? AND payment_type = 'Advance Deduction'");
-$stmt->execute([$emp['id'], $currentMonth . '%']);
-$totalEarned -= $stmt->fetchColumn() ?: 0;
-
-// Add Approved OT
-$stmt = $pdo->prepare("SELECT SUM(amount) FROM employee_overtime WHERE employee_id = ? AND status = 'Approved' AND ot_date LIKE ?");
-$stmt->execute([$emp['id'], $currentMonth . '%']);
-$totalEarned += $stmt->fetchColumn() ?: 0;
-// Add Completed / Delivered Order Earnings
-$stmt = $pdo->prepare("
-    SELECT COALESCE(SUM(total_amount),0)
-    FROM orders
-    WHERE assigned_employee_id = ?
-    AND order_status IN ('completed','delivered')
-    AND is_deleted = 0
-");
+$dateClause = getCurrentPayCycleCondition('payment_date', $payCycle);
+$stmt = $pdo->prepare("SELECT SUM(amount) FROM employee_payments WHERE employee_id = ? AND status IN ('Paid', 'Approved') AND payment_type != 'Advance Deduction' AND $dateClause");
 $stmt->execute([$emp['id']]);
 $totalEarned += $stmt->fetchColumn() ?: 0;
+
+$dateClause = getCurrentPayCycleCondition('payment_date', $payCycle);
+$stmt = $pdo->prepare("SELECT SUM(amount) FROM employee_payments WHERE employee_id = ? AND status IN ('Paid', 'Approved') AND payment_type = 'Advance Deduction' AND $dateClause");
+$stmt->execute([$emp['id']]);
+$totalEarned -= $stmt->fetchColumn() ?: 0;
 // Get Active Tasks Count
 $stmt = $pdo->prepare("
     SELECT (
@@ -198,7 +196,7 @@ include 'includes/header.php';
     
     <!-- Top Summary Card -->
     <div class="card" style="background: linear-gradient(135deg, #db2777, #9d174d); border: none; padding: 1.5rem; color: white; border-radius: 20px; position: relative; overflow: hidden; margin-bottom: 1.5rem;">
-        <div style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 0.25rem;">Total Earned (<?= date('M') ?>)</div>
+        <div style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 0.25rem;">Total Earned (<?= htmlspecialchars($periodLabel) ?>)</div>
         <div style="font-size: 2rem; font-weight: 800; margin-bottom: 1rem;">₹ <?= number_format($totalEarned, 0) ?></div>
         
         <div style="display: flex; justify-content: space-between; align-items: flex-end;">
