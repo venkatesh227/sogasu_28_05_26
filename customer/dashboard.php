@@ -477,6 +477,7 @@ foreach ($data as $row) {
     </div>
 
 </div>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 
     function acceptSlot(id) {
@@ -570,6 +571,23 @@ fetch('', {
 });
 
 </script>
+
+<?php endif; ?>
+
+<?php if (!empty($_SESSION['success_message'])): ?>
+
+<script>
+
+Swal.fire({
+    icon: 'success',
+    title: 'Success',
+    text: '<?= $_SESSION['success_message']; ?>',
+    confirmButtonText: 'OK'
+});
+
+</script>
+
+<?php unset($_SESSION['success_message']); ?>
 
 <?php endif; ?>
 <?php include 'includes/bottom-nav.php'; ?>

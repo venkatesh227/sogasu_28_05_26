@@ -1,7 +1,5 @@
 <?php
-
 session_start();
-
 require '../includes/db.php';
 
 $id = $_GET['id'] ?? 0;
@@ -65,6 +63,7 @@ if ($action === 'accept') {
     ");
 
     $update->execute([$id]);
+    $_SESSION['success_message'] = 'Appointment accepted successfully';
 
 }
 
@@ -79,6 +78,7 @@ if ($action === 'reject') {
     ");
 
     $update->execute([$id]);
+    $_SESSION['success_message'] = 'Appointment rejected successfully';
 
 }
 

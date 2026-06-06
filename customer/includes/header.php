@@ -535,3 +535,19 @@ foreach ($conflictNotifications as $notification) {
         </script>
 
     <?php endif; ?>
+    <?php if (!empty($_SESSION['success_message'])): ?>
+
+        <script>
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: '<?= $_SESSION['success_message']; ?>',
+                confirmButtonText: 'OK'
+            });
+
+        </script>
+
+        <?php unset($_SESSION['success_message']); ?>
+
+    <?php endif; ?>
