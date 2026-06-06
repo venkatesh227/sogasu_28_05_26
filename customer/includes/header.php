@@ -3,6 +3,27 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require '../includes/db.php';
+if (
+    isset($_POST['mark_holiday_read']) &&
+    $_POST['mark_holiday_read'] == '1'
+) {
+
+    $stmt = $pdo->prepare("
+
+        UPDATE appointment_notifications
+        SET status = 'read'
+        WHERE user_id = ?
+        AND message LIKE '%holiday%'
+        AND status = 'pending'
+
+    ");
+
+    $stmt->execute([
+        $_SESSION['user_id']
+    ]);
+
+    exit;
+}
 $notificationStmt = $pdo->prepare("
 
     SELECT *
@@ -18,7 +39,22 @@ $notificationStmt->execute([
 ]);
 
 $conflictNotifications = $notificationStmt->fetchAll(PDO::FETCH_ASSOC);
+$showHolidayPopup = false;
+
+foreach ($conflictNotifications as $notification) {
+
+    if (
+        $notification['status'] === 'pending' &&
+        !empty($notification['message']) &&
+        stripos($notification['message'], 'holiday') !== false
+    ) {
+
+        $showHolidayPopup = true;
+        break;
+    }
+}
 ?>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -302,8 +338,25 @@ $conflictNotifications = $notificationStmt->fetchAll(PDO::FETCH_ASSOC);
             <button class="icon-btn notification-btn" onclick="toggleNotifications()">
 
                 <i class="ri-notification-3-line"></i>
+                <?php
 
-                <?php if (!empty($conflictNotifications)): ?>
+                $hasSlotSuggestion = false;
+
+                foreach ($conflictNotifications as $notification) {
+
+                    if (
+                        !empty($notification['suggested_date']) &&
+                        !empty($notification['suggested_time'])
+                    ) {
+
+                        $hasSlotSuggestion = true;
+                        break;
+                    }
+                }
+
+                ?>
+
+                <?php if ($hasSlotSuggestion): ?>
                     <span class="notification-dot"></span>
                 <?php endif; ?>
 
@@ -325,30 +378,45 @@ $conflictNotifications = $notificationStmt->fetchAll(PDO::FETCH_ASSOC);
 
                 <?php foreach ($conflictNotifications as $notification): ?>
 
-                    <div class="notification-item">
 
-                        <div class="notification-title">
-                            Appointment Slot Conflict
+                    <?php if (
+                        !empty($notification['suggested_date']) &&
+                        !empty($notification['suggested_time'])
+                    ): ?>
+
+                        <div class="notification-item">
+
+                            <div class="notification-title">
+                                Appointment Slot Conflict
+                            </div>
+
+                            <div class="notification-text">
+                                Suggested Slot:
+                                <?= date(
+                                    'd M Y - h:i A',
+                                    strtotime(
+                                        $notification['suggested_date'] .
+                                        ' ' .
+                                        $notification['suggested_time']
+                                    )
+                                ) ?>
+                            </div>
+
+                            <div class="notification-actions">
+
+                                <a href="notification-action.php?id=<?= $notification['id'] ?>&action=accept" class="accept-btn">
+                                    Accept
+                                </a>
+
+                                <a href="notification-action.php?id=<?= $notification['id'] ?>&action=reject" class="reject-btn">
+                                    Reject
+                                </a>
+
+                            </div>
+
                         </div>
 
-                        <div class="notification-text">
-                            Suggested Slot:
-                            <?= date('d M Y - h:i A', strtotime($notification['suggested_date'] . ' ' . $notification['suggested_time'])) ?>
-                        </div>
-
-                        <div class="notification-actions">
-
-                            <a href="notification-action.php?id=<?= $notification['id'] ?>&action=accept" class="accept-btn">
-                                Accept
-                            </a>
-
-                            <a href="notification-action.php?id=<?= $notification['id'] ?>&action=reject" class="reject-btn">
-                                Reject
-                            </a>
-
-                        </div>
-
-                    </div>
+                    <?php endif; ?>
 
                 <?php endforeach; ?>
 
@@ -381,12 +449,31 @@ $conflictNotifications = $notificationStmt->fetchAll(PDO::FETCH_ASSOC);
             modal.style.display = 'none';
             overlay.style.display = 'none';
         }
+        <?php if ($showHolidayPopup): ?>
+
+            fetch('', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'mark_holiday_read=1'
+            });
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Appointment Cancelled',
+                text: 'Your appointment was cancelled due to a holiday. Please book another slot.',
+                confirmButtonText: 'OK'
+            });
+
+        <?php endif; ?>
 
         document.getElementById('notificationOverlay')
             .addEventListener('click', closeNotifications);
         window.addEventListener('load', function () {
 
-            <?php if (!empty($conflictNotifications)): ?>
+
+            <?php if ($hasSlotSuggestion): ?>
 
                 setTimeout(() => {
                     toggleNotifications();
@@ -397,3 +484,54 @@ $conflictNotifications = $notificationStmt->fetchAll(PDO::FETCH_ASSOC);
         });
 
     </script>
+    <?php
+
+    $hasHolidayCancellation = false;
+
+    foreach ($conflictNotifications as $notification) {
+
+        if (
+            $notification['status'] === 'pending' &&
+            !empty($notification['message']) &&
+            stripos($notification['message'], 'holiday') !== false
+        ) {
+
+            $hasHolidayCancellation = true;
+            break;
+        }
+    }
+
+    ?>
+
+    <?php if (
+        $hasHolidayCancellation &&
+        basename($_SERVER['PHP_SELF']) === 'dashboard.php'
+    ): ?>
+
+        <script>
+
+            document.addEventListener('DOMContentLoaded', function () {
+
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Appointment Update',
+                    text:
+                        'Your booked appointment slot has been cancelled due to a holiday. Please rebook your appointment.',
+                    confirmButtonColor: '#ef4444'
+                }).then(() => {
+
+                    fetch('', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: 'mark_holiday_read=1'
+                    });
+
+                });
+
+            });
+
+        </script>
+
+    <?php endif; ?>

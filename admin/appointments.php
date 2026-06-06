@@ -68,6 +68,35 @@ $stmt->execute([
     $selected_date
 ]);
 $appointments = $stmt->fetchAll();
+/*
+|--------------------------------------------------------------------------
+| FETCH BOOKED DATES FOR CALENDAR HIGHLIGHT
+|--------------------------------------------------------------------------
+*/
+
+$bookedStmt = $pdo->prepare("
+
+    SELECT appointment_date
+    FROM appointments
+    WHERE is_deleted = 0
+
+    UNION
+
+    SELECT appointment_date
+    FROM customer_orders
+    WHERE is_deleted = 0
+    AND (
+        slot_status = 'confirmed'
+        OR slot_status IS NULL
+    )
+
+");
+
+$bookedStmt->execute();
+
+$bookedDates = $bookedStmt->fetchAll(
+    PDO::FETCH_COLUMN
+);
 $pageTitle = "Appointments - Sogasu";
 $activePage = "appointments";
 include 'includes/header.php';
@@ -237,24 +266,21 @@ include 'includes/header.php';
                     <div class="day-name">T</div>
                     <div class="day-name">F</div>
                     <div class="day-name">S</div>
-                    <!-- Empty slots -->
-                    <div class="day empty"></div>
-                    <div class="day empty"></div>
-                    <div class="day empty"></div>
+
                     <?php
                     $daysInMonth = date('t', strtotime($selected_date));
                     $currentMonth = date('Y-m', strtotime($selected_date));
-
-                    // get booked days (ONLY for highlight)
-                    $allAppointments = $pdo->query("
-                        SELECT appointment_date FROM appointments 
-                        WHERE is_deleted = 0
-                    ")->fetchAll();
-
-                    $bookedDays = array_map(function ($a) {
-                        return $a['appointment_date'];
-                    }, $allAppointments);
+                    $firstDayOfMonth = date(
+                        'w',
+                        strtotime($currentMonth . '-01')
+                    );
                     ?>
+
+                    <?php for ($i = 0; $i < $firstDayOfMonth; $i++): ?>
+                        <div class="day empty"></div>
+                    <?php endfor; ?>
+
+                    
 
                     <?php for ($d = 1; $d <= $daysInMonth; $d++):
 
@@ -264,7 +290,7 @@ include 'includes/header.php';
 
                         <div class="day 
                         <?= ($date == $selected_date) ? 'active' : '' ?> 
-                        <?= in_array($date, $bookedDays) ? 'has-booking' : '' ?> 
+                        <?= in_array($date, $bookedDates) ? 'has-booking' : '' ?>
                         <?= $isPast ? 'empty' : '' ?>" <?= !$isPast ? "onclick=\"window.location.href='?date=$date'\"" : '' ?>>
                             <?= $d ?>
                         </div>

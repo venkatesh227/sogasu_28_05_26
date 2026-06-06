@@ -78,6 +78,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     /*
 |--------------------------------------------------------------------------
+| SUNDAY + HOLIDAY VALIDATION
+|--------------------------------------------------------------------------
+*/
+
+    if (empty($errors) && !empty($old['appointment_date'])) {
+
+        $selectedDay = date('w', strtotime($old['appointment_date']));
+
+        /*
+        |--------------------------------------------------------------------------
+        | BLOCK ALL SUNDAYS
+        |--------------------------------------------------------------------------
+        */
+
+        if ($selectedDay == 0) {
+
+            $errors['appointment_date'] =
+                "Appointments cannot be booked on Sundays";
+
+        } else {
+
+            /*
+            |--------------------------------------------------------------------------
+            | CHECK FIXED HOLIDAYS
+            |--------------------------------------------------------------------------
+            */
+
+            $holidayStmt = $pdo->prepare("
+            SELECT *
+            FROM holidays
+            WHERE DATE(holiday_date) = ?
+            LIMIT 1
+        ");
+
+            $holidayStmt->execute([
+                $old['appointment_date']
+            ]);
+
+            $holiday = $holidayStmt->fetch();
+
+            if ($holiday) {
+
+                $holidayType = ucfirst($holiday['type']);
+
+                $errors['appointment_date'] =
+                    $holidayType .
+                    " holiday: appointments are not allowed on this date";
+            }
+        }
+    }
+    /*
+|--------------------------------------------------------------------------
 | BOUTIQUE TIMING VALIDATION
 |--------------------------------------------------------------------------
 */
@@ -136,7 +188,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $conflict = checkSlotConflict(
             $pdo,
             $old['appointment_date'],
-            $old['appointment_time']
+            $old['appointment_time'],
+            $id ?? null
         );
 
         if ($conflict) {
@@ -224,6 +277,7 @@ $pageTitle = "New Appointment - Sogasu";
 $activePage = "appointments";
 include 'includes/header.php';
 ?>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <main class="main-content">
     <header class="top-header"
@@ -304,9 +358,6 @@ include 'includes/header.php';
                         <label class="form-label">Date <span style="color:red">*</span></label>
                         <input type="date" name="appointment_date"
                             value="<?= $old['appointment_date'] ?? date('Y-m-d') ?>" class="form-control">
-                        <?php if (isset($errors['appointment_date'])): ?>
-                            <small style="color:red"><?= $errors['appointment_date'] ?></small>
-                        <?php endif; ?>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Time <span style="color:red">*</span></label>
@@ -320,7 +371,7 @@ include 'includes/header.php';
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Purpose / Type <span style="color:red">*</span></label></label>
+                    <label class="form-label">Purpose / Type <span style="color:red">*</span></label>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
                         <label class="radio-card">
                             <input type="radio" name="type" value="measurements" <?= ($old['type'] ?? '') == 'measurements' ? 'checked' : '' ?>>
@@ -521,4 +572,22 @@ include 'includes/header.php';
         this.value = this.value.replace(/\D/g, '').slice(0, 10);
     });
 </script>
+<?php if (!empty($errors['appointment_date'])): ?>
+
+    <script>
+
+        document.addEventListener('DOMContentLoaded', function () {
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Booking Not Allowed',
+                text: '<?= addslashes($errors['appointment_date']) ?>',
+                confirmButtonColor: '#ef4444'
+            });
+
+        });
+
+    </script>
+
+<?php endif; ?>
 <?php include 'includes/footer.php'; ?>

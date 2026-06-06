@@ -1,6 +1,6 @@
 <?php
 
-function checkSlotConflict($pdo, $date, $time)
+function checkSlotConflict($pdo, $date, $time, $excludeId = null)
 {
     $startTime = date('H:i:s', strtotime($time));
 
@@ -15,6 +15,7 @@ function checkSlotConflict($pdo, $date, $time)
         FROM appointments
         WHERE appointment_date = ?
         AND is_deleted = 0
+        AND (? IS NULL OR id != ?)
         AND appointment_time < ?
         AND ADDTIME(appointment_time, '00:15:00') > ?
 
@@ -31,6 +32,8 @@ function checkSlotConflict($pdo, $date, $time)
 
     $stmt->execute([
         $date,
+        $excludeId,
+        $excludeId,
         $endTime,
         $startTime,
 

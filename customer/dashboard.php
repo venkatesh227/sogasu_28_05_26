@@ -6,7 +6,27 @@ $customerId = $_SESSION['user_id'] ?? 0;
 $pageTitle = "Home - Sogasu";
 $headerTitle = "Sogasu";
 $activePage = "dashboard";
-include '../includes/db.php';
+if (
+    isset($_POST['mark_holiday_read']) &&
+    $_POST['mark_holiday_read'] == '1'
+) {
+
+    $stmt = $pdo->prepare("
+
+        UPDATE appointment_notifications
+        SET status = 'read'
+        WHERE user_id = ?
+        AND message LIKE '%holiday%'
+        AND status = 'pending'
+
+    ");
+
+    $stmt->execute([
+        $_SESSION['user_id']
+    ]);
+
+    exit;
+}
 include 'includes/header.php';
 ?>
 <?php
@@ -93,6 +113,19 @@ foreach ($data as $row) {
     ]);
 
     $notifications = $notificationStmt->fetchAll();
+    $showHolidayPopup = false;
+
+    foreach ($notifications as $notification) {
+
+        if (
+            $notification['status'] === 'pending' &&
+            stripos($notification['message'], 'holiday') !== false
+        ) {
+
+            $showHolidayPopup = true;
+            break;
+        }
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -524,4 +557,19 @@ foreach ($data as $row) {
     }
 
 </script>
+<?php if ($showHolidayPopup): ?>
+
+<script>
+
+fetch('', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: 'mark_holiday_read=1'
+});
+
+</script>
+
+<?php endif; ?>
 <?php include 'includes/bottom-nav.php'; ?>

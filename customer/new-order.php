@@ -42,6 +42,7 @@ $timingStmt->execute();
 $timings = $timingStmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <div class="container">
     <div class="card">
@@ -534,6 +535,61 @@ if (!selectedCategory) {
     const selectedDateTime = new Date(
         appointmentDate + 'T' + appointmentTime
     );
+    /*
+|--------------------------------------------------------------------------
+| BLOCK SUNDAYS
+|--------------------------------------------------------------------------
+*/
+
+const selectedDay =
+    selectedDateTime.getDay();
+
+if (selectedDay === 0) {
+
+    Swal.fire({
+        icon: 'warning',
+        title: 'Booking Not Allowed',
+        text: 'Appointments are not allowed on Sundays',
+        confirmButtonColor: '#ef4444'
+    });
+
+    return;
+}
+
+/*
+|--------------------------------------------------------------------------
+| BLOCK HOLIDAYS
+|--------------------------------------------------------------------------
+*/
+
+const holidays = <?php
+
+$holidayStmt = $pdo->prepare("
+    SELECT holiday_date
+    FROM holidays
+");
+
+$holidayStmt->execute();
+
+$holidayDates = $holidayStmt->fetchAll(
+    PDO::FETCH_COLUMN
+);
+
+echo json_encode($holidayDates);
+
+?>;
+
+if (holidays.includes(appointmentDate)) {
+
+    Swal.fire({
+        icon: 'warning',
+        title: 'Booking Not Allowed',
+        text: 'Appointments are not allowed on holidays',
+        confirmButtonColor: '#ef4444'
+    });
+
+    return;
+}
 
     if (selectedDateTime < currentDateTime) {
 
