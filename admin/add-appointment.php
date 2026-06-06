@@ -1,6 +1,8 @@
 <?php
 session_start();
 require_once '../includes/db.php';
+require 'check-slot.php';
+require 'find-next-slot.php';
 
 $errors = [];
 $old = [];
@@ -74,41 +76,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($old['status'], $allowedStatus)) {
         $old['status'] = 'scheduled';
     }
-    // ===== DUPLICATION CHECK =====
-    // ===== 15 MIN OVERLAP VALIDATION =====
+    /*
+|--------------------------------------------------------------------------
+| BOUTIQUE TIMING VALIDATION
+|--------------------------------------------------------------------------
+*/
+
     if (empty($errors)) {
 
-        $check = $pdo->prepare("
-        SELECT appointment_time FROM appointments 
-        WHERE appointment_date = ? 
-        AND is_deleted = 0
-        " . ($id ? "AND id != ?" : "")
-        );
+        $timingStmt = $pdo->prepare("
+        SELECT *
+        FROM boutique_timing_settings
+        WHERE effective_from <= ?
+        ORDER BY effective_from DESC
+        LIMIT 1
+    ");
 
-        $params = [$old['appointment_date']];
-        if ($id)
-            $params[] = $id;
+        $timingStmt->execute([
+            $old['appointment_date']
+        ]);
 
-        $check->execute($params);
-        $existingAppointments = $check->fetchAll();
+        $activeTiming = $timingStmt->fetch();
 
-        $newTime = strtotime($old['appointment_time']);
+        if ($activeTiming) {
 
-        foreach ($existingAppointments as $row) {
+            $selectedTime = strtotime(
+                $old['appointment_time']
+            );
 
-            $existingTime = strtotime($row['appointment_time']);
+            $startLimit = strtotime(
+                $activeTiming['start_time']
+            );
 
-            $start = $existingTime;
-            $end = strtotime("+15 minutes", $existingTime);
+            $endLimit = strtotime(
+                $activeTiming['end_time']
+            );
 
-            // check overlap
-            $newEnd = strtotime("+15 minutes", $newTime);
+            /*
+            |--------------------------------------------------------------------------
+            | VALIDATE SLOT INSIDE BOUTIQUE HOURS
+            |--------------------------------------------------------------------------
+            */
 
             if (
-                ($newTime < $end) && ($newEnd > $start)
+                $selectedTime < $startLimit ||
+                $selectedTime >= $endLimit
             ) {
-                $errors['appointment_time'] = "This slot is already booked. Try after 15 minutes.";
-                break;
+
+                $errors['appointment_time'] =
+                    "Appointments allowed only between "
+                    . date('h:i A', $startLimit)
+                    . " and "
+                    . date('h:i A', $endLimit);
+            }
+        }
+    }
+    if (empty($errors)) {
+
+        $conflict = checkSlotConflict(
+            $pdo,
+            $old['appointment_date'],
+            $old['appointment_time']
+        );
+
+        if ($conflict) {
+
+            $nextSlot = findNextAvailableSlot(
+                $pdo,
+                $old['appointment_date'],
+                $old['appointment_time']
+            );
+
+            if ($nextSlot) {
+
+                $errors['appointment_time'] =
+                    "Selected slot already booked. Try after "
+                    . date('h:i A', strtotime($nextSlot));
+
+            } else {
+
+                $errors['appointment_time'] =
+                    "No slots available for selected date";
+
             }
         }
     }
@@ -261,7 +310,8 @@ include 'includes/header.php';
                     </div>
                     <div class="form-group">
                         <label class="form-label">Time <span style="color:red">*</span></label>
-                        <input type="time" name="appointment_time" value="<?= !empty($old['appointment_time']) ? date('H:i', strtotime($old['appointment_time'])) : '' ?>"
+                        <input type="time" name="appointment_time"
+                            value="<?= !empty($old['appointment_time']) ? date('H:i', strtotime($old['appointment_time'])) : '' ?>"
                             class="form-control">
                         <?php if (isset($errors['appointment_time'])): ?>
                             <small style="color:red"><?= $errors['appointment_time'] ?></small>

@@ -1,6 +1,8 @@
 <?php
 session_start();
 require '../includes/db.php';
+require '../admin/check-slot.php';
+require '../admin/find-next-slot.php';
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 if (!isset($_SESSION['user_id'])) {
@@ -235,6 +237,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 json_encode($profileData)
             ]);
         }
+        $conflict = checkSlotConflict(
+            $pdo,
+            $appointmentDate,
+            $appointmentTime
+        );
+
+        if ($conflict) {
+
+            $nextSlot = findNextAvailableSlot(
+                $pdo,
+                $appointmentDate,
+                $appointmentTime
+            );
+
+            $suggestedDate = $appointmentDate;
+
+            $suggestedTime = $nextSlot;
+
+            $deleteStmt = $pdo->prepare("
+
+        DELETE FROM appointment_notifications
+        WHERE user_id = ?
+        AND status = 'pending'
+
+    ");
+
+            $deleteStmt->execute([
+                $_SESSION['user_id']
+            ]);
+
+            $notifyStmt = $pdo->prepare("
+
+        INSERT INTO appointment_notifications (
+            user_id,
+            title,
+            message,
+            suggested_date,
+            suggested_time,
+            status,
+            created_at
+        )
+
+        VALUES (?, ?, ?, ?, ?, ?, NOW())
+
+    ");
+
+            $notifyStmt->execute([
+                $_SESSION['user_id'],
+                'Appointment Slot Conflict',
+                'Selected slot unavailable.',
+                $suggestedDate,
+                $suggestedTime,
+                'pending'
+            ]);
+
+            echo json_encode([
+                'success' => false,
+                'slot_conflict' => true,
+                'message' => 'Selected slot already booked. Try after '
+                    . date('h:i A', strtotime($nextSlot))
+            ]);
+
+            exit();
+        }
+
 
         // INSERT INTO ORDERS TABLE
         $stmt = $pdo->prepare("
@@ -280,7 +347,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         $orderId = $pdo->lastInsertId();
-
         // CLEAR SESSION
         unset($_SESSION['order']);
         $_SESSION['order_success'] = 'Order placed successfully';
@@ -543,6 +609,10 @@ include 'includes/header.php';
                 if (data.success) {
 
                     window.location.href = data.redirect;
+
+                } else {
+
+                    window.location.href = 'dashboard.php';
                 }
             })
             .catch(error => {

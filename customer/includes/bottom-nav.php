@@ -48,10 +48,10 @@
                 <i class="ri-add-line" style="color: white; font-size: 1.5rem;"></i>
             </div>
         </a>
-        <a href="gallery.php" class="nav-item <?php echo ($activePage == 'gallery') ? 'active' : ''; ?>">
+        <!-- <a href="gallery.php" class="nav-item <?php echo ($activePage == 'gallery') ? 'active' : ''; ?>">
             <i class="ri-image-line"></i>
             <span>Gallery</span>
-        </a>
+        </a> -->
         <a href="profile.php" class="nav-item <?php echo ($activePage == 'profile') ? 'active' : ''; ?>">
             <i class="ri-user-3-line"></i>
             <span>Profile</span>

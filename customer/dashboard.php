@@ -79,6 +79,20 @@ foreach ($data as $row) {
             style="position: absolute; right: -20px; bottom: -20px; font-size: 8rem; opacity: 0.2; transform: rotate(-15deg);"></i>
     </div>
     <?php
+    $notificationStmt = $pdo->prepare("
+
+    SELECT *
+    FROM appointment_notifications
+    WHERE user_id = ?
+    ORDER BY id DESC
+
+");
+
+    $notificationStmt->execute([
+        $_SESSION['user_id']
+    ]);
+
+    $notifications = $notificationStmt->fetchAll();
 
     /*
     |--------------------------------------------------------------------------
@@ -100,18 +114,20 @@ foreach ($data as $row) {
     LEFT JOIN sub_categories sc
         ON o.sub_category_id = sc.id
 
-    WHERE o.order_status != 'completed'
+    WHERE o.customer_id = ?
+    AND o.order_status != 'completed'
 
     ORDER BY o.created_at DESC
 
 ");
 
-    $activeOrdersStmt->execute();
+    $activeOrdersStmt->execute([
+        $_SESSION['user_id']
+    ]);
 
     $activeOrders = $activeOrdersStmt->fetchAll(PDO::FETCH_ASSOC);
 
     ?>
-
     <!-- Active Orders -->
     <div class="section-title">
         <span>Active Orders</span>
@@ -428,5 +444,84 @@ foreach ($data as $row) {
     </div>
 
 </div>
+<script>
 
+    function acceptSlot(id) {
+        fetch('accept-slot.php', {
+
+            method: 'POST',
+
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+
+            body: 'id=' + id
+
+        })
+            .then(res => res.json())
+            .then(data => {
+
+                if (data.success) {
+
+                    location.reload();
+
+                }
+
+            });
+    }
+
+    function rejectSlot(id) {
+        fetch('reject-slot.php', {
+
+            method: 'POST',
+
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+
+            body: 'id=' + id
+
+        })
+            .then(res => res.json())
+            .then(data => {
+
+                if (data.success) {
+
+                    location.reload();
+
+                }
+
+            });
+    }
+
+</script>
+<script>
+
+    function updateSlot(id, action) {
+        fetch('update-slot-status.php', {
+
+            method: 'POST',
+
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+
+            body:
+                'id=' + id +
+                '&action=' + action
+
+        })
+            .then(res => res.json())
+            .then(data => {
+
+                if (data.success) {
+
+                    location.reload();
+
+                }
+
+            });
+    }
+
+</script>
 <?php include 'includes/bottom-nav.php'; ?>

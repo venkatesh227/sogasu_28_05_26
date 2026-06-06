@@ -14,12 +14,59 @@ if (strtotime($selected_date) < strtotime(date('Y-m-d'))) {
 }
 
 $stmt = $pdo->prepare("
-    SELECT * FROM appointments 
-    WHERE is_deleted = 0 
-    AND appointment_date = ?
+
+    SELECT 
+        a.id,
+        a.customer_name,
+        a.customer_phone,
+        a.appointment_date,
+        a.appointment_time,
+        a.type,
+        a.status,
+        'appointments' as booking_source,
+        NULL as slot_status,
+        NULL as order_code,
+        NULL as user_id
+
+    FROM appointments a
+
+    WHERE a.is_deleted = 0
+    AND a.appointment_date = ?
+
+    UNION ALL
+
+    SELECT
+        co.id,
+        u.username as customer_name,
+        u.mobile as customer_phone,
+        co.appointment_date,
+        co.appointment_time,
+        'order_booking' as type,
+        co.status,
+        'customer_orders' as booking_source,
+        co.slot_status,
+        co.order_code,
+        co.user_id
+
+    FROM customer_orders co
+
+    LEFT JOIN users u
+    ON u.id = co.user_id
+
+   WHERE co.is_deleted = 0
+    AND co.appointment_date = ?
+    AND (
+        co.slot_status = 'confirmed'
+        OR co.slot_status IS NULL
+    )
+
     ORDER BY appointment_time ASC
+
 ");
-$stmt->execute([$selected_date]);
+$stmt->execute([
+    $selected_date,
+    $selected_date
+]);
 $appointments = $stmt->fetchAll();
 $pageTitle = "Appointments - Sogasu";
 $activePage = "appointments";
@@ -86,50 +133,85 @@ include 'includes/header.php';
                     <button class="btn-filter">History</button>
                 </div>
             </div>
-            <?php foreach ($appointments as $row): ?>
-                <div class="appointment-card">
-                    <div class="appointment-date-box">
-                        <div class="month"><?= strtoupper(date('M', strtotime($row['appointment_date']))) ?></div>
-                        <div class="day"><?= date('d', strtotime($row['appointment_date'])) ?></div>
-                    </div>
+            <?php if (!empty($appointments)): ?>
 
-                    <div style="flex: 1;">
-                        <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <div>
-                                <h4 class="appointment-title">
-                                    <?= ucfirst(str_replace('_', ' ', $row['type'])) ?> -
-                                    <?= htmlspecialchars($row['customer_name']) ?>
-                                </h4>
-
-                                <div class="appointment-meta">
-                                    <span>
-                                        <i class="ri-time-line"></i>
-                                        <?= date('h:i A', strtotime($row['appointment_time'])) ?> -
-                                        <?= date('h:i A', strtotime($row['appointment_time'] . ' +15 minutes')) ?>
-                                    </span>
-
-                                    <span>
-                                        <i class="ri-user-line"></i>
-                                        <?= htmlspecialchars($row['customer_phone'] ?: 'No phone') ?>
-                                    </span>
-                                </div>
-                            </div>
-
-                            <span
-                                class="badge 
-                                <?= $row['type'] == 'trial' ? 'badge-orange' : ($row['type'] == 'delivery_pickup' ? 'badge-green' : 'badge-blue') ?>">
-                                <?= ucfirst(str_replace('_', ' ', $row['type'])) ?>
-                            </span>
+                <?php foreach ($appointments as $row): ?>
+                    <div class="appointment-card">
+                        <div class="appointment-date-box">
+                            <div class="month"><?= strtoupper(date('M', strtotime($row['appointment_date']))) ?></div>
+                            <div class="day"><?= date('d', strtotime($row['appointment_date'])) ?></div>
                         </div>
-                    </div>
 
-                    <button class="btn-icon-only action-btn" data-id="<?= $row['id'] ?>">
-                        <i class="ri-more-2-fill"></i>
-                    </button>
-                </div>
-            <?php endforeach; ?>
-            <?php if (empty($appointments)): ?>
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div>
+                                    <h4 class="appointment-title">
+                                        <?= ucfirst(str_replace('_', ' ', $row['type'])) ?> -
+                                        <?= htmlspecialchars($row['customer_name']) ?>
+                                    </h4>
+
+                                    <div class="appointment-meta">
+                                        <span>
+                                            <i class="ri-time-line"></i>
+                                            <?= date('h:i A', strtotime($row['appointment_time'])) ?> -
+                                            <?= date('h:i A', strtotime($row['appointment_time'] . ' +15 minutes')) ?>
+                                        </span>
+
+                                        <span>
+                                            <i class="ri-user-line"></i>
+                                            <?= htmlspecialchars($row['customer_phone'] ?: 'No phone') ?>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+
+                                    <span
+                                        class="badge 
+        <?= $row['type'] == 'trial' ? 'badge-orange' : ($row['type'] == 'delivery_pickup' ? 'badge-green' : 'badge-blue') ?>">
+                                        <?= ucfirst(str_replace('_', ' ', $row['type'])) ?>
+                                    </span>
+
+                                    <?php if ($row['booking_source'] == 'customer_orders'): ?>
+
+                                        <span class="badge badge-primary">
+                                            Customer Order
+                                        </span>
+
+                                    <?php else: ?>
+
+                                        <span class="badge badge-warning">
+                                            Admin Appointment
+                                        </span>
+
+                                    <?php endif; ?>
+
+                                    <?php if (
+                                        isset($row['slot_status']) &&
+                                        $row['slot_status'] == 'conflict'
+                                    ): ?>
+
+                                        <span class="badge badge-danger">
+                                            Slot Conflict
+                                        </span>
+
+                                    <?php endif; ?>
+
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <button class="btn-icon-only action-btn" data-id="<?= $row['id'] ?>">
+                            <i class="ri-more-2-fill"></i>
+                        </button>
+                    </div>
+                <?php endforeach; ?>
+
+            <?php else: ?>
+
                 <p>No appointments found</p>
+
             <?php endif; ?>
         </div>
 

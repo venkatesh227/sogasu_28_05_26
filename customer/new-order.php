@@ -27,6 +27,21 @@ if ($selectedCategoryId) {
 }
 include 'includes/header.php';
 ?>
+<?php
+
+$timingStmt = $pdo->prepare("
+
+    SELECT *
+    FROM boutique_timing_settings
+    ORDER BY effective_from ASC
+
+");
+
+$timingStmt->execute();
+
+$timings = $timingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+?>
 
 <div class="container">
     <div class="card">
@@ -530,6 +545,62 @@ if (!selectedCategory) {
 
         return;
     }
+const boutiqueTimings =
+<?php echo json_encode($timings); ?>;
+
+let boutiqueStartTime = '';
+let boutiqueEndTime = '';
+
+for (let i = 0; i < boutiqueTimings.length; i++) {
+
+    if (
+        appointmentDate >=
+        boutiqueTimings[i].effective_from
+    ) {
+
+        boutiqueStartTime =
+        boutiqueTimings[i].start_time.slice(0, 5);
+
+        boutiqueEndTime =
+        boutiqueTimings[i].end_time.slice(0, 5);
+    }
+}
+
+if (
+    boutiqueStartTime &&
+    boutiqueEndTime
+) {
+
+    const selectedMinutes =
+    parseInt(appointmentTime.split(':')[0]) * 60 +
+    parseInt(appointmentTime.split(':')[1]);
+
+const startMinutes =
+    parseInt(boutiqueStartTime.split(':')[0]) * 60 +
+    parseInt(boutiqueStartTime.split(':')[1]);
+
+const endMinutes =
+    parseInt(boutiqueEndTime.split(':')[0]) * 60 +
+    parseInt(boutiqueEndTime.split(':')[1]);
+
+if (
+    selectedMinutes < startMinutes ||
+    selectedMinutes > endMinutes
+) {
+
+        timeError.innerText =
+            'Appointments allowed only between ' +
+            boutiqueStartTime +
+            ' and ' +
+            boutiqueEndTime;
+
+        document.getElementById('timeInput')
+            .classList.add('input-error');
+
+        return;
+    }
+}
+
 
     window.location.href =
     'measurements.php?category_id=' +
