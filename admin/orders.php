@@ -82,6 +82,7 @@ $activeOrders = $pdo->query("
         FROM customer_orders co
         LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
         WHERE co.is_deleted = 0 
+        AND co.slot_status != 'rejected'
         AND co.supervisor_id IS NOT NULL 
         AND co.status NOT IN ('completed', 'delivered', 'cancelled')
 
@@ -269,6 +270,7 @@ include 'includes/header.php';
                         LEFT JOIN customers cc ON co.user_id = cc.user_id
                         LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
                         WHERE co.is_deleted = 0
+                        AND co.slot_status != 'rejected'
                     ";
                     if ($tab != 'all' && in_array($tab, $statuses)) {
                         $query .= " AND co.status = " . $pdo->quote($tab);
