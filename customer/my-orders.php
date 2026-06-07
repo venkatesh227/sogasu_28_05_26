@@ -30,6 +30,7 @@ $stmt = $pdo->prepare("
     LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
     WHERE co.user_id = ?
     AND co.is_deleted = 0
+    AND LOWER(COALESCE(co.slot_status, '')) != 'rejected'
 
     UNION ALL
 

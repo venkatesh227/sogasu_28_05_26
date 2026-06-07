@@ -241,11 +241,7 @@ include 'includes/header.php';
                             c.first_name,
                             c.last_name,
                             sc.name as garment,
-                            (SELECT image_path 
-                            FROM order_images 
-                            WHERE order_id = o.id 
-                            AND image_type = 'fabric' 
-                            LIMIT 1) as fabric_img
+                            o.material_image as fabric_img
                         FROM orders o
                         LEFT JOIN customers c ON o.customer_id = c.id
                         LEFT JOIN sub_categories sc ON o.sub_category_id = sc.id
@@ -309,10 +305,49 @@ include 'includes/header.php';
                             </td>
                             <td style="padding: 1rem; color: #64748b;"><?= htmlspecialchars($o['garment'] ?? 'General') ?>
                             </td>
-                            <td style="padding: 1rem;">
-                                <?php $img = !empty($o['fabric_img']) ? '../' . $o['fabric_img'] : 'https://via.placeholder.com/40'; ?>
-                                <img src="<?= $img ?>"
-                                    style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover; border: 1px solid #e2e8f0;">
+                            <td>
+
+                                <?php if (!empty($o['fabric_img'])): ?>
+
+                                    <?php
+
+                                    $imageName = $o['fabric_img'];
+
+                                    $customerPath = "../customer/uploads/" . $imageName;
+
+                                    $adminPath = "../" . $imageName;
+
+                                    $imageSrc = '';
+
+                                    if (file_exists($customerPath)) {
+
+                                        $imageSrc = $customerPath;
+
+                                    } elseif (file_exists($adminPath)) {
+
+                                        $imageSrc = $adminPath;
+
+                                    }
+
+                                    ?>
+
+                                    <?php if (!empty($imageSrc)): ?>
+
+                                        <img src="<?= htmlspecialchars($imageSrc) ?>" alt="Fabric Image"
+                                            style="width:50px;height:50px;object-fit:cover;border-radius:6px;">
+
+                                    <?php else: ?>
+
+                                        <span>No Image</span>
+
+                                    <?php endif; ?>
+
+                                <?php else: ?>
+
+                                    <span>No Image</span>
+
+                                <?php endif; ?>
+
                             </td>
                             <td style="padding: 1rem;">
                                 <span
@@ -351,7 +386,8 @@ include 'includes/header.php';
                                         '<?= $o['order_type'] ?>',
                                         '<?= htmlspecialchars($o['order_code']) ?>',
                                         '<?= htmlspecialchars($o['supervisor_id'] ?? '') ?>'
-                                    )" class="btn btn-sm" style="background: #f8fafc; color: #f59e0b; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; cursor: pointer;"
+                                    )" class="btn btn-sm"
+                                        style="background: #f8fafc; color: #f59e0b; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; cursor: pointer;"
                                         title="Assign Supervisor"><i class="ri-user-star-line"></i> Supervisor</button>
                                     <a href="view-order.php?id=<?= $o['id'] ?>" class="btn btn-sm"
                                         style="background: #f8fafc; color: #6366f1; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; text-decoration: none;"><i
@@ -364,7 +400,8 @@ include 'includes/header.php';
                                         </a>
 
                                     <?php endif; ?>
-                                    <a href="edit-order.php?id=<?= $o['id'] ?>&type=<?= $o['order_type'] ?>" class="btn btn-sm"
+                                    <a href="edit-order.php?id=<?= $o['id'] ?>&type=<?= $o['order_type'] ?>"
+                                        class="btn btn-sm"
                                         style="background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; text-decoration: none;"><i
                                             class="ri-pencil-line"></i> Edit</a>
                                 </div>
@@ -442,7 +479,7 @@ include 'includes/header.php';
         });
     });
 
-    function openSupervisorModal(orderId, orderType, orderCode, currentSupId){
+    function openSupervisorModal(orderId, orderType, orderCode, currentSupId) {
         document.getElementById('modalOrderId').value = orderId;
         document.getElementById('modalOrderType').value = orderType;
         document.getElementById('modalOrderCode').innerText = '#' + orderCode;

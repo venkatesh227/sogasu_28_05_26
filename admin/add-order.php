@@ -81,6 +81,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $family_member_id = !empty($_POST['family_member_id']) ? $_POST['family_member_id'] : null;
             $measurement_unit = $_POST['measurement_unit'] ?? 'CMS';
             $current_user_id = $_SESSION['user_id'] ?? null;
+            $material_image = null;
+            $referral_image = null;
+
+            $uploadDir = '../uploads/orders/';
+
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
+
+            if (isset($_FILES['fabric_photos']) && !empty($_FILES['fabric_photos']['name'][0])) {
+
+                $ext = pathinfo($_FILES['fabric_photos']['name'][0], PATHINFO_EXTENSION);
+
+                $materialFileName = "material_" . time() . "." . $ext;
+
+                move_uploaded_file(
+                    $_FILES['fabric_photos']['tmp_name'][0],
+                    $uploadDir . $materialFileName
+                );
+
+                $material_image = "uploads/orders/" . $materialFileName;
+            }
+
+            if (isset($_FILES['sample_photos']) && !empty($_FILES['sample_photos']['name'][0])) {
+
+                $ext = pathinfo($_FILES['sample_photos']['name'][0], PATHINFO_EXTENSION);
+
+                $referralFileName = "referral_" . time() . "." . $ext;
+
+                move_uploaded_file(
+                    $_FILES['sample_photos']['tmp_name'][0],
+                    $uploadDir . $referralFileName
+                );
+
+                $referral_image = "uploads/orders/" . $referralFileName;
+            }
 
             // Generate Order Code
             $order_code = "ORD-" . date('Y') . "-" . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
@@ -94,6 +130,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 sub_category_id,
                 fabric_details,
                 notes,
+                material_image,
+                referral_image,
                 order_status,
                 status_history,
                 payment_status,
@@ -107,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 transaction_reference,
                 due_date,
                 measurement_unit
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)
         ");
 
             $stmt->execute([
@@ -118,6 +156,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sub_category_id,
                 $fabric_details,
                 $design_notes,
+                $material_image,
+                $referral_image,
                 $order_status,
                 'pending',
                 'unpaid',
@@ -522,13 +562,16 @@ include 'includes/header.php';
                         <label class="form-label" style="font-weight: 700;">Fabric Photos</label>
                         <p style="font-size: 0.75rem; color: #64748b; margin-bottom: 0.75rem;">Upload images of the
                             fabric to be stitched.</p>
-                        <div class="upload-area" onclick="document.getElementById('fabric_photos').click()">
+                        <div class="upload-area" onclick="document.getElementById('fabric_photos').click()"
+                            id="fabric-preview" style="position: relative; overflow: hidden;">
+
                             <i class="ri-upload-cloud-line"></i>
+
                             <span>Click to upload fabrics</span>
+
                             <input type="file" name="fabric_photos[]" id="fabric_photos" multiple accept="image/*"
                                 style="display: none;" onchange="previewImages(this, 'fabric-preview')">
                         </div>
-                        <div id="fabric-preview" class="image-preview-grid"></div>
                     </div>
 
                     <!-- Sample Upload -->
@@ -537,13 +580,15 @@ include 'includes/header.php';
                         <p style="font-size: 0.75rem; color: #64748b; margin-bottom: 0.75rem;">Upload sample designs or
                             reference photos.</p>
                         <div class="upload-area" onclick="document.getElementById('sample_photos').click()"
-                            style="border-color: #e2e8f0;">
+                            id="sample-preview" style="border-color: #e2e8f0; position: relative; overflow: hidden;">
+
                             <i class="ri-image-add-line" style="color: #64748b;"></i>
+
                             <span>Click to upload samples</span>
+
                             <input type="file" name="sample_photos[]" id="sample_photos" multiple accept="image/*"
                                 style="display: none;" onchange="previewImages(this, 'sample-preview')">
                         </div>
-                        <div id="sample-preview" class="image-preview-grid"></div>
                     </div>
                 </div>
             </div>
@@ -1095,20 +1140,50 @@ include 'includes/header.php';
         }
     }
 
-    function previewImages(input, containerId) {
-        const container = document.getElementById(containerId);
-        container.innerHTML = ''; // Clear existing
-        if (input.files) {
-            Array.from(input.files).forEach(file => {
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    const div = document.createElement('div');
-                    div.className = 'preview-item';
-                    div.innerHTML = `<img src="${e.target.result}">`;
-                    container.appendChild(div);
-                }
-                reader.readAsDataURL(file);
-            });
+    function previewImages(input, previewId) {
+
+        const preview = document.getElementById(previewId);
+
+        const icon = preview.querySelector('i');
+        const text = preview.querySelector('span');
+
+        let oldImage = preview.querySelector('.preview-img');
+
+        if (oldImage) {
+            oldImage.remove();
+        }
+
+        if (input.files && input.files[0]) {
+
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+
+                const img = document.createElement('img');
+
+                img.src = e.target.result;
+
+                img.classList.add('preview-img');
+
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'contain';
+                img.style.borderRadius = '12px';
+                img.style.position = 'absolute';
+                img.style.top = '0';
+                img.style.left = '0';
+                img.style.background = '#fff';
+
+                preview.style.height = '110px';
+
+                preview.appendChild(img);
+
+                if (icon) icon.style.display = 'none';
+
+                if (text) text.style.display = 'none';
+            };
+
+            reader.readAsDataURL(input.files[0]);
         }
     }
 </script>

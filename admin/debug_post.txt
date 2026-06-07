@@ -1,32 +1,32 @@
 Array
 (
-    [customer_id] => 4
-    [mobile_number] => 7899395341
+    [customer_id] => 2
+    [mobile_number] => 8787678980
     [family_member_id] => 
-    [delivery_address] => Old street near ramalayam, Guntur
+    [delivery_address] => Nandulapet, Tenali
     [category_id] => 2
     [sub_category_id] => 3
     [fabric_details] => silk
-    [due_date] => 2026-06-08
+    [due_date] => 2026-06-10
     [measurement_unit] => CMS
     [measurements] => Array
         (
-            [Shoulder Strap] => 11
-            [Chest] => 11
-            [Waist] => 11
-            [Height] => 11
-            [Width] => 11
+            [Shoulder Strap] => 12
+            [Chest] => 12
+            [Waist] => 12
+            [Height] => 12
+            [Width] => 12
         )
 
-    [design_notes] => Back Rope, Hip Rope
+    [design_notes] => Hip Rope
     [selected_services] => Array
         (
             [0] => 2
         )
 
     [base_price] => 5000.00
-    [extra_charges] => 300
-    [advance_amount] => 200
+    [extra_charges] => 
+    [advance_amount] => 500
     [advance_payment_mode] => Cash
     [transaction_reference] => 
     [submit_order] => 1
