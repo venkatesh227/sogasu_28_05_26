@@ -240,7 +240,6 @@ $empWorkloadStmt->execute([
 
 $employee_workloads = $empWorkloadStmt->fetchAll(PDO::FETCH_ASSOC);
 
-
 // Fetch Overall Order Status Counts for Supervisor
 $statusCountsStmt = $pdo->prepare("
     SELECT 
@@ -636,7 +635,6 @@ $today_holiday = $h_stmt->fetch();
             <div style="font-size: 1.5rem; font-weight: 700;"><?= $needs_delegation ?></div>
         </div>
     </div>
-
     <!-- Employee Work Status Graph & Visual Analytics -->
     <div class="section-title">Visual Analytics</div>
     <div class="card" style="padding: 1rem;">

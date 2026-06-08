@@ -48,8 +48,6 @@ $stmt = $pdo->prepare("SELECT id, ot_date as date, description, 'OT' as type, am
 $stmt->execute([$employee_id]);
 $overtimes = $stmt->fetchAll();
 
-
-
 // Merge and sort by date
 $history = $payments;
 usort($history, function($a, $b) {
@@ -58,7 +56,6 @@ usort($history, function($a, $b) {
 
 // Show only current month activity
 $currentMonth = date('Y-m');
-
 $history = array_filter($history, function ($item) use ($currentMonth) {
     return strpos($item['date'], $currentMonth) === 0;
 });

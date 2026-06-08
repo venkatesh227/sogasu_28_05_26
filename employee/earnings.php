@@ -130,7 +130,6 @@ if (stripos($payCycle, 'Monthly') !== false) {
             </div>
         </div>
     </div>
-
     <!-- History List -->
     <div class="section-title" style="margin-top: 2rem; display: flex; justify-content: space-between; align-items: center;">
         <span>Recent Activity</span>

@@ -151,12 +151,15 @@ include 'includes/header.php';
                             
                             <!-- Card Actions -->
                             <div style="display: flex; gap: 0.75rem; margin-top: auto;">
-                                <button onclick="openProcessModal(<?= $r['id'] ?>, 'Approved')" class="btn btn-success" style="flex: 1; padding: 10px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; gap: 0.35rem; cursor: pointer; transition: all 0.2s;">
-                                    <i class="ri-check-line"></i> Approve
-                                </button>
-                                <button onclick="openProcessModal(<?= $r['id'] ?>, 'Rejected')" class="btn btn-danger" style="flex: 1; padding: 10px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; gap: 0.35rem; cursor: pointer; transition: all 0.2s;">
-                                    <i class="ri-close-line"></i> Reject
-                                </button>
+<button onclick="openProcessModal(<?= $r['id'] ?>, 'Approved')"
+    style="flex:1;background:#22c55e;color:white;border:none;padding:10px;border-radius:8px;font-weight:700;">
+    <i class="ri-check-line"></i> Approve
+</button>
+
+<button onclick="openProcessModal(<?= $r['id'] ?>, 'Rejected')"
+    style="flex:1;background:#ef4444;color:white;border:none;padding:10px;border-radius:8px;font-weight:700;">
+    <i class="ri-close-line"></i> Reject
+</button>
                             </div>
                         </div>
                     </div>

@@ -211,7 +211,6 @@ include 'includes/header.php';
         <i class="ri-wallet-3-line" style="position: absolute; right: -10px; top: -10px; font-size: 5rem; opacity: 0.15; transform: rotate(-15deg);"></i>
     </div>
 
-
     <!-- Active Tasks Section -->
     <div class="section-title">
         <span>Current Workload</span>
