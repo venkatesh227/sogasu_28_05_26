@@ -65,6 +65,7 @@ $stmt->execute([
 $employees = $stmt->fetchAll();
 
 // Paid in this period calculation
+
 $statsStmt = $pdo->prepare("SELECT SUM(amount) FROM employee_payments WHERE payment_date BETWEEN ? AND ? AND payment_type = 'Salary'");
 $statsStmt->execute([$from_date, $to_date]);
 $paidThisPeriod = $statsStmt->fetchColumn() ?: 0;
@@ -75,7 +76,8 @@ $totalOT = 0;
 
 foreach ($employees as &$row) {
     $monthly_base = floatval($row['base_salary']);
-    $per_day = $monthly_base / 30; 
+    $per_day = $monthly_base / 30;
+
     // Assuming 30 days for daily rate
     
     $present_days = intval($row['present_days']);
@@ -115,6 +117,7 @@ include 'includes/header.php';
     <div style="display: flex; flex-direction: column; gap: 1.5rem; width: 100%; max-width: 100%; ">
         
         <!-- Premium Page Header -->
+
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
             <div>
                 <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;">Weekly Payroll Portal</h2>
@@ -150,7 +153,6 @@ include 'includes/header.php';
                     <span class="label">To Date</span>
                     <input type="date" name="to_date" id="to_date" value="<?= $to_date ?>" class="premium-input" style="font-weight: 700;">
                 </div>
-
                 <div>
                     <button type="submit" class="btn-premium" style="padding: 0.65rem 1.5rem; border-radius: 12px;">
                         <i class="ri-refresh-line"></i> Apply Filter

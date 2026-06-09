@@ -56,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 // Fetch Pending Requests
+
 $pending = $pdo->query("
     SELECT lr.*, e.first_name, e.last_name, e.job_role, lt.name as type_name, lt.color
     FROM leave_requests lr
@@ -212,7 +213,6 @@ include 'includes/header.php';
 
     </div>
 </main>
-
 <!-- Premium Process Modal -->
 <div id="processModal" class="premium-modal-overlay">
     <div class="glass-card premium-modal-content" style="max-width: 440px; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; background: white; box-shadow: var(--shadow-lg);">
@@ -285,6 +285,7 @@ include 'includes/header.php';
     }
 
     // Close modal on click outside
+
     window.onclick = function(event) {
         if (event.target == document.getElementById('processModal')) closeProcessModal();
     }

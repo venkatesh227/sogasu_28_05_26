@@ -70,6 +70,7 @@ foreach ($all_logs as $log) {
 }
 
 // Flatten sessions into records for display
+
 $records = [];
 foreach ($daily_sessions as $emp_id => $dates) {
     foreach ($dates as $date => $sessions) {
@@ -118,11 +119,13 @@ foreach ($daily_sessions as $emp_id => $dates) {
 }
 
 // Sort records by date DESC
+
 usort($records, function($a, $b) {
     return strcmp($b['attendance_date'], $a['attendance_date']);
 });
 
 // Summary Calculation
+
 $summary = [];
 foreach ($records as $r) {
     $emp_id = $r['employee_id'];
@@ -167,6 +170,7 @@ include 'includes/header.php';
         </div>
 
         <!-- Filter Card -->
+
         <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;">
             <form action="" method="GET" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem; align-items: end;">
                 <div>
@@ -257,6 +261,7 @@ include 'includes/header.php';
             </div>
 
             <!-- Summary Sidebar -->
+
             <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
                 <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid #f1f5f9; background: #fff;">
                     <h3 style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 0;">Employee Totals</h3>
@@ -300,6 +305,7 @@ include 'includes/header.php';
 
     function exportReport() {
         // Simple CSV export logic
+        
         let csv = 'Date,Employee,Role,Check In,Check Out,Duration,Hours\n';
         const rows = document.querySelectorAll('#hoursTable tbody tr');
         rows.forEach(row => {
