@@ -29,7 +29,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     //     die("Unauthorized access");
     // }
 
-$current_user_id = $_SESSION['user_id'] ?? 1;
+    $current_user_id = $_SESSION['user_id'] ?? 1;
     // Sanitize inputs
     $old['first_name'] = trim($_POST['first_name'] ?? '');
     $old['last_name'] = trim($_POST['last_name'] ?? '');
@@ -282,29 +282,19 @@ include 'includes/header.php';
     <?php include 'includes/topbar.php'; ?>
 
     <div>
-        
+
         <!-- Standard Header -->
         <div style="display: flex; justify-content: space-between; align-items: center; ">
             <div>
-                <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;"><?= isset($id) ? 'Edit' : 'Add New' ?> Customer</h2>
+                <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;">
+                    <?= isset($id) ? 'Edit' : 'Add New' ?> Customer</h2>
                 <p style="color: #64748b; margin-top: 0.25rem;">Register or update client profile details</p>
             </div>
-            <button class="btn btn-light" onclick="history.back()" style="background: white; border: 1px solid #e2e8f0; color: #475569; padding: 10px 20px; border-radius: 8px; font-weight: 600;">
+            <button class="btn btn-light" onclick="history.back()"
+                style="background: white; border: 1px solid #e2e8f0; color: #475569; padding: 10px 20px; border-radius: 8px; font-weight: 600;">
                 <i class="ri-arrow-left-line"></i> Back to List
             </button>
         </div>
-
-        <?php if (!empty($errors)): ?>
-            <div style="background: #fef2f2; border: 1px solid #fee2e2; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; color: #dc2626; font-size: 0.85rem;">
-                <div style="font-weight: 700; margin-bottom: 0.5rem;">Please fix the following errors:</div>
-                <ul style="margin: 0; padding-left: 1.5rem;">
-                    <?php foreach ($errors as $error): ?>
-                        <li><?= $error ?></li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
-        <?php endif; ?>
-
         <form method="POST" action="" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
             <input type="hidden" name="role" value="customer">
 
@@ -312,58 +302,87 @@ include 'includes/header.php';
             <div style="display: flex; flex-direction: column; gap: 1.5rem;">
 
                 <div class="table-container" style="margin-top: 0;">
-                    <h3 style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin-bottom: 1.5rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem;">Personal Information</h3>
+                    <h3
+                        style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin-bottom: 1.5rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem;">
+                        Personal Information</h3>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
                         <div class="form-group">
                             <label class="form-label">First Name <span style="color:red">*</span></label>
-                            <input type="text" name="first_name" placeholder="e.g. Rashmi" class="form-control" value="<?= $old['first_name'] ?? '' ?>" required>
+                            <input type="text" name="first_name" placeholder="e.g. Rashmi" class="form-control"
+                                value="<?= $old['first_name'] ?? '' ?>">
+                            <?php if (isset($errors['first_name'])): ?>
+                                <small style="color:red;">
+                                    <?= $errors['first_name'] ?>
+                                </small>
+                            <?php endif; ?>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Last Name</label>
-                            <input type="text" name="last_name" placeholder="e.g. Kumar" class="form-control" value="<?= $old['last_name'] ?? '' ?>">
+                            <input type="text" name="last_name" placeholder="e.g. Kumar" class="form-control"
+                                value="<?= $old['last_name'] ?? '' ?>">
                         </div>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 1.25rem;">
                         <div class="form-group">
                             <label class="form-label">Phone Number <span style="color:red">*</span></label>
-                            <input type="text" name="phone" placeholder="10-digit mobile number" class="form-control" value="<?= $old['phone'] ?? '' ?>" required>
+                            <input type="text" name="phone" placeholder="10-digit mobile number" class="form-control"
+                                value="<?= $old['phone'] ?? '' ?>">
+                            <?php if (isset($errors['phone'])): ?>
+    <small style="color:red;">
+        <?= $errors['phone'] ?>
+    </small>
+<?php endif; ?>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Secondary Phone</label>
-                            <input type="text" name="secondary_phone" placeholder="Alternate Number" class="form-control" value="<?= $old['secondary_phone'] ?? '' ?>">
+                            <input type="text" name="secondary_phone" placeholder="Alternate Number"
+                                class="form-control" value="<?= $old['secondary_phone'] ?? '' ?>">
                         </div>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 1.25rem;">
                         <div class="form-group">
                             <label class="form-label">Email Address</label>
-                            <input type="email" name="email" placeholder="name@example.com" class="form-control" value="<?= $old['email'] ?? '' ?>">
+                            <input type="email" name="email" placeholder="name@example.com" class="form-control"
+                                value="<?= $old['email'] ?? '' ?>">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Account Password <?= isset($id) ? '(Optional)' : '<span style="color:red">*</span>' ?></label>
-                            <input type="password" name="password" class="form-control" placeholder="<?= isset($id) ? 'Leave blank to keep old' : 'Set login password' ?>">
+                            <label class="form-label">Account Password
+                                <?= isset($id) ? '(Optional)' : '<span style="color:red">*</span>' ?></label>
+                            <input type="password" name="password" class="form-control"
+                                placeholder="<?= isset($id) ? 'Leave blank to keep old' : 'Set login password' ?>">
+                            <?php if (isset($errors['password'])): ?>
+    <small style="color:red;">
+        <?= $errors['password'] ?>
+    </small>
+<?php endif; ?>
                         </div>
                     </div>
                 </div>
 
                 <div class="table-container" style="margin-top: 0;">
-                    <h3 style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin-bottom: 1.5rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem;">Address Details</h3>
+                    <h3
+                        style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin-bottom: 1.5rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem;">
+                        Address Details</h3>
 
                     <div class="form-group" style="margin-bottom: 1.25rem;">
                         <label class="form-label">Street Address <span style="color:red">*</span></label>
-                        <input type="text" placeholder="House/Flat No, Street Name" name="address" class="form-control" value="<?= $old['address'] ?? '' ?>" required>
+                        <input type="text" placeholder="House/Flat No, Street Name" name="address" class="form-control"
+                            value="<?= $old['address'] ?? '' ?>">
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
                         <div class="form-group">
                             <label class="form-label">Area / Locality</label>
-                            <input type="text" name="area" class="form-control" placeholder="e.g. Jayanagar 4th Block" value="<?= $old['area'] ?? '' ?>">
+                            <input type="text" name="area" class="form-control" placeholder="e.g. Jayanagar 4th Block"
+                                value="<?= $old['area'] ?? '' ?>">
                         </div>
                         <div class="form-group">
                             <label class="form-label">City <span style="color:red">*</span></label>
-                            <input type="text" name="city" placeholder="e.g. Bangalore" class="form-control" value="<?= $old['city'] ?? '' ?>" required>
+                            <input type="text" name="city" placeholder="e.g. Bangalore" class="form-control"
+                                value="<?= $old['city'] ?? '' ?>">
                         </div>
                     </div>
                 </div>
@@ -374,7 +393,9 @@ include 'includes/header.php';
             <div style="display: flex; flex-direction: column; gap: 1.5rem;">
 
                 <div class="table-container" style="margin-top: 0;">
-                    <h3 style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin-bottom: 1.5rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem;">Preferences</h3>
+                    <h3
+                        style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin-bottom: 1.5rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem;">
+                        Preferences</h3>
 
                     <div class="form-group" style="margin-bottom: 1.25rem;">
                         <label class="form-label">Preferred Branch</label>
@@ -392,8 +413,10 @@ include 'includes/header.php';
                         <select name="source" class="form-select">
                             <option <?= ($old['source'] ?? '') == 'Walk-in' ? 'selected' : '' ?>>Walk-in</option>
                             <option <?= ($old['source'] ?? '') == 'Referral' ? 'selected' : '' ?>>Referral</option>
-                            <option <?= ($old['source'] ?? '') == 'Instagram/Social' ? 'selected' : '' ?>>Instagram/Social</option>
-                            <option <?= ($old['source'] ?? '') == 'Advertisement' ? 'selected' : '' ?>>Advertisement</option>
+                            <option <?= ($old['source'] ?? '') == 'Instagram/Social' ? 'selected' : '' ?>>Instagram/Social
+                            </option>
+                            <option <?= ($old['source'] ?? '') == 'Advertisement' ? 'selected' : '' ?>>Advertisement
+                            </option>
                         </select>
                     </div>
 
@@ -407,16 +430,19 @@ include 'includes/header.php';
 
                     <div class="form-group">
                         <label class="form-label">Internal Notes</label>
-                        <textarea name="notes" class="form-control" rows="4" placeholder="Any specific requirements..."><?= $old['notes'] ?? '' ?></textarea>
+                        <textarea name="notes" class="form-control" rows="4"
+                            placeholder="Any specific requirements..."><?= $old['notes'] ?? '' ?></textarea>
                     </div>
                 </div>
 
                 <!-- Actions -->
                 <div class="table-container" style="margin-top: 0; background: #f8fafc;">
-                    <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; font-weight: 700; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; margin-bottom: 1rem;">
+                    <button type="submit" class="btn btn-primary"
+                        style="width: 100%; padding: 12px; font-weight: 700; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; margin-bottom: 1rem;">
                         <?= isset($id) ? 'UPDATE CUSTOMER' : 'SAVE CUSTOMER' ?>
                     </button>
-                    <button type="button" class="btn" onclick="history.back()" style="width: 100%; padding: 12px; font-weight: 700; border-radius: 8px; border: 1px solid #e2e8f0; background: white; color: #64748b; cursor: pointer;">
+                    <button type="button" class="btn" onclick="history.back()"
+                        style="width: 100%; padding: 12px; font-weight: 700; border-radius: 8px; border: 1px solid #e2e8f0; background: white; color: #64748b; cursor: pointer;">
                         CANCEL
                     </button>
                 </div>
@@ -427,11 +453,36 @@ include 'includes/header.php';
     </div>
 
 
-<style>
-    .form-group { margin-bottom: 1rem; }
-    .form-label { display: block; font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 0.5rem; }
-    .form-control, .form-select { width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; transition: all 0.2s; outline: none; }
-    .form-control:focus, .form-select:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
-</style>
+    <style>
+        .form-group {
+            margin-bottom: 1rem;
+        }
 
-<?php include 'includes/footer.php'; ?>
+        .form-label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-control,
+        .form-select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+    </style>
+
+    <?php include 'includes/footer.php'; ?>
