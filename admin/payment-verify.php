@@ -139,6 +139,23 @@ if (
                 json_encode($payment->toArray()),
                 $order['id']
             ]);
+            $stmtBillUpdate = $pdo->prepare("
+                UPDATE bills
+                SET
+                    paid_amount = ?,
+                    pending_amount = ?,
+                    bill_status = ?
+                WHERE order_id = ?
+            ");
+
+            $pending_amount = $total_amount - $new_paid_amount;
+
+            $stmtBillUpdate->execute([
+                $new_paid_amount,
+                $pending_amount,
+                $new_payment_status,
+                $order['id']
+            ]);
             header("Location: orders.php?payment=verified");
             exit;
 

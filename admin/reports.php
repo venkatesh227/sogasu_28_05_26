@@ -7,72 +7,191 @@ include 'includes/header.php';
 <main class="main-content">
     <?php include 'includes/topbar.php'; ?>
 
-    <div class="dashboard-container animate-fade-in" style="padding: 2rem; max-width: 1400px; margin: 0 auto;">
-        
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem;">
+    <div style="padding: 1.5rem;">
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
             <div>
-                <h1 style="font-size: 2rem; font-weight: 800; color: var(--text-dark); margin-bottom: 0.5rem; letter-spacing: -0.02em;">Business Intelligence</h1>
-                <p style="color: var(--text-muted); font-size: 1rem; font-weight: 500;">Analyze your business performance with advanced visual analytics.</p>
+                <h2
+                    style="font-size: 1.5rem; font-weight: 700; color: var(--text-dark); margin-bottom: 0.5rem; letter-spacing: -0.02em;">
+                    Business Intelligence</h1>
+                    <p style="color: var(--text-muted); font-size: 1rem; font-weight: 500;">Analyze your business
+                        performance with advanced visual analytics.</p>
             </div>
-            
-            <div style="display: flex; gap: 1rem;">
-                <button class="btn-premium" style="background: white; color: var(--text-dark); border-color: #e2e8f0;"><i class="ri-calendar-line"></i> Select Period</button>
-                <button class="btn-premium"><i class="ri-download-2-line"></i> Download PDF Report</button>
+
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+                <button style="
+background:white;
+border:1px solid #e2e8f0;
+padding:10px 18px;
+border-radius:8px;
+font-weight:600;
+color:#1e293b;
+cursor:pointer;
+"><i class="ri-calendar-line"></i> Select Period</button>
+                <button style="
+background:#4f46e5;
+border:none;
+padding:10px 18px;
+border-radius:8px;
+font-weight:600;
+color:white;
+cursor:pointer;
+"></i> Download PDF Report</button>
             </div>
         </div>
 
         <!-- Premium KPI Widgets -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 2.5rem;">
-            <div class="premium-stat-card card-income">
-                <div class="stat-header">
-                    <div class="stat-icon"><i class="ri-line-chart-line"></i></div>
-                    <div class="stat-trend up"><i class="ri-arrow-up-s-line"></i> 12.5%</div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:1.25rem; margin-bottom:1.5rem;">
+
+            <!-- Card 1 -->
+            <div class="table-container" style="padding:1.25rem; border-radius:16px;">
+
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+
+                    <div>
+                        <div style="font-size:0.75rem; color:#64748b; font-weight:700; text-transform:uppercase;">
+                            Net Profit
+                        </div>
+
+                        <div style="font-size:1.8rem; font-weight:800; margin-top:0.5rem; color:#4f46e5;">
+                            ₹ 8,45,000
+                        </div>
+                    </div>
+
+                    <div style="
+            width:48px;
+            height:48px;
+            border-radius:12px;
+            background:rgba(79,70,229,0.1);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#4f46e5;
+            font-size:1.4rem;
+            ">
+                        <i class="ri-line-chart-line"></i>
+                    </div>
+
                 </div>
-                <div class="stat-label">Net Profit (Annual)</div>
-                <div class="stat-value">₹ 8,45,000</div>
-                <div class="stat-footer">Growth vs previous year</div>
-            </div>
-            
-            <div class="premium-stat-card card-primary">
-                <div class="stat-header">
-                    <div class="stat-icon"><i class="ri-user-heart-line"></i></div>
-                    <div class="stat-trend up"><i class="ri-arrow-up-s-line"></i> 5%</div>
-                </div>
-                <div class="stat-label">Customer Retention</div>
-                <div class="stat-value">68.4%</div>
-                <div class="stat-footer">Based on 1,200+ clients</div>
-            </div>
-            
-            <div class="premium-stat-card card-warning">
-                <div class="stat-header">
-                    <div class="stat-icon"><i class="ri-hand-coin-line"></i></div>
-                    <div class="stat-trend down"><i class="ri-arrow-down-s-line"></i> 3.2%</div>
-                </div>
-                <div class="stat-label">Operating Costs</div>
-                <div class="stat-value">₹ 2,14,000</div>
-                <div class="stat-footer">Direct material & labor</div>
             </div>
 
-            <div class="premium-stat-card card-expense">
-                <div class="stat-header">
-                    <div class="stat-icon"><i class="ri-shopping-bag-3-line"></i></div>
-                    <div class="stat-trend up"><i class="ri-arrow-up-s-line"></i> 8.4%</div>
+            <!-- Card 2 -->
+            <div class="table-container" style="padding:1.25rem; border-radius:16px;">
+
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+
+                    <div>
+                        <div style="font-size:0.75rem; color:#64748b; font-weight:700; text-transform:uppercase;">
+                            Customer Retention
+                        </div>
+
+                        <div style="font-size:1.8rem; font-weight:800; margin-top:0.5rem; color:#10b981;">
+                            68.4%
+                        </div>
+                    </div>
+
+                    <div style="
+            width:48px;
+            height:48px;
+            border-radius:12px;
+            background:rgba(16,185,129,0.1);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#10b981;
+            font-size:1.4rem;
+            ">
+                        <i class="ri-user-heart-line"></i>
+                    </div>
+
                 </div>
-                <div class="stat-label">Avg. Order Value</div>
-                <div class="stat-value">₹ 3,450</div>
-                <div class="stat-footer">Per transaction average</div>
             </div>
+
+            <!-- Card 3 -->
+            <div class="table-container" style="padding:1.25rem; border-radius:16px;">
+
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+
+                    <div>
+                        <div style="font-size:0.75rem; color:#64748b; font-weight:700; text-transform:uppercase;">
+                            Operating Costs
+                        </div>
+
+                        <div style="font-size:1.8rem; font-weight:800; margin-top:0.5rem; color:#f59e0b;">
+                            ₹ 2,14,000
+                        </div>
+                    </div>
+
+                    <div style="
+            width:48px;
+            height:48px;
+            border-radius:12px;
+            background:rgba(245,158,11,0.1);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#f59e0b;
+            font-size:1.4rem;
+            ">
+                        <i class="ri-hand-coin-line"></i>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Card 4 -->
+            <div class="table-container" style="padding:1.25rem; border-radius:16px;">
+
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+
+                    <div>
+                        <div style="font-size:0.75rem; color:#64748b; font-weight:700; text-transform:uppercase;">
+                            Avg Order Value
+                        </div>
+
+                        <div style="font-size:1.8rem; font-weight:800; margin-top:0.5rem; color:#ef4444;">
+                            ₹ 3,450
+                        </div>
+                    </div>
+
+                    <div style="
+            width:48px;
+            height:48px;
+            border-radius:12px;
+            background:rgba(239,68,68,0.1);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#ef4444;
+            font-size:1.4rem;
+            ">
+                        <i class="ri-shopping-bag-3-line"></i>
+                    </div>
+
+                </div>
+            </div>
+
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
             <!-- Clients Analytics Graph -->
-            <div class="glass-card" style="padding: 2rem;">
+            <div class="table-container" style="padding:1.5rem; border-radius:16px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
                     <div>
-                        <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-dark); margin-bottom: 0.25rem;">Clients Analysis</h3>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Comparison of new vs repeated clients</p>
+                        <h3
+                            style="font-size: 1.25rem; font-weight: 800; color: var(--text-dark); margin-bottom: 0.25rem;">
+                            Clients Analysis</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Comparison of new vs
+                            repeated clients</p>
                     </div>
-                    <select class="glass-card" style="padding: 0.5rem 1rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600; color: var(--text-dark); outline: none; border-color: #f1f5f9;">
+                    <select class="table-container" style="
+padding:0.6rem 1rem;
+border:1px solid #e2e8f0;
+border-radius:8px;
+background:white;
+font-weight:600;
+outline:none;
+" font-size: 0.85rem; font-weight: 600; color: var(--text-dark); outline: none; border-color: #f1f5f9;">
                         <option>This Year</option>
                         <option>Last Year</option>
                     </select>
@@ -83,17 +202,22 @@ include 'includes/header.php';
             </div>
 
             <!-- Revenue vs Expenses Graph -->
-            <div class="glass-card" style="padding: 2rem;">
+            <div class="table-container" style="padding:1.5rem; border-radius:16px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
                     <div>
-                        <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-dark); margin-bottom: 0.25rem;">Financial Trajectory</h3>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Monthly revenue against operational expenses</p>
+                        <h3
+                            style="font-size: 1.25rem; font-weight: 800; color: var(--text-dark); margin-bottom: 0.25rem;">
+                            Financial Trajectory</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Monthly revenue
+                            against operational expenses</p>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.8rem; background: #f0fdf4; border-radius: 8px; font-size: 0.75rem; font-weight: 800; color: #16a34a;">
+                        <div
+                            style="display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.8rem; background: #f0fdf4; border-radius: 8px; font-size: 0.75rem; font-weight: 800; color: #16a34a;">
                             Revenue
                         </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.8rem; background: #fff1f2; border-radius: 8px; font-size: 0.75rem; font-weight: 800; color: #e11d48;">
+                        <div
+                            style="display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.8rem; background: #fff1f2; border-radius: 8px; font-size: 0.75rem; font-weight: 800; color: #e11d48;">
                             Expense
                         </div>
                     </div>
@@ -105,21 +229,13 @@ include 'includes/header.php';
         </div>
     </div>
 </main>
-
-<style>
-    .card-income { --primary: #10b981; --primary-light: #d1fae5; }
-    .card-primary { --primary: #4f46e5; --primary-light: #e0e7ff; }
-    .card-warning { --primary: #f59e0b; --primary-light: #fef3c7; }
-    .card-expense { --primary: #ef4444; --primary-light: #fee2e2; }
-</style>
-
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // Shared Chart Options
         const sharedOptions = {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { 
+            plugins: {
                 legend: { display: false },
                 tooltip: {
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -135,11 +251,11 @@ include 'includes/header.php';
                 }
             },
             scales: {
-                x: { 
+                x: {
                     grid: { display: false },
                     ticks: { font: { family: 'Outfit', size: 12, weight: '600' }, color: '#94a3b8' }
                 },
-                y: { 
+                y: {
                     grid: { color: '#f1f5f9', borderDash: [5, 5] },
                     ticks: { font: { family: 'Outfit', size: 12, weight: '600' }, color: '#94a3b8' }
                 }

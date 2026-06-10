@@ -136,6 +136,29 @@ foreach ($data as $row) {
     $activeOrdersStmt = $pdo->prepare("
 
     SELECT
+        co.order_code,
+        co.status AS final_status,
+        co.status_history,
+        co.created_at,
+        sc.name AS sub_category_name
+
+    FROM customer_orders co
+
+    LEFT JOIN sub_categories sc
+        ON co.sub_category_id = sc.id
+
+    WHERE co.user_id = :user_id
+    AND LOWER(co.status) != 'completed'
+    AND co.order_code IS NOT NULL
+    AND co.order_code != ''
+    AND (
+        co.slot_status IS NULL
+        OR LOWER(co.slot_status) != 'rejected'
+    )
+
+    UNION
+
+    SELECT
         o.order_code,
         o.order_status AS final_status,
         o.status_history,
@@ -147,15 +170,18 @@ foreach ($data as $row) {
     LEFT JOIN sub_categories sc
         ON o.sub_category_id = sc.id
 
-    WHERE o.customer_id = ?
-    AND o.order_status != 'completed'
+    WHERE o.customer_id = :customer_id
+    AND LOWER(o.order_status) != 'completed'
+    AND o.order_code IS NOT NULL
+    AND o.order_code != ''
 
-    ORDER BY o.created_at DESC
+    ORDER BY created_at DESC
 
 ");
 
     $activeOrdersStmt->execute([
-        $_SESSION['user_id']
+        ':user_id' => $_SESSION['user_id'],
+        ':customer_id' => $customerId
     ]);
 
     $activeOrders = $activeOrdersStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -560,34 +586,34 @@ foreach ($data as $row) {
 </script>
 <?php if ($showHolidayPopup): ?>
 
-<script>
+    <script>
 
-fetch('', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: 'mark_holiday_read=1'
-});
+        fetch('', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'mark_holiday_read=1'
+        });
 
-</script>
+    </script>
 
 <?php endif; ?>
 
 <?php if (!empty($_SESSION['success_message'])): ?>
 
-<script>
+    <script>
 
-Swal.fire({
-    icon: 'success',
-    title: 'Success',
-    text: '<?= $_SESSION['success_message']; ?>',
-    confirmButtonText: 'OK'
-});
+        Swal.fire({
+            icon: 'success',
+            title: 'Success',
+            text: '<?= $_SESSION['success_message']; ?>',
+            confirmButtonText: 'OK'
+        });
 
-</script>
+    </script>
 
-<?php unset($_SESSION['success_message']); ?>
+    <?php unset($_SESSION['success_message']); ?>
 
 <?php endif; ?>
 <?php include 'includes/bottom-nav.php'; ?>

@@ -174,61 +174,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             $order_id = $pdo->lastInsertId();
-            try {
-                $payable_amount = $advance_amount > 0 ? $advance_amount : $total_amount;
-                $payment = $api->paymentLink->create([
+    //         try {
+    //             $payable_amount = $advance_amount > 0 ? $advance_amount : $total_amount;
+    //             $payment = $api->paymentLink->create([
 
-                    'amount' => $payable_amount * 100,
+    //                 'amount' => $payable_amount * 100,
 
-                    'currency' => 'INR',
+    //                 'currency' => 'INR',
 
-                    'accept_partial' => false,
+    //                 'accept_partial' => false,
 
-                    'description' => "Payment for Order #{$order_code}",
+    //                 'description' => "Payment for Order #{$order_code}",
 
-                    'customer' => [
-                        'name' => 'Customer',
-                        'contact' => preg_replace('/[^0-9]/', '', $_POST['mobile_number'])
-                    ],
+    //                 'customer' => [
+    //                     'name' => 'Customer',
+    //                     'contact' => preg_replace('/[^0-9]/', '', $_POST['mobile_number'])
+    //                 ],
 
-                    'notify' => [
-                        'sms' => false,
-                        'email' => false
-                    ],
+    //                 'notify' => [
+    //                     'sms' => false,
+    //                     'email' => false
+    //                 ],
 
-                    'reminder_enable' => false,
-                    'callback_url' => 'http://localhost/sogasu_28_05_26/admin/payment-verify.php',
+    //                 'reminder_enable' => false,
+    //                 'callback_url' => 'http://localhost/sogasu_28_05_26/admin/payment-verify.php',
 
-                    'callback_method' => 'get'
+    //                 'callback_method' => 'get'
 
-                ]);
+    //             ]);
 
-                $payment_link_id = $payment['id'];
+    //             $payment_link_id = $payment['id'];
 
-                $payment_link = $payment['short_url'];
+    //             $payment_link = $payment['short_url'];
 
-                $stmtPayment = $pdo->prepare("
-        UPDATE orders
-        SET
-            razorpay_payment_link_id = ?,
-            payment_link = ?
-        WHERE id = ?
-    ");
+    //             $stmtPayment = $pdo->prepare("
+    //     UPDATE orders
+    //     SET
+    //         razorpay_payment_link_id = ?,
+    //         payment_link = ?
+    //     WHERE id = ?
+    // ");
 
-                $stmtPayment->execute([
-                    $payment_link_id,
-                    $payment_link,
-                    $order_id
-                ]);
+    //             $stmtPayment->execute([
+    //                 $payment_link_id,
+    //                 $payment_link,
+    //                 $order_id
+    //             ]);
 
-            } catch (Exception $e) {
+    //         } catch (Exception $e) {
 
-                file_put_contents(
-                    'razorpay_error_log.txt',
-                    date('Y-m-d H:i:s') . " - " . $e->getMessage() . PHP_EOL,
-                    FILE_APPEND
-                );
-            }
+    //             file_put_contents(
+    //                 'razorpay_error_log.txt',
+    //                 date('Y-m-d H:i:s') . " - " . $e->getMessage() . PHP_EOL,
+    //                 FILE_APPEND
+    //             );
+    //         }
 
 
             // Save Additional Services

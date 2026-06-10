@@ -296,3 +296,93 @@ Attempting to save: Chest = 12
 Attempting to save: Waist = 12
 Attempting to save: Height = 12
 Attempting to save: Width = 12
+Found measurements array for order 4
+Attempting to save: Sholder = 33
+Attempting to save: hand = 33
+Attempting to save: Height = 33
+Attempting to save: Width = 33
+Found measurements array for order 1
+Attempting to save: Shoulder Strap = 11
+Attempting to save: Chest = 11
+Attempting to save: Waist = 11
+Attempting to save: Height = 11
+Attempting to save: Width = 11
+Found measurements array for order 2
+Attempting to save: Sholder = 12
+Attempting to save: hand = 12
+Attempting to save: Arm Round = 12
+Attempting to save: Height = 12
+Attempting to save: Width = 12
+Found measurements array for order 1
+Attempting to save: Plain Blouse = 22
+Attempting to save: Sholder = 22
+Attempting to save: Shoulder Strap = 22
+Attempting to save: Chest = 22
+Attempting to save: Front Length = 22
+Attempting to save: Waist = 22
+Attempting to save: Arm Round = 22
+Attempting to save: Arm Hole = 22
+Found measurements array for order 2
+Attempting to save: Shoulder Strap = 11
+Attempting to save: Chest = 11
+Attempting to save: Waist = 11
+Attempting to save: Height = 11
+Attempting to save: Width = 11
+Found measurements array for order 1
+Attempting to save: Plain Blouse = 11
+Attempting to save: Sholder = 11
+Attempting to save: Shoulder Strap = 11
+Attempting to save: Chest = 11
+Attempting to save: Front Length = 11
+Attempting to save: Waist = 11
+Attempting to save: Arm Round = 11
+Attempting to save: Arm Hole = 11
+Found measurements array for order 2
+Attempting to save: Sholder = 22
+Attempting to save: hand = 22
+Attempting to save: Height = 22
+Attempting to save: Width = 22
+Found measurements array for order 1
+Attempting to save: Shoulder Strap = 11
+Attempting to save: Chest = 11
+Attempting to save: Waist = 11
+Attempting to save: Height = 11
+Attempting to save: Width = 11
+Found measurements array for order 2
+Attempting to save: Sholder = 11
+Attempting to save: hand = 11
+Attempting to save: Arm Round = 11
+Attempting to save: Height = 11
+Attempting to save: Width = 11
+Found measurements array for order 3
+Attempting to save: Shoulder Strap = 11
+Attempting to save: Chest = 11
+Attempting to save: Waist = 11
+Attempting to save: Height = 11
+Attempting to save: Width = 11
+Found measurements array for order 4
+Attempting to save: Plain Blouse = 22
+Attempting to save: Sholder = 22
+Attempting to save: Shoulder Strap = 22
+Attempting to save: Chest = 22
+Attempting to save: Front Length = 22
+Attempting to save: Waist = 22
+Attempting to save: Arm Round = 22
+Attempting to save: Arm Hole = 22
+Found measurements array for order 5
+Attempting to save: Sholder = 33
+Attempting to save: hand = 33
+Attempting to save: Height = 33
+Attempting to save: Width = 33
+Found measurements array for order 1
+Attempting to save: Shoulder Strap = 11
+Attempting to save: Chest = 11
+Attempting to save: Waist = 11
+Attempting to save: Height = 11
+Attempting to save: Width = 11
+Found measurements array for order 2
+Attempting to save: Shoulder Strap = 11
+Attempting to save: Chest = 11
+Attempting to save: Waist = 11
+Attempting to save: Height = 11
+Attempting to save: Width = 11

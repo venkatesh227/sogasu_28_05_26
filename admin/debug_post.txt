@@ -1,21 +1,21 @@
 Array
 (
-    [customer_id] => 2
-    [mobile_number] => 8787678980
+    [customer_id] => 3
+    [mobile_number] => 6785432456
     [family_member_id] => 
-    [delivery_address] => Nandulapet, Tenali
+    [delivery_address] => Madhuravada, Banglore
     [category_id] => 2
     [sub_category_id] => 3
     [fabric_details] => silk
-    [due_date] => 2026-06-10
+    [due_date] => 2026-06-12
     [measurement_unit] => CMS
     [measurements] => Array
         (
-            [Shoulder Strap] => 12
-            [Chest] => 12
-            [Waist] => 12
-            [Height] => 12
-            [Width] => 12
+            [Shoulder Strap] => 11
+            [Chest] => 11
+            [Waist] => 11
+            [Height] => 11
+            [Width] => 11
         )
 
     [design_notes] => Hip Rope
@@ -25,9 +25,9 @@ Array
         )
 
     [base_price] => 5000.00
-    [extra_charges] => 
-    [advance_amount] => 500
-    [advance_payment_mode] => Cash
-    [transaction_reference] => 
+    [extra_charges] => 400
+    [advance_amount] => 300
+    [advance_payment_mode] => UPI
+    [transaction_reference] => TR111111
     [submit_order] => 1
 )

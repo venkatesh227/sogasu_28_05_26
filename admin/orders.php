@@ -49,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 $activeOrders = $pdo->query("
         SELECT 
             o.id,
+            'admin' as order_type,
             o.order_code,
             o.total_amount,
             o.advance_amount,
@@ -58,9 +59,11 @@ $activeOrders = $pdo->query("
             o.supervisor_id,
             o.payment_link,
             o.payment_status,
+            b.id as bill_id,
             sc.name as garment
         FROM orders o
         LEFT JOIN sub_categories sc ON o.sub_category_id = sc.id
+        LEFT JOIN bills b ON b.order_id = o.id
         WHERE o.is_deleted = 0 
         AND o.supervisor_id IS NOT NULL 
         AND o.order_status NOT IN ('completed', 'delivered', 'cancelled')
@@ -69,6 +72,7 @@ $activeOrders = $pdo->query("
 
         SELECT 
             co.id,
+            'customer' as order_type,
             co.order_code,
             co.total_amount,
             0 as advance_amount,
@@ -78,6 +82,7 @@ $activeOrders = $pdo->query("
             co.supervisor_id,
             NULL as payment_link,
             NULL as payment_status,
+            NULL as bill_id,
             sc.name as garment
         FROM customer_orders co
         LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
@@ -233,17 +238,22 @@ include 'includes/header.php';
                             o.id,
                             'admin' as order_type,
                             o.order_code,
+                            o.total_amount,
+                            o.advance_amount,
+                            o.paid_amount,
                             o.due_date,
                             o.order_status,
                             o.supervisor_id,
                             o.payment_link,
                             o.payment_status,
+                            b.id as bill_id,
                             c.first_name,
                             c.last_name,
                             sc.name as garment,
                             o.material_image as fabric_img
                         FROM orders o
                         LEFT JOIN customers c ON o.customer_id = c.id
+                        LEFT JOIN bills b ON b.order_id = o.id
                         LEFT JOIN sub_categories sc ON o.sub_category_id = sc.id
                         WHERE $whereClause
 
@@ -253,11 +263,15 @@ include 'includes/header.php';
                             co.id,
                             'customer' as order_type,
                             co.order_code,
+                            co.total_amount,
+                            0 as advance_amount,
+                            0 as paid_amount,
                             co.appointment_date as due_date,
                             co.status as order_status,
                             co.supervisor_id,
                             NULL as payment_link,
                             NULL as payment_status,
+                            NULL as bill_id,
                             cc.first_name,
                             cc.last_name,
                             sc.name as garment,
@@ -392,7 +406,10 @@ include 'includes/header.php';
                                     <a href="view-order.php?id=<?= $o['id'] ?>" class="btn btn-sm"
                                         style="background: #f8fafc; color: #6366f1; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; text-decoration: none;"><i
                                             class="ri-eye-line"></i> View</a>
-                                    <?php if (!empty($o['payment_link']) && $o['payment_status'] !== 'paid'): ?>
+                                    <?php if (
+                                        !empty($o['bill_id']) &&
+                                        $o['payment_status'] !== 'paid'
+                                    ): ?>
 
                                         <a href="generate-payment-link.php?order_id=<?= $o['id'] ?>" class="btn btn-sm"
                                             style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 5px 10px; border-radius: 6px; text-decoration: none;">
