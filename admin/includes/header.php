@@ -87,7 +87,6 @@ $page_permission_map = [
     'add-inventory' => 'inventory',
     'delete-inventory' => 'inventory',
     'inventory-categories' => 'inventory',
-    'asset-reports' => 'inventory',
     'procurement' => 'inventory',
     'sourcing' => 'inventory',
     'inventory-reports' => 'inventory',
@@ -99,6 +98,7 @@ $page_permission_map = [
     // Assets
     'assets' => 'assets',
     'asset-categories' => 'assets',
+    'asset-reports' => 'assets',
 
     // Finance
     'billing' => 'finance',
@@ -473,8 +473,8 @@ if ($required_permission && !has_permission($required_permission)) {
         $mastersPages = ['job-roles', 'branches', 'categories', 'sub-categories', 'measurement', 'services', 'racks', 'quick-notes', 'global-settings', 'bulk-upload', 'suppliers', 'add-supplier'];
         $inventoryPages = ['inventory', 'inventory-categories', 'procurement', 'sourcing', 'inventory-reports', 'purchase-orders', 'add-purchase-order', 'receive-po'];
         $hrPages = ['employees', 'employee-devices', 'shift-roster', 'attendance', 'holidays', 'add-employee', 'hr_reports', 'leaves', 'payroll', 'leave-types', 'ot-requests'];
-        $assetsPages = ['assets', 'asset-categories'];
-        $financePages = ['billing', 'payments', 'expenses'];
+        $assetsPages = ['assets', 'asset-categories', 'asset-reports'];
+        $financePages = ['billing', 'payments', 'expenses', 'expense-categories'];
 
         $pendingLeaveCount = $pdo->query("SELECT COUNT(*) FROM leave_requests WHERE status = 'Pending'")->fetchColumn();
         $pendingOTCount = $pdo->query("SELECT COUNT(*) FROM employee_overtime WHERE status = 'Pending'")->fetchColumn();
@@ -668,10 +668,6 @@ if ($required_permission && !has_permission($required_permission)) {
                         class="sub-nav-item <?php echo ($activePage == 'inventory-categories') ? 'active' : ''; ?>">
                         <i class="ri-price-tag-line"></i> Categories
                     </a>
-                    <a href="asset-reports.php"
-                        class="sub-nav-item <?php echo ($activePage == 'asset-reports') ? 'active' : ''; ?>">
-                        <i class="ri-file-list-3-line"></i> Asset Reports
-                    </a>
                     <a href="procurement.php"
                         class="sub-nav-item <?php echo ($activePage == 'procurement') ? 'active' : ''; ?>">
                         <i class="ri-truck-line"></i> Procurement
@@ -698,6 +694,10 @@ if ($required_permission && !has_permission($required_permission)) {
                     <a href="asset-categories.php"
                         class="sub-nav-item <?php echo ($activePage == 'asset-categories') ? 'active' : ''; ?>">
                         <i class="ri-folder-open-line"></i> Asset Categories
+                    </a>
+                    <a href="asset-reports.php"
+                        class="sub-nav-item <?php echo ($activePage == 'asset-reports') ? 'active' : ''; ?>">
+                        <i class="ri-file-list-3-line"></i> Asset Reports
                     </a>
                 </div>
             <?php endif; ?>

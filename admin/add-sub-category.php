@@ -35,11 +35,6 @@ if (isset($_POST['submit'])) {
     if ($parent_category == "") {
         $errors['parent_category'] = "Category Name is required";
     }
-
-    if ($description == "") {
-        $errors['description'] = "Description is required";
-    }
-
     if ($price == "") {
         $errors['price'] = "Price is required";
     }
@@ -194,11 +189,10 @@ include 'includes/header.php';
                 </div>
 
                 <div class="form-group" style="margin-top: 1rem;">
-                    <label class="form-label">Description <span style="color:red">*</span></label>
+                    <label class="form-label">Description</label>
                     <!-- <textarea name="description" placeholder="Brief description..."><?= $editData['description'] ?? $description ?? '' ?></textarea> -->
                     <textarea name="description"
                         placeholder="Brief description..."><?= $_POST['description'] ?? $editData['description'] ?? '' ?></textarea>
-                    <span class="text-red"><?= $errors['description'] ?? '' ?></span>
                 </div>
             </div>
 

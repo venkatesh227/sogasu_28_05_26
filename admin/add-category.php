@@ -60,9 +60,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (!$id && empty($icon)) {
         $errors['icon'] = "Category Image is required";
     }
-    if (empty($description)) {
-        $errors['description'] = "Description is required";
-    }
     // ===== DUPLICATE CHECK =====
     if (!empty($name)) {
 
@@ -194,13 +191,11 @@ include 'includes/header.php';
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Description <span style="color:red">*</span></label>
+                    <label class="form-label">Description</label>
                     <textarea name="description" class="form-control" rows="4" maxlength="300"
                         placeholder="Describe this category..."><?php echo $_POST['description'] ?? ''; ?></textarea>
 
-                    <?php if (!empty($errors['description'])): ?>
-                        <small style="color:red;"><?php echo $errors['description']; ?></small>
-                    <?php endif; ?>
+                    
                 </div>
             </div>
 

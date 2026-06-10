@@ -287,7 +287,8 @@ include 'includes/header.php';
         <div style="display: flex; justify-content: space-between; align-items: center; ">
             <div>
                 <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;">
-                    <?= isset($id) ? 'Edit' : 'Add New' ?> Customer</h2>
+                    <?= isset($id) ? 'Edit' : 'Add New' ?> Customer
+                </h2>
                 <p style="color: #64748b; margin-top: 0.25rem;">Register or update client profile details</p>
             </div>
             <button class="btn btn-light" onclick="history.back()"
@@ -330,10 +331,10 @@ include 'includes/header.php';
                             <input type="text" name="phone" placeholder="10-digit mobile number" class="form-control"
                                 value="<?= $old['phone'] ?? '' ?>">
                             <?php if (isset($errors['phone'])): ?>
-    <small style="color:red;">
-        <?= $errors['phone'] ?>
-    </small>
-<?php endif; ?>
+                                <small style="color:red;">
+                                    <?= $errors['phone'] ?>
+                                </small>
+                            <?php endif; ?>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Secondary Phone</label>
@@ -354,10 +355,10 @@ include 'includes/header.php';
                             <input type="password" name="password" class="form-control"
                                 placeholder="<?= isset($id) ? 'Leave blank to keep old' : 'Set login password' ?>">
                             <?php if (isset($errors['password'])): ?>
-    <small style="color:red;">
-        <?= $errors['password'] ?>
-    </small>
-<?php endif; ?>
+                                <small style="color:red;">
+                                    <?= $errors['password'] ?>
+                                </small>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -371,6 +372,11 @@ include 'includes/header.php';
                         <label class="form-label">Street Address <span style="color:red">*</span></label>
                         <input type="text" placeholder="House/Flat No, Street Name" name="address" class="form-control"
                             value="<?= $old['address'] ?? '' ?>">
+                        <?php if (isset($errors['address'])): ?>
+                            <small style="color:red;">
+                                <?= $errors['address'] ?>
+                            </small>
+                        <?php endif; ?>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
@@ -383,6 +389,11 @@ include 'includes/header.php';
                             <label class="form-label">City <span style="color:red">*</span></label>
                             <input type="text" name="city" placeholder="e.g. Bangalore" class="form-control"
                                 value="<?= $old['city'] ?? '' ?>">
+                            <?php if (isset($errors['city'])): ?>
+                                <small style="color:red;">
+                                    <?= $errors['city'] ?>
+                                </small>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
