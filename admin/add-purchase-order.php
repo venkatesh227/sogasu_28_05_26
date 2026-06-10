@@ -49,10 +49,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Header validations
     if ($supplier_id <= 0) {
-        $errors[] = "Please select a valid supplier.";
+$errors['supplier_id'] = "Please select a supplier";
     }
     if (empty($order_date)) {
-        $errors[] = "Order date is required.";
+$errors['order_date'] = "Order date is required";
     }
     
     $items_count = count($item_names);
@@ -212,19 +212,9 @@ include 'includes/header.php';
         </div>
     </div>
 
-    <?php if (!empty($errors)): ?>
-        <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid #fca5a5; border-radius: 8px; padding: 1rem; color: #b91c1c; font-weight: 500; font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.5;">
-            <div style="font-weight: 700; margin-bottom: 0.5rem;"><i class="ri-error-warning-line"></i> Please fix the following errors:</div>
-            <ul style="margin: 0; padding-left: 1.25rem;">
-                <?php foreach ($errors as $err): ?>
-                    <li><?= htmlspecialchars($err) ?></li>
-                <?php endforeach; ?>
-            </ul>
-        </div>
-    <?php endif; ?>
+  
 
-    <form method="POST" id="poForm">
-        
+<form method="POST" id="poForm" novalidate>        
         <!-- Supplier & PO Info Card -->
         <div style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
             <h3 style="font-size: 1.1rem; font-weight: 600; color: #1e293b; margin-top: 0; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
@@ -234,18 +224,29 @@ include 'includes/header.php';
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem;">
                 <div class="form-group">
                     <label class="form-label">Select Supplier <span style="color: red;">*</span></label>
-                    <select name="supplier_id" id="supplierSelect" class="form-select" required>
-                        <option value="">Choose Supplier</option>
-                        <?php foreach ($suppliers as $supp): ?>
-                            <option value="<?= $supp['id'] ?>" <?= (isset($_POST['supplier_id']) && $_POST['supplier_id'] == $supp['id']) ? 'selected' : '' ?> data-contact="<?= htmlspecialchars($supp['phone_no'] ?: '') ?>" data-firm="<?= htmlspecialchars($supp['firm_name'] ?: '') ?>">
-                                <?= htmlspecialchars($supp['supplier_name']) ?> (<?= htmlspecialchars($supp['firm_name'] ?: 'No Firm Name') ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+<select name="supplier_id" id="supplierSelect" class="form-select">
+    <option value="">Choose Supplier</option>
+    <?php foreach ($suppliers as $supp): ?>
+        <option value="<?= $supp['id'] ?>">
+            <?= htmlspecialchars($supp['supplier_name']) ?>
+        </option>
+    <?php endforeach; ?>
+</select>
+
+<?php if(isset($errors['supplier_id'])): ?>
+    <small style="color:red;">
+        <?= $errors['supplier_id']; ?>
+    </small>
+<?php endif; ?>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Order Date <span style="color: red;">*</span></label>
-                    <input type="date" name="order_date" class="form-control" required value="<?= isset($_POST['order_date']) ? htmlspecialchars($_POST['order_date']) : date('Y-m-d') ?>">
+                    <input type="date" name="order_date" class="form-control" value="<?= isset($_POST['order_date']) ? htmlspecialchars($_POST['order_date']) : date('Y-m-d') ?>">
+                    <?php if(isset($errors['order_date'])): ?>
+    <small style="color:red;">
+        <?= $errors['order_date']; ?>
+    </small>
+<?php endif; ?>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Expected Delivery</label>
@@ -291,10 +292,10 @@ include 'includes/header.php';
                             <?php for ($i = 0; $i < count($_POST['item_name']); $i++): ?>
                                 <tr class="item-row">
                                     <td>
-                                        <input type="text" name="item_name[]" class="form-control" required placeholder="e.g. Red Silk Fabric" value="<?= htmlspecialchars($_POST['item_name'][$i]) ?>">
+                                        <input type="text" name="item_name[]" class="form-control"  placeholder="e.g. Red Silk Fabric" value="<?= htmlspecialchars($_POST['item_name'][$i]) ?>">
                                     </td>
                                     <td>
-                                        <select name="category[]" class="form-select" required>
+                                        <select name="category[]" class="form-select" >
                                             <option value="">Select</option>
                                             <?php foreach ($categories as $cat): ?>
                                                 <option value="<?= htmlspecialchars($cat['code']) ?>" <?= ($_POST['category'][$i] == $cat['code']) ? 'selected' : '' ?>><?= htmlspecialchars($cat['name']) ?></option>
@@ -302,7 +303,7 @@ include 'includes/header.php';
                                         </select>
                                     </td>
                                     <td>
-                                        <select name="unit[]" class="form-select unit-select" required>
+                                        <select name="unit[]" class="form-select unit-select" >
                                             <option value="meters" <?= ($_POST['unit'][$i] == 'meters') ? 'selected' : '' ?>>Meters</option>
                                             <option value="pieces" <?= ($_POST['unit'][$i] == 'pieces') ? 'selected' : '' ?>>Pieces</option>
                                             <option value="rolls" <?= ($_POST['unit'][$i] == 'rolls') ? 'selected' : '' ?>>Rolls</option>
@@ -310,7 +311,7 @@ include 'includes/header.php';
                                         </select>
                                     </td>
                                     <td>
-                                        <input type="number" name="quantity[]" class="form-control qty-input" step="0.01" min="0" required placeholder="e.g. 10.0" value="<?= htmlspecialchars($_POST['quantity'][$i]) ?>">
+                                        <input type="number" name="quantity[]" class="form-control qty-input" step="0.01" min="0" placeholder="e.g. 10.0" value="<?= htmlspecialchars($_POST['quantity'][$i]) ?>">
                                     </td>
                                     <td style="text-align: center; vertical-align: middle;">
                                         <button type="button" class="btn-remove-row" style="background:none; border:none; color:#ef4444; font-size:1.2rem; cursor:pointer;" onclick="removeRow(this)">

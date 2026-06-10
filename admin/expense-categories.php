@@ -58,10 +58,18 @@ if (
 
     $id = $_POST['category_id'] ?? '';
 
-    $category_name = trim($_POST['category_name']);
+$category_name = trim($_POST['category_name'] ?? '');
+$status = $_POST['status'] ?? '';
 
-    $status = $_POST['status'];
+$errors = [];
 
+if ($category_name === '') {
+    $errors['category_name'] = 'Category Name is required';
+}
+
+if ($status === '') {
+    $errors['status'] = 'Status is required';
+}
     /* =========================
        DUPLICATE CHECK
     ========================= */
@@ -83,8 +91,9 @@ if (
 
     $checkStmt = $pdo->prepare($checkQuery);
     $checkStmt->execute($params);
-    $currentDateTime = date('Y-m-d H:i:s');
-    if (!$checkStmt->fetch()) {
+$currentDateTime = date('Y-m-d H:i:s');
+
+if (empty($errors) && !$checkStmt->fetch()) {
 
     /* ===== UPDATE ===== */
 
@@ -785,12 +794,14 @@ include 'includes/header.php';
 
                     <input type="text" name="category_name" id="category_name" class="modal-input" autocomplete="off">
 
-                    <small id="categoryError" style="
-                            color:#ef4444;
-                            margin-top:0.35rem;
-                            display:block;
-                            font-size:0.82rem;
-                        "></small>
+<small id="categoryError" style="
+    color:#ef4444;
+    margin-top:0.35rem;
+    display:block;
+    font-size:0.82rem;
+">
+    <?= $errors['category_name'] ?? '' ?>
+</small>
 
                 </div>
 
@@ -798,28 +809,39 @@ include 'includes/header.php';
 
                 <div style="margin-bottom:0.5rem;">
 
-                    <label style="
-                        display:block;
-                        margin-bottom:0.5rem;
-                        font-weight:600;
-                        color:#1e293b;
-                    ">
+<label style="
+    display:block;
+    margin-bottom:0.5rem;
+    font-weight:600;
+    color:#1e293b;
+">
+    Status
+</label>
 
-                        Status
+<select name="status" id="status" class="modal-input">
 
-                    </label>
+    <option value="">Select Status</option>
 
-                    <select name="status" id="status" class="modal-input">
+    <option value="active">
+        Active
+    </option>
 
-                        <option value="active">
-                            Active
-                        </option>
+    <option value="inactive">
+        Inactive
+    </option>
 
-                        <option value="inactive">
-                            Inactive
-                        </option>
+</select>
 
-                    </select>
+<?php if(isset($errors['status'])): ?>
+<small style="
+    color:#ef4444;
+    margin-top:0.35rem;
+    display:block;
+    font-size:0.82rem;
+">
+    <?= $errors['status']; ?>
+</small>
+<?php endif; ?>
 
                 </div>
 
@@ -934,6 +956,13 @@ include 'includes/header.php';
     }
 
 </script>
+<?php if (!empty($errors)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('categoryModal').style.display = 'flex';
+});
+</script>
+<?php endif; ?>
 <?php if (isset($_SESSION['category_error'])): ?>
 
     <script>

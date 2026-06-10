@@ -1,7 +1,7 @@
 <?php
 session_start();
 include '../includes/db.php';
-
+$showAssetModal = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'save_asset') {
         $assetId = !empty($_POST['asset_id']) ? intval($_POST['asset_id']) : null;
@@ -17,20 +17,26 @@ $stockQuantity = 1;
 $amcStatus = $_POST['amc_status'] ?? 'No';
         $nextServiceDate = !empty($_POST['next_service_date']) ? $_POST['next_service_date'] : null;
 
-        $errors = [];
-        if ($name === '') {
-            $errors[] = 'Asset name is required';
-        }
-        if ($assetCode === '') {
-            $errors[] = 'Asset code is required';
-        }
-        if ($categoryId <= 0) {
-            $errors[] = 'Asset category is required';
-        }
-        if ($stockQuantity < 0) {
-            $errors[] = 'Quantity must be 0 or more';
-        }
+$errors = [];
 
+if ($name === '') {
+    $errors['name'] = 'Asset name is required';
+}
+
+if ($assetCode === '') {
+    $errors['asset_code'] = 'Asset code is required';
+}
+
+if ($categoryId <= 0) {
+    $errors['category_id'] = 'Asset category is required';
+}
+if (empty($purchaseDate)) {
+    $errors['purchase_date'] = 'Purchase date is required';
+}
+
+if (empty($assignedEmployeeId)) {
+    $errors['assigned_employee_id'] = 'Please select employee';
+}
         if (empty($errors)) {
             if ($assetId) {
                 $stmt = $pdo->prepare("UPDATE assets SET asset_code = ?, name = ?, category_id = ?, stock_quantity = ?, condition_status = ?, assigned_employee_id = ?, last_maintenance = ?, purchase_date = ?, amc_status = ?, next_service_date = ? WHERE id = ?");
@@ -73,11 +79,9 @@ $amcStatus = $_POST['amc_status'] ?? 'No';
                 header('Location: assets.php');
                 exit;
             }
-
-            $formError = implode('. ', $errors);
-        } else {
-            $formError = implode('. ', $errors);
-        }
+} else {
+    $showAssetModal = true;
+}
     } elseif ($_POST['action'] === 'toggle_status') {
         $assetId = intval($_POST['id'] ?? 0);
         $newStatus = in_array($_POST['condition_status'] ?? '', ['Good', 'Broken']) ? $_POST['condition_status'] : 'Good';
@@ -330,11 +334,7 @@ include 'includes/header.php';
             <i class="ri-close-line" style="cursor: pointer; font-size: 1.5rem;" onclick="closeModal('assetModal')"></i>
         </div>
         <div class="modal-body" style="padding: 1.5rem;">
-            <?php if (!empty($formError)): ?>
-                <div style="background:#fee2e2;color:#991b1b;padding:0.75rem;border-radius:8px;margin-bottom:1rem;">
-                    <?= htmlspecialchars($formError) ?>
-                </div>
-            <?php endif; ?>
+
             <form id="assetForm" method="post" style="display: grid; gap: 1rem;">
                 <input type="hidden" name="action" value="save_asset">
                 <input type="hidden" name="asset_id" id="asset_id" value="">
@@ -342,21 +342,41 @@ include 'includes/header.php';
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label class="form-label">Asset Name</label>
                     <input type="text" name="name" id="assetName" class="form-control" placeholder="e.g. Steam Iron">
+                    <?php if(isset($errors['name'])): ?>
+<small style="color:red;">
+    <?= $errors['name']; ?>
+</small>
+<?php endif; ?>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                    <div class="form-group">
-                        <label class="form-label">Category</label>
-                        <select name="category_id" id="assetCategory" class="form-select">
-                            <option value="">Select category</option>
-                            <?php foreach ($categories as $category): ?>
-                                <option value="<?= $category['id'] ?>"><?= htmlspecialchars($category['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+<div class="form-group">
+    <label class="form-label">Category</label>
+
+    <select name="category_id" id="assetCategory" class="form-select">
+        <option value="">Select category</option>
+        <?php foreach ($categories as $category): ?>
+            <option value="<?= $category['id'] ?>">
+                <?= htmlspecialchars($category['name']) ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+
+    <?php if(isset($errors['category_id'])): ?>
+        <small style="color:red;">
+            <?= $errors['category_id']; ?>
+        </small>
+    <?php endif; ?>
+
+</div>
                     <div class="form-group">
                         <label class="form-label">Asset Code</label>
                         <input type="text" name="asset_code" id="assetCode" class="form-control" placeholder="Auto/Manual">
+                        <?php if(isset($errors['asset_code'])): ?>
+<small style="color:red;">
+    <?= $errors['asset_code']; ?>
+</small>
+<?php endif; ?>
                     </div>
                 </div>
 
@@ -376,6 +396,11 @@ include 'includes/header.php';
                     <div class="form-group">
                         <label class="form-label">Purchase Date</label>
                         <input type="date" name="purchase_date" id="assetPurchaseDate" class="form-control">
+                        <?php if(isset($errors['purchase_date'])): ?>
+<small style="color:red;">
+    <?= $errors['purchase_date']; ?>
+</small>
+<?php endif; ?>
                     </div>
                     <div class="form-group">
 <div class="form-group">
@@ -401,6 +426,11 @@ include 'includes/header.php';
                     <div class="form-group">
                         <label class="form-label">Assigned To</label>
                         <select name="assigned_employee_id" id="assetAssigned" class="form-select">
+                            <?php if(isset($errors['assigned_employee_id'])): ?>
+<small style="color:red;">
+    <?= $errors['assigned_employee_id']; ?>
+</small>
+<?php endif; ?>
                             <option value="">Unassigned</option>
                             <?php foreach ($employees as $employee): ?>
                                 <option value="<?= $employee['id'] ?>"><?= htmlspecialchars($employee['first_name'] . ' ' . $employee['last_name']) ?></option>
@@ -920,4 +950,11 @@ initializeDataTable(
     'Assets Management'
 );
 </script>
+<?php if ($showAssetModal): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('assetModal').style.display = 'flex';
+});
+</script>
+<?php endif; ?>
 <?php include 'includes/footer.php'; ?>
