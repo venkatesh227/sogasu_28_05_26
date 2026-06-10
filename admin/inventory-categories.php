@@ -209,7 +209,7 @@ include 'includes/header.php';
                 <input type="hidden" name="id" id="category_id">
 
                 <div class="form-group">
-                    <label class="form-label">Category Name</label>
+                    <label class="form-label">Category Name <span style="color:red">*</span></label>
                     <input type="text" name="name" id="category_name" class="form-control" placeholder="e.g. Buttons & Zips" value="<?= htmlspecialchars($name ?? '') ?>">
                     <?php if(isset($errors['name'])): ?>
                         <small style="color:#ef4444; font-weight: 500;"><?= $errors['name'] ?></small>
@@ -217,7 +217,7 @@ include 'includes/header.php';
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">System Code / Slug (Optional)</label>
+                    <label class="form-label">System Code / Slug (Optional) <span style="color:red">*</span></label>
                     <input type="text" name="code" id="category_code" class="form-control" placeholder="e.g. buttons-zips" value="<?= htmlspecialchars($code ?? '') ?>">
                     <small style="color:#64748b; font-size: 0.78rem;">Used in database records. If left blank, it will be auto-generated from the name.</small>
                     <?php if(isset($errors['code'])): ?>

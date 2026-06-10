@@ -295,7 +295,7 @@ include 'includes/header.php';
                      style="margin-bottom:1rem;">
 
                     <label class="form-label">
-                        Category Name
+                        Category Name <span style="color:red">*</span>
                     </label>
 
                     <input type="text"
@@ -318,7 +318,7 @@ include 'includes/header.php';
                 <div class="form-group">
 
                     <label class="form-label">
-                        Category Type
+                        Category Type <span style="color:red">*</span>
                     </label>
 
                 <select name="type"

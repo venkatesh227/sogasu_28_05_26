@@ -46,18 +46,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // AUTO GENERATE SKU IF EMPTY
     if ($sku == '' && $item_name != '') {
         $cat_prefix = strtoupper(substr($category, 0, 3));
-        if ($category == 'access') $cat_prefix = 'ACC';
-        if ($cat_prefix == '') $cat_prefix = 'INV';
-        
+        if ($category == 'access')
+            $cat_prefix = 'ACC';
+        if ($cat_prefix == '')
+            $cat_prefix = 'INV';
+
         $clean_name = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $item_name));
         $name_prefix = substr($clean_name, 0, 3);
         if (strlen($name_prefix) < 3) {
             $name_prefix = str_pad($name_prefix, 3, 'X');
         }
-        
+
         $suffix = rand(1000, 9999);
         $sku = $cat_prefix . '-' . $name_prefix . '-' . $suffix;
-        
+
         // Ensure SKU is unique
         $chk = $pdo->prepare("SELECT COUNT(*) FROM inventory WHERE sku = ? AND is_deleted = 0");
         while (true) {
@@ -72,79 +74,131 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     // VALIDATIONS
 
-    if ($item_name == '')
-        $errors['item_name'] = "Item name is required";
-    if ($sku == '')
-        $errors['sku'] = "SKU is required";
+    if ($item_name == '') {
 
-    if (!preg_match("/^[A-Za-z ]+$/", $item_name)) {
+        $errors['item_name'] = "Item name is required";
+
+    } elseif (!preg_match("/^[A-Za-z0-9\s\-\&\.\(\)]+$/", $item_name)) {
+
         $errors['item_name'] = "Invalid item name";
     }
 
-    if (!preg_match("/^[A-Za-z0-9\-]+$/", $sku)) {
-        $errors['sku'] = "Invalid SKU";
+
+    if ($sku != '') {
+
+        if ($id) {
+
+            $skuCheck = $pdo->prepare("SELECT COUNT(*) FROM inventory 
+                                   WHERE sku = ? 
+                                   AND id != ? 
+                                   AND is_deleted = 0");
+
+            $skuCheck->execute([$sku, $id]);
+
+        } else {
+
+            $skuCheck = $pdo->prepare("SELECT COUNT(*) FROM inventory 
+                                   WHERE sku = ? 
+                                   AND is_deleted = 0");
+
+            $skuCheck->execute([$sku]);
+        }
+
+        if ($skuCheck->fetchColumn() > 0) {
+
+            $errors['sku'] = "SKU already exists";
+        }
     }
-    if ($category == '')
+
+
+    if ($category == '') {
+
         $errors['category'] = "Category is required";
-    if ($unit == '')
+    }
+
+
+    if ($unit == '') {
+
         $errors['unit'] = "Unit is required";
-
-    if (!is_numeric($low_stock) || $low_stock < 0) {
-        $errors['low_stock'] = "Invalid low stock";
     }
 
-    if (!empty($supplier_name) && !preg_match("/^[A-Za-z ]+$/", $supplier_name)) {
-        $errors['supplier_name'] = "Invalid supplier name";
+
+    if ($cost === '') {
+
+        $errors['cost'] = "Cost is required";
+
+    } elseif (!is_numeric($cost)) {
+
+        $errors['cost'] = "Cost must be numeric";
+
+    } elseif ((float)$cost < 0) {
+
+        $errors['cost'] = "Cost cannot be negative";
     }
 
-    if (!is_numeric($cost) || $cost < 0) {
-        $errors['cost'] = "Invalid cost";
+
+    if ($quantity === '') {
+
+        $errors['quantity'] = "Quantity is required";
+
+    } elseif (!is_numeric($quantity)) {
+
+        $errors['quantity'] = "Quantity must be numeric";
+
+    } elseif ((float)$quantity < 0) {
+
+        $errors['quantity'] = "Quantity cannot be negative";
     }
 
-    if (!is_numeric($quantity) || $quantity < 0) {
-        $errors['quantity'] = "Invalid quantity";
+
+    if ($low_stock === '') {
+
+        $errors['low_stock'] = "Low stock alert is required";
+
+    } elseif (!is_numeric($low_stock)) {
+
+        $errors['low_stock'] = "Low stock must be numeric";
+
+    } elseif ((float)$low_stock < 0) {
+
+        $errors['low_stock'] = "Low stock cannot be negative";
     }
 
-    if (!in_array($status, ['0', '1'])) {
+
+    if (!in_array($status, ['0', '1', 0, 1], true)) {
+
         $errors['status'] = "Invalid status";
     }
 
-    if (!empty($contact) && !preg_match("/^[0-9]{10}$/", $contact)) {
-        $errors['contact'] = "Invalid contact";
+
+    if (
+        !empty($supplier_name) &&
+        !preg_match("/^[A-Za-z0-9\s\-\&\.\(\)]+$/", $supplier_name)
+    ) {
+
+        $errors['supplier_name'] = "Invalid supplier name";
     }
-    $image_name = null;
 
-    if (!empty($_FILES['image']['name'])) {
 
-        $file = $_FILES['image'];
+    if (!empty($contact)) {
 
-        // SIZE VALIDATION (5MB)
-        if ($file['size'] > 5 * 1024 * 1024) {
-            $errors['image'] = "Image must be less than 5MB";
+        $contact = trim($contact);
+
+        $isPhone = preg_match("/^[0-9]{10}$/", $contact);
+
+        $isEmail = filter_var($contact, FILTER_VALIDATE_EMAIL);
+
+        if (!$isPhone && !$isEmail) {
+
+            $errors['contact'] = "Enter valid phone number or email";
         }
-
-        // TYPE VALIDATION
-        $allowed = ['image/jpeg', 'image/png', 'image/jpg'];
-
-        if (!in_array($file['type'], $allowed)) {
-            $errors['image'] = "Only JPG, JPEG, PNG allowed";
-        }
-
-        if (empty($errors)) {
-            $image_name = time() . "_" . basename($file['name']);
-            $target = "../uploads/inventory/" . $image_name;
-
-            move_uploaded_file($file['tmp_name'], $target);
-        }
-    } else {
-        $image_name = null;
     }
 
     if (empty($errors)) {
 
         if ($id) {
-            // 🔴 UPDATE
-$stmt = $pdo->prepare("UPDATE inventory SET
+            //  UPDATE
+            $stmt = $pdo->prepare("UPDATE inventory SET
 
 item_name=?,
 sku=?,
@@ -162,32 +216,33 @@ updated_at=?
 
 WHERE id=?");
             if (
-               $stmt->execute([
-    $item_name,
-    $sku,
-    $category,
-    $description,
-    $unit,
-    $cost,
-    $quantity,
-    $low_stock,
-    $status,
-    $supplier_name,
-    $contact,
-    $image_name,
-    $updated_at,
-    $id
-])
+                $stmt->execute([
+                    $item_name,
+                    $sku,
+                    $category,
+                    $description,
+                    $unit,
+                    $cost,
+                    $quantity,
+                    $low_stock,
+                    $status,
+                    $supplier_name,
+                    $contact,
+                    $image_name,
+                    $updated_at,
+                    $id
+                ])
             ) {
 
 
-$_SESSION['success'] = "Inventory item updated successfully!";
-header("Location: inventory.php");
-exit;            }
+                $_SESSION['success'] = "Inventory item updated successfully!";
+                header("Location: inventory.php");
+                exit;
+            }
 
         } else {
-            // 🔴 INSERT
-      $stmt = $pdo->prepare("INSERT INTO inventory 
+            //  INSERT
+            $stmt = $pdo->prepare("INSERT INTO inventory 
 
 (
 item_name,
@@ -208,47 +263,31 @@ is_deleted
 
 VALUES
 
-(
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-0
-)");
+(?,?,?,?,?,?,?,?,?,?,?,?,?,0)");
             if (
-              $stmt->execute([
-    $item_name,
-    $sku,
-    $category,
-    $description,
-    $unit,
-    $cost,
-    $quantity,
-    $low_stock,
-    $status,
-    $supplier_name,
-    $contact,
-    $image_name,
-    $created_at
-])
+                $stmt->execute([
+                    $item_name,
+                    $sku,
+                    $category,
+                    $description,
+                    $unit,
+                    $cost,
+                    $quantity,
+                    $low_stock,
+                    $status,
+                    $supplier_name,
+                    $contact,
+                    $image_name,
+                    $created_at
+                ])
             ) {
-$_SESSION['success'] = "Inventory item updated successfully!";
-header("Location: inventory.php");
-exit;          }
+                $_SESSION['success'] = "Inventory item added successfully!";
+                header("Location: inventory.php");
+                exit;
+            }
         }
 
         $error = "DB operation failed";
-    } else {
-        $error = implode(", ", $errors);
     }
 }
 
@@ -284,21 +323,25 @@ include 'includes/header.php';
 
                 <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                     <div class="form-group">
-                        <label class="form-label">Item Name</label>
+                        <label class="form-label">Item Name <span style="color:red">*</span></label>
                         <input type="text" name="item_name" maxlength="100" class="form-control"
                             placeholder="e.g. Red Silk Fabric" value="<?= $old['item_name'] ?? '' ?>">
-                        <?php if (isset($errors['item_name'])) echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['item_name']}</div>"; ?>
+                        <?php if (isset($errors['item_name']))
+                            echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['item_name']}</div>"; ?>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">SKU / Code <span style="font-size:0.75rem; color:#64748b; font-weight: normal;">(Optional)</span></label>
-                        <input type="text" name="sku" maxlength="50" class="form-control" placeholder="e.g. FAB-RED-001 (Auto-generated if left blank)"
+                        <label class="form-label">SKU / Code<span
+                                style="font-size:0.75rem; color:#64748b; font-weight: normal;">(Optional)</span></label>
+                        <input type="text" name="sku" maxlength="50" class="form-control"
+                            placeholder="e.g. FAB-RED-001 (Auto-generated if left blank)"
                             value="<?= $old['sku'] ?? '' ?>">
-                        <?php if (isset($errors['sku'])) echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['sku']}</div>"; ?>
+                        <?php if (isset($errors['sku']))
+                            echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['sku']}</div>"; ?>
                     </div>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 1rem;">
-                    <label class="form-label">Category</label>
+                    <label class="form-label">Category <span style="color:red">*</span></label>
                     <select name="category" class="form-select">
                         <option value="">Select Category</option>
                         <?php
@@ -306,19 +349,24 @@ include 'includes/header.php';
                         $inventory_categories = $categories_stmt->fetchAll();
                         if (!empty($inventory_categories)):
                             foreach ($inventory_categories as $cat):
-                        ?>
-                            <option value="<?= htmlspecialchars($cat['code']) ?>" <?= ($old['category'] ?? '') == $cat['code'] ? 'selected' : '' ?>><?= htmlspecialchars($cat['name']) ?></option>
-                        <?php
+                                ?>
+                                <option value="<?= htmlspecialchars($cat['code']) ?>" <?= ($old['category'] ?? '') == $cat['code'] ? 'selected' : '' ?>><?= htmlspecialchars($cat['name']) ?></option>
+                                <?php
                             endforeach;
                         else:
-                        ?>
-                            <option value="fabric" <?= ($old['category'] ?? '') == 'fabric' ? 'selected' : '' ?>>Fabric</option>
-                            <option value="lining" <?= ($old['category'] ?? '') == 'lining' ? 'selected' : '' ?>>Lining</option>
-                            <option value="thread" <?= ($old['category'] ?? '') == 'thread' ? 'selected' : '' ?>>Thread</option>
-                            <option value="access" <?= ($old['category'] ?? '') == 'access' ? 'selected' : '' ?>>Accessories (Buttons/Zips)</option>
+                            ?>
+                            <option value="fabric" <?= ($old['category'] ?? '') == 'fabric' ? 'selected' : '' ?>>Fabric
+                            </option>
+                            <option value="lining" <?= ($old['category'] ?? '') == 'lining' ? 'selected' : '' ?>>Lining
+                            </option>
+                            <option value="thread" <?= ($old['category'] ?? '') == 'thread' ? 'selected' : '' ?>>Thread
+                            </option>
+                            <option value="access" <?= ($old['category'] ?? '') == 'access' ? 'selected' : '' ?>>Accessories
+                                (Buttons/Zips)</option>
                         <?php endif; ?>
                     </select>
-                    <?php if (isset($errors['category'])) echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['category']}</div>"; ?>
+                    <?php if (isset($errors['category']))
+                        echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['category']}</div>"; ?>
                 </div>
 
                 <div class="form-group">
@@ -343,31 +391,40 @@ include 'includes/header.php';
                             <option value="rolls" <?= ($old['unit'] ?? '') == 'rolls' ? 'selected' : '' ?>>Rolls</option>
                             <option value="boxes" <?= ($old['unit'] ?? '') == 'boxes' ? 'selected' : '' ?>>Boxes</option>
                         </select>
-                        <?php if (isset($errors['unit'])) echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['unit']}</div>"; ?>
+                        <?php if (isset($errors['unit']))
+                            echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['unit']}</div>"; ?>
                     </div>
                     <div class="form-group">
                         <label class="form-label" id="costLabel">Cost per Unit (₹)</label>
-                        <input type="number" name="cost" step="0.01" min="0" class="form-control" placeholder="0.00"
+                        <input type="number" name="cost" step="0.01" class="form-control" placeholder="0.00"
                             value="<?= $old['cost'] ?? '' ?>">
-                        <?php if (isset($errors['cost'])) echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['cost']}</div>"; ?>
+                        <?php if (isset($errors['cost']))
+                            echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['cost']}</div>"; ?>
                     </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div class="form-group">
                         <label class="form-label" id="quantityLabel">Quantity in Stock</label>
-                        <input type="number" name="quantity" id="quantityInput" min="0" class="form-control" readonly style="background: #f8fafc; font-weight: 700; color: #475569;" placeholder="0.0"
+                        <input type="number" name="quantity" id="quantityInput" class="form-control" 
+                            style="background: #f8fafc; font-weight: 700; color: #475569;" placeholder="0.0"
                             value="<?= isset($old['quantity']) ? htmlspecialchars($old['quantity']) : '0.0' ?>">
-                        <div style="background: rgba(79, 70, 229, 0.06); border: 1px dashed rgba(79, 70, 229, 0.2); color: #4f46e5; border-radius: 6px; padding: 8px 10px; font-size: 0.76rem; font-weight: 500; margin-top: 5px; line-height: 1.4;">
-                            <i class="ri-information-line" style="font-size: 0.9rem; vertical-align: middle;"></i> Stock levels must be managed by raising and receiving a <a href="purchase-orders.php" style="font-weight: 700; color: #4f46e5; text-decoration: underline;">Purchase Order</a>.
+                        <div
+                            style="background: rgba(79, 70, 229, 0.06); border: 1px dashed rgba(79, 70, 229, 0.2); color: #4f46e5; border-radius: 6px; padding: 8px 10px; font-size: 0.76rem; font-weight: 500; margin-top: 5px; line-height: 1.4;">
+                            <i class="ri-information-line" style="font-size: 0.9rem; vertical-align: middle;"></i> Stock
+                            levels must be managed by raising and receiving a <a href="purchase-orders.php"
+                                style="font-weight: 700; color: #4f46e5; text-decoration: underline;">Purchase
+                                Order</a>.
                         </div>
-                        <?php if (isset($errors['quantity'])) echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['quantity']}</div>"; ?>
+                        <?php if (isset($errors['quantity']))
+                            echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['quantity']}</div>"; ?>
                     </div>
                     <div class="form-group">
                         <label class="form-label" id="lowStockLabel">Low Stock Alert Level</label>
-                        <input type="number" name="low_stock" id="lowStockInput" min="0" class="form-control" placeholder="e.g. 5"
-                            value="<?= $old['low_stock_alert'] ?? '5' ?>">
-                        <?php if (isset($errors['low_stock'])) echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['low_stock']}</div>"; ?>
+                        <input type="number" name="low_stock" id="lowStockInput" class="form-control"
+                            placeholder="e.g. 5" value="<?= $old['low_stock_alert'] ?? '5' ?>">
+                        <?php if (isset($errors['low_stock']))
+                            echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['low_stock']}</div>"; ?>
                     </div>
                 </div>
 
@@ -398,16 +455,18 @@ include 'includes/header.php';
                     <div id="fileName" style="margin-top:10px; font-size:0.85rem; color:#334155;"></div>
 
                     <!--  OLD IMAGE -->
-<?php if (!empty($old['item_image'])): ?>
-                            <div style="margin-top:15px;">
-                            <img src="../uploads/inventory/<?= $old['item_image'] ?>" width="120" style="border-radius:6px;">
+                    <?php if (!empty($old['item_image'])): ?>
+                        <div style="margin-top:15px;">
+                            <img src="../uploads/inventory/<?= $old['item_image'] ?>" width="120"
+                                style="border-radius:6px;">
                             <div style="font-size: 0.8rem; color:#64748b;">
-<?= $old['item_image'] ?>
+                                <?= $old['item_image'] ?>
                             </div>
                         </div>
                     <?php endif; ?>
                 </div>
-                <?php if (isset($errors['image'])) echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['image']}</div>"; ?>
+                <?php if (isset($errors['image']))
+                    echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['image']}</div>"; ?>
 
                 <!-- STATUS -->
                 <div class="form-group">
@@ -417,7 +476,8 @@ include 'includes/header.php';
                         <option value="0" <?= ($old['status'] ?? '') == '0' ? 'selected' : '' ?>>Archived/Discontinued
                         </option>
                     </select>
-                    <?php if (isset($errors['status'])) echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['status']}</div>"; ?>
+                    <?php if (isset($errors['status']))
+                        echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['status']}</div>"; ?>
                 </div>
             </div>
             <div style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 8px;">
@@ -427,19 +487,22 @@ include 'includes/header.php';
                     <label class="form-label">Supplier Name</label>
                     <input type="text" id="supplierNameInput" name="supplier_name" maxlength="100" class="form-control"
                         placeholder="e.g. RK Textiles" list="supplierList" value="<?= $old['supplier_name'] ?? '' ?>">
-                    <?php if (isset($errors['supplier_name'])) echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['supplier_name']}</div>"; ?>
+                    <?php if (isset($errors['supplier_name']))
+                        echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['supplier_name']}</div>"; ?>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Contact</label>
-                    <input type="text" id="supplierContactInput" name="contact" maxlength="10" class="form-control" placeholder="Phone or Email"
-                        value="<?= $old['supplier_contact'] ?? '' ?>">
-                    <?php if (isset($errors['contact'])) echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['contact']}</div>"; ?>
+                    <input type="text" id="supplierContactInput" name="contact" maxlength="10" class="form-control"
+                        placeholder="Phone or Email" value="<?= $old['supplier_contact'] ?? '' ?>">
+                    <?php if (isset($errors['contact']))
+                        echo "<div style='color:red; font-size:0.9rem; margin-top:0.5rem;'>{$errors['contact']}</div>"; ?>
                 </div>
 
                 <!-- Unique Suppliers Datalist -->
                 <datalist id="supplierList">
                     <?php foreach ($unique_suppliers as $supp): ?>
-                        <option value="<?= htmlspecialchars($supp['supplier_name']) ?>" data-contact="<?= htmlspecialchars($supp['supplier_contact'] ?? '') ?>"></option>
+                        <option value="<?= htmlspecialchars($supp['supplier_name']) ?>"
+                            data-contact="<?= htmlspecialchars($supp['supplier_contact'] ?? '') ?>"></option>
                     <?php endforeach; ?>
                 </datalist>
             </div>
@@ -496,7 +559,7 @@ include 'includes/header.php';
         }
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const unitSelect = document.getElementById('unitSelect');
         const costLabel = document.getElementById('costLabel');
         const quantityLabel = document.getElementById('quantityLabel');
@@ -506,7 +569,7 @@ include 'includes/header.php';
 
         const unitMap = {
             'meters': {
-                cost: 'Cost per Meter (₹)',
+                cost: 'Cost per Meter (₹) <span style="color:red;">*</span>',
                 qtyLabel: 'Initial Quantity (Meters)',
                 qtyPlaceholder: 'e.g. 10.0',
                 lowLabel: 'Low Stock Alert Level (Meters)',
@@ -563,7 +626,7 @@ include 'includes/header.php';
                 setTimeout(() => {
                     targets.forEach(t => {
                         if (t.el) {
-                            t.el.innerText = t.text;
+                            t.el.innerHTML = t.text;
                             t.el.style.opacity = '1';
                             t.el.style.transform = 'translateY(0)';
                         }
@@ -575,7 +638,7 @@ include 'includes/header.php';
                 // No animation on initial page load to prevent a visible flash
                 targets.forEach(t => {
                     if (t.el) {
-                        t.el.innerText = t.text;
+                        t.el.innerHTML = t.text;
                         t.el.style.opacity = '1';
                         t.el.style.transform = 'translateY(0)';
                     }
@@ -587,7 +650,7 @@ include 'includes/header.php';
 
         if (unitSelect) {
             // Listen for Unit of Measure selection changes
-            unitSelect.addEventListener('change', function() {
+            unitSelect.addEventListener('change', function () {
                 updateFields(this.value, true);
             });
 
@@ -601,7 +664,7 @@ include 'includes/header.php';
         const supplierList = document.getElementById('supplierList');
 
         if (supplierNameInput && supplierContactInput && supplierList) {
-            const handleSupplierAutoFill = function() {
+            const handleSupplierAutoFill = function () {
                 const val = supplierNameInput.value.trim().toLowerCase();
                 let matchedContact = '';
                 let found = false;
