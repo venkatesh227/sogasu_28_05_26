@@ -522,12 +522,12 @@ include 'includes/header.php';
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
 
     <div class="form-group">
-        <label class="form-label">Last service date</label>
+        <label class="form-label"> service date</label>
         <input type="date" id="maintDate" class="form-control" required>
     </div>
 
     <div class="form-group">
-        <label class="form-label">Next Service Due</label>
+        <label class="form-label">Next Service Date</label>
         <input type="date" id="maintNextService" class="form-control">
     </div>
 

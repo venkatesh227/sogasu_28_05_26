@@ -23,9 +23,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $old['supplier_name'] = trim($_POST['supplier_name'] ?? '');
     $old['firm_name'] = trim($_POST['firm_name'] ?? '');
     $old['contact_person'] = trim($_POST['contact_person'] ?? '');
-    $old['phone_no'] = trim($_POST['phone_no'] ?? '');
-    $old['address'] = trim($_POST['address'] ?? '');
-    $old['gst_no'] = trim($_POST['gst_no'] ?? '');
+$old['phone_no'] = trim($_POST['phone_no'] ?? '');
+$old['alternate_no'] = trim($_POST['alternate_no'] ?? '');
+
+$old['address'] = trim($_POST['address'] ?? '');
+$old['city'] = trim($_POST['city'] ?? '');    $old['gst_no'] = trim($_POST['gst_no'] ?? '');
     $old['bank_name'] = trim($_POST['bank_name'] ?? '');
     $old['account_no'] = trim($_POST['account_no'] ?? '');
     $old['ifsc_code'] = trim($_POST['ifsc_code'] ?? '');
@@ -85,7 +87,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // UPDATE
             $stmt = $pdo->prepare("
                 UPDATE suppliers SET 
-                supplier_name=?, firm_name=?, contact_person=?, phone_no=?, address=?, gst_no=?, bank_name=?, account_no=?, ifsc_code=?, bank_branch=?, contact=?, status=? 
+                supplier_name=?, firm_name=?, contact_person=?, phone_no=?,alternate_no=?, address=?, city=?, gst_no=?, bank_name=?, account_no=?, ifsc_code=?, bank_branch=?, contact=?, status=? 
                 WHERE id=?
             ");
             $stmt->execute([
@@ -93,7 +95,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $old['firm_name'],
                 $old['contact_person'],
                 $old['phone_no'],
+                $old['alternate_no'],
                 $old['address'],
+                $old['city'],
                 $old['gst_no'],
                 $old['bank_name'],
                 $old['account_no'],
@@ -106,17 +110,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $_SESSION['success'] = "updated";
         } else {
             // INSERT
-            $stmt = $pdo->prepare("
-                INSERT INTO suppliers 
-                (supplier_name, firm_name, contact_person, phone_no, address, gst_no, bank_name, account_no, ifsc_code, bank_branch, contact, status, is_deleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-            ");
+$stmt = $pdo->prepare("
+    INSERT INTO suppliers
+    (supplier_name, firm_name, contact_person, phone_no, alternate_no, address, city, gst_no, bank_name, account_no, ifsc_code, bank_branch, contact, status, is_deleted)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+");
             $stmt->execute([
                 $old['supplier_name'],
                 $old['firm_name'],
                 $old['contact_person'],
                 $old['phone_no'],
+                $old['alternate_no'],
                 $old['address'],
+                $old['city'],
                 $old['gst_no'],
                 $old['bank_name'],
                 $old['account_no'],
@@ -153,8 +159,8 @@ include 'includes/header.php';
         </div>
     </div>
 
-    <form method="POST" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
-        <!-- Left Column: Details -->
+<form method="POST" novalidate style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+            <!-- Left Column: Details -->
         <div style="display: flex; flex-direction: column; gap: 1.25rem;">
             
             <!-- Firm & Contact Information -->
@@ -166,7 +172,7 @@ include 'includes/header.php';
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                     <div class="form-group">
                         <label class="form-label">Supplier/Vendor Name <span style="color:red">*</span></label>
-                        <input type="text" name="supplier_name" class="form-control" placeholder="e.g. RK Textiles" maxlength="100" required value="<?= htmlspecialchars($old['supplier_name'] ?? '') ?>">
+                        <input type="text" name="supplier_name" class="form-control" placeholder="e.g. RK Textiles" maxlength="100"  value="<?= htmlspecialchars($old['supplier_name'] ?? '') ?>">
                         <?php if (isset($errors['supplier_name'])): ?>
                             <small style="color:red; margin-top: 0.25rem; display: block;"><?= $errors['supplier_name'] ?></small>
                         <?php endif; ?>
@@ -180,8 +186,8 @@ include 'includes/header.php';
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                    <div class="form-group">
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="form-group">
                         <label class="form-label">Contact Person</label>
                         <input type="text" name="contact_person" class="form-control" placeholder="e.g. Rajesh Kumar" maxlength="100" value="<?= htmlspecialchars($old['contact_person'] ?? '') ?>">
                         <?php if (isset($errors['contact_person'])): ?>
@@ -196,6 +202,15 @@ include 'includes/header.php';
                         <?php endif; ?>
                     </div>
                     <div class="form-group">
+    <label class="form-label">Alternate No</label>
+    <input type="text"
+           name="alternate_no"
+           class="form-control"
+           placeholder="Alternate Number"
+           maxlength="20"
+           value="<?= htmlspecialchars($old['alternate_no'] ?? '') ?>">
+</div>
+                    <div class="form-group">
                         <label class="form-label">GST No</label>
                         <input type="text" name="gst_no" class="form-control" placeholder="GSTIN Format" maxlength="20" value="<?= htmlspecialchars($old['gst_no'] ?? '') ?>">
                         <?php if (isset($errors['gst_no'])): ?>
@@ -204,11 +219,28 @@ include 'includes/header.php';
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Address</label>
-                    <textarea name="address" class="form-control" rows="3" placeholder="Registered office / factory address" style="resize: vertical;"><?= htmlspecialchars($old['address'] ?? '') ?></textarea>
-                </div>
-            </div>
+          <div style="display:grid; grid-template-columns:2fr 1fr; gap:1rem;">
+    
+    <div class="form-group">
+        <label class="form-label">Address</label>
+        <textarea name="address"
+                  class="form-control"
+                  rows="3"
+                  placeholder="Registered office / factory address"
+                  style="resize: vertical;"><?= htmlspecialchars($old['address'] ?? '') ?></textarea>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">City</label>
+        <input type="text"
+               name="city"
+               class="form-control"
+               placeholder="City"
+               maxlength="100"
+               value="<?= htmlspecialchars($old['city'] ?? '') ?>">
+    </div>
+          </div>
+</div>
 
             <!-- Bank Account Details -->
             <div style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 8px;">
