@@ -38,8 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_device'])) {
         $id
     ]);
 
-    $_SESSION['success_message'] = "Employee device updated successfully.";
-
+$_SESSION['success'] = "Employee device updated successfully.";
     header("Location: employee-devices.php");
     exit;
 }
@@ -58,7 +57,17 @@ $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 include 'includes/header.php';
 ?>
-
+<?php if (!empty($_SESSION['success'])): ?>
+<script>
+Swal.fire({
+    icon: 'success',
+    title: 'Success!',
+    text: '<?= $_SESSION['success'] ?>',
+    confirmButtonColor: '#4f46e5'
+});
+</script>
+<?php unset($_SESSION['success']); ?>
+<?php endif; ?>
 <main class="main-content">
 
     <?php include 'includes/topbar.php'; ?>

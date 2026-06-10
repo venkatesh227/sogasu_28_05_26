@@ -159,7 +159,7 @@ $assigned_id = !empty($_POST['assigned_employee_id'])
         }
 
 
-        $_SESSION['success_message'] = "Order updated successfully!";
+$_SESSION['success'] = "Order updated successfully!";
         header("Location: orders.php");
         exit;
     } catch (PDOException $e) {
