@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Calculate Total including Additional Services
             $services_total = 0;
-            $selected_services = $_POST['selected_services'] ?? [];
+            $selected_services = array_unique($_POST['selected_services'] ?? []);
             if (!empty($selected_services)) {
                 $placeholders = implode(',', array_fill(0, count($selected_services), '?'));
                 $stmt_sp = $pdo->prepare("SELECT SUM(base_price) FROM services WHERE id IN ($placeholders)");

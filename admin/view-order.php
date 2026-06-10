@@ -198,7 +198,7 @@ if ($is_customer_order) {
 } else {
 
     $stmt = $pdo->prepare("
-        SELECT os.service_price, s.service_name 
+        SELECT DISTINCT os.service_id, os.service_price, s.service_name
         FROM order_services os
         JOIN services s ON os.service_id = s.id
         WHERE os.order_id = ?

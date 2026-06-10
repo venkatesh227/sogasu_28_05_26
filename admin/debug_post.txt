@@ -1,13 +1,13 @@
 Array
 (
-    [customer_id] => 3
-    [mobile_number] => 6785432456
+    [customer_id] => 4
+    [mobile_number] => 7899395341
     [family_member_id] => 
-    [delivery_address] => Madhuravada, Banglore
+    [delivery_address] => Old street near ramalayam, Guntur
     [category_id] => 2
     [sub_category_id] => 3
-    [fabric_details] => silk
-    [due_date] => 2026-06-12
+    [fabric_details] => cotton
+    [due_date] => 2026-06-13
     [measurement_unit] => CMS
     [measurements] => Array
         (
@@ -28,6 +28,6 @@ Array
     [extra_charges] => 400
     [advance_amount] => 300
     [advance_payment_mode] => UPI
-    [transaction_reference] => TR111111
+    [transaction_reference] => TR123456
     [submit_order] => 1
 )
