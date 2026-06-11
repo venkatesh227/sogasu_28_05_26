@@ -165,15 +165,20 @@ if (isset($_POST['save_expense'])) {
 
     $hasExpenseError = false;
 
-    if (empty($expense_category)) {
+    if ($expense_category === '') {
 
         $expense_category_error = "Please select category";
         $hasExpenseError = true;
     }
 
-    if (empty($amount)) {
+    if ($amount === '') {
 
         $amount_error = "Amount is required";
+        $hasExpenseError = true;
+
+    } elseif (!is_numeric($amount)) {
+
+        $amount_error = "Enter valid amount";
         $hasExpenseError = true;
 
     } elseif ($amount <= 0) {
@@ -182,7 +187,7 @@ if (isset($_POST['save_expense'])) {
         $hasExpenseError = true;
     }
 
-    if (empty($expense_date)) {
+    if ($expense_date === '') {
 
         $expense_date_error = "Date is required";
         $hasExpenseError = true;
@@ -578,7 +583,7 @@ include 'includes/header.php';
                 <label
                     style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">
 
-                    Category Name
+                    Category Name <span style="color:red;">*</span>
 
                 </label>
 
@@ -651,7 +656,7 @@ include 'includes/header.php';
 
 <!-- Expense Modal -->
 <div id="expenseModal" class="premium-modal-overlay">
-    <form method="POST">
+    <form method="POST" novalidate>
         <div class="glass-card premium-modal-content" style="max-width: 600px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
                 <h3 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-dark);">New Expense</h3>
@@ -665,8 +670,9 @@ include 'includes/header.php';
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
                 <div>
                     <label
-                        style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Category</label>
-                    <select name="expense_category" required
+                        style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Category
+                        <span style="color:red;">*</span></label>
+                    <select name="expense_category"
                         style="width: 100%; padding: 1rem; border: 1.5px solid #e2e8f0; border-radius: 10px; background: #f8fafc; outline: none; font-family: 'Outfit';">
 
                         <option value="">Select Category</option>
@@ -707,7 +713,7 @@ include 'includes/header.php';
                 <div>
                     <label
                         style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Amount
-                        (₹)</label>
+                        (₹) <span style="color:red;">*</span></label>
                     <input type="number" placeholder="0.00" name="amount"
                         style="width: 100%; padding: 1rem; border: 1.5px solid #e2e8f0; border-radius: 10px; background: #f8fafc; outline: none;">
                     <?php if (!empty($amount_error)): ?>
@@ -740,7 +746,8 @@ include 'includes/header.php';
                 </div>
                 <div>
                     <label
-                        style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Date</label>
+                        style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Date
+                        <span style="color:red;">*</span></label>
                     <input type="date" name="expense_date" value="<?= date('Y-m-d') ?>"
                         style="width: 100%; padding: 1rem; border: 1.5px solid #e2e8f0; border-radius: 10px; background: #f8fafc; outline: none; font-family: 'Outfit';">
                     <?php if (!empty($expense_date_error)): ?>

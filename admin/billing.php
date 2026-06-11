@@ -817,7 +817,7 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
             </button>
         </div>
 
-        <form method="POST" id="billForm" style="padding:1.5rem;">
+        <form method="POST" id="billForm" novalidate style="padding:1.5rem;">
 
             <div style="margin-bottom:1rem;">
                 <input type="hidden" name="bill_id" id="bill_id">
@@ -1942,4 +1942,15 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
         .addEventListener('input', calculateTotal);
 
 </script>
+<?php if ($hasError): ?>
+
+<script>
+
+    document
+        .getElementById('createBillModal')
+        .style.display = 'flex';
+
+</script>
+
+<?php endif; ?>
 <?php include 'includes/footer.php'; ?>
