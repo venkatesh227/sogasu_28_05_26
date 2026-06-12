@@ -33,24 +33,27 @@ if ($emp) {
     $role_name = $emp['job_role'] ?? '';
     $payCycle = $emp['pay_cycle'] ?? '';
 
-if (isset($role_name) && strcasecmp($role_name, 'Supervisor') === 0) {
+if (!empty($role_name)) {
 
     $stmt = $pdo->prepare("
         SELECT permission_key
         FROM role_permissions
-        WHERE role_name = 'Supervisor'
+        WHERE role_name = ?
     ");
-    $stmt->execute();
+
+    $stmt->execute([$role_name]);
 
     $permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
     if (!in_array('dashboard_view', $permissions)) {
-        header("Location: profile.php");
+        header("Location: tasks.php");
         exit();
     }
 
-    include 'supervisor-dashboard.php';
-    exit();
+    if (strcasecmp($role_name, 'Supervisor') === 0) {
+        include 'supervisor-dashboard.php';
+        exit();
+    }
 }
 }
 
@@ -280,7 +283,7 @@ include 'includes/header.php';
             </div>
         <?php endforeach; ?>
     <?php endif; ?>
-
+<?php if (in_array('dashboard_create', $permissions)): ?>
     <div class="section-title" style="margin-top: 1.5rem;">Quick Tools</div>
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;">
         <button onclick="window.location.href='attendance.php'" style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
@@ -332,7 +335,7 @@ include 'includes/header.php';
             <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">History</span>
         </button>
     </div>
-
+<?php endif; ?>
     <!-- My OT History -->
     <div style="margin-top: 2.5rem; margin-bottom: 2rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">

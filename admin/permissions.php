@@ -60,10 +60,44 @@ $selected_role = $_GET['role'] ?? ($all_roles[0] ?? '');
 
 // Fetch permissions for the selected role
 $active_permissions = [];
+
 if ($selected_role) {
-    $stmt = $pdo->prepare("SELECT permission_key FROM role_permissions WHERE role_name = ?");
+
+    $stmt = $pdo->prepare("
+        SELECT permission_key
+        FROM role_permissions
+        WHERE role_name = ?
+    ");
+
     $stmt->execute([$selected_role]);
+
     $active_permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    if (empty($active_permissions) &&
+        (
+            $selected_role === 'Tailor (Stitching)' ||
+            $selected_role === 'Helper (Finishing)' ||
+            $selected_role === 'Master (Cutter)'
+        )
+    ) {
+
+        $active_permissions = [
+            'dashboard_view',
+            'dashboard_create',
+            'employees_tasks_view',
+            'assets_view',
+            'hr_view',
+            'hr_create',
+            'appointments_view',
+            'appointments_create',
+            'leave_applications_view',
+            'leave_applications_create',
+            'holidays_calendar_view',
+            'earnings_ot_view',
+            'profile_view',
+            'profile_edit'
+        ];
+    }
 }
 
 
@@ -242,35 +276,53 @@ $manager_modules = [
 ];
 
 // Filter modules based on selected role
-$modules_config = $all_modules_config;
+
+$modules_config = [];
+
 if ($selected_role === 'Supervisor') {
 
-    $modules_config = [];
+    foreach ($supervisor_modules as $module) {
+        if (isset($all_modules_config[$module])) {
+            $modules_config[$module] = $all_modules_config[$module];
+        }
+    }
+
+} elseif ($selected_role === 'Manager') {
 
     foreach ($supervisor_modules as $module) {
-
         if (isset($all_modules_config[$module])) {
-
             $modules_config[$module] = $all_modules_config[$module];
-
         }
     }
 
 } elseif ($selected_role === 'Accountant') {
-    $modules_config = array_filter($all_modules_config, function($key) use ($accountant_modules) {
-        return in_array($key, $accountant_modules);
-    }, ARRAY_FILTER_USE_KEY);
-} elseif ($selected_role === 'Manager') {
-    $modules_config = array_filter($all_modules_config, function($key) use ($manager_modules) {
-        return in_array($key, $manager_modules);
-    }, ARRAY_FILTER_USE_KEY);
-} else {
-    // Other staff roles (Tailor, Helper, etc.)
-    $modules_config = array_filter($all_modules_config, function($key) use ($staff_modules) {
-        return in_array($key, $staff_modules);
-    }, ARRAY_FILTER_USE_KEY);
-}
 
+    foreach ($accountant_modules as $module) {
+        if (isset($all_modules_config[$module])) {
+            $modules_config[$module] = $all_modules_config[$module];
+        }
+    }
+
+} elseif (
+    $selected_role === 'Tailor (Stitching)' ||
+    $selected_role === 'Helper (Finishing)' ||
+    $selected_role === 'Master (Cutter)'
+) {
+
+    foreach ($staff_modules as $module) {
+        if (isset($all_modules_config[$module])) {
+            $modules_config[$module] = $all_modules_config[$module];
+        }
+    }
+
+} else {
+
+    foreach ($staff_modules as $module) {
+        if (isset($all_modules_config[$module])) {
+            $modules_config[$module] = $all_modules_config[$module];
+        }
+    }
+}
 include 'includes/header.php';
 ?>
 

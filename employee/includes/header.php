@@ -172,18 +172,15 @@ if (isset($_SESSION['user_id'])) {
 $current_page = basename($_SERVER['PHP_SELF']);
 $permissions = [];
 
-if ($hdr_emp_role === 'Supervisor') {
+$stmt = $pdo->prepare("
+    SELECT permission_key
+    FROM role_permissions
+    WHERE role_name = ?
+");
 
-    $stmt = $pdo->prepare("
-        SELECT permission_key
-        FROM role_permissions
-        WHERE role_name = 'Supervisor'
-    ");
+$stmt->execute([$hdr_emp_role]);
 
-    $stmt->execute();
-
-    $permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
-}
+$permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
 function hasPermission($perm)
 {
@@ -290,20 +287,20 @@ document.addEventListener('DOMContentLoaded', function() {
         <!-- Drawer Links -->
         <div style="flex: 1; overflow-y: auto; padding: 1.25rem 0.75rem; display: flex; flex-direction: column; gap: 0.25rem;">
             
-            <?php if($hdr_emp_role !== 'Supervisor' || hasPermission('dashboard_view')): ?>
-<a href="dashboard.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'dashboard') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+<?php if(hasPermission('dashboard_view')): ?>
+    <a href="dashboard.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'dashboard') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-home-4-line" style="font-size: 1.25rem;"></i>
                 <span>Home / Dashboard</span>
             </a>
 <?php endif; ?>
-<?php if($hdr_emp_role !== 'Supervisor' || hasPermission('employees_tasks_view')): ?>
-            <a href="tasks.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'tasks') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+<?php if(hasPermission('employees_tasks_view')): ?>
+                <a href="tasks.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'tasks') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-task-line" style="font-size: 1.25rem;"></i>
                 <span>Assigned Tasks</span>
             </a>
 <?php endif; ?>
-<?php if($hdr_emp_role !== 'Supervisor' || hasPermission('assets_view')): ?>
-            <a href="my-assets.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'my-assets') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+<?php if(hasPermission('assets_view')): ?>
+                <a href="my-assets.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'my-assets') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-macbook-line" style="font-size: 1.25rem;"></i>
                 <span>My Assets</span>
             </a>
@@ -318,46 +315,46 @@ document.addEventListener('DOMContentLoaded', function() {
             <?php endif; ?>
                         <?php endif; ?>
 
-<?php if($hdr_emp_role !== 'Supervisor' || hasPermission('inventory_view')): ?>
-            <a href="racks-view.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'racks') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+<?php if($hdr_emp_role === 'Supervisor' && hasPermission('inventory_view')): ?>
+                <a href="racks-view.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'racks') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-archive-line" style="font-size: 1.25rem;"></i>
                 <span>Racks & Storage</span>
             </a>
             <?php endif; ?>
-<?php if($hdr_emp_role !== 'Supervisor' || hasPermission('hr_view')): ?>
-            <a href="attendance.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'attendance') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+<?php if(hasPermission('hr_view')): ?>
+                <a href="attendance.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'attendance') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-checkbox-circle-line" style="font-size: 1.25rem;"></i>
                 <span>Attendance (Punch)</span>
             </a>
             <?php endif; ?>
-<?php if($hdr_emp_role !== 'Supervisor' || hasPermission('appointments_view')): ?>
-            <a href="roster.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'roster') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+<?php if(hasPermission('hr_view')): ?>
+                <a href="roster.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'roster') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-calendar-event-line" style="font-size: 1.25rem;"></i>
                 <span>Shift Roster</span>
             </a>
             <?php endif; ?>
-<?php if($hdr_emp_role !== 'Supervisor' || hasPermission('leave_applications_view')): ?>
-            <a href="leaves.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'leaves') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+<?php if(hasPermission('leave_applications_view')): ?>
+                <a href="leaves.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'leaves') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-umbrella-line" style="font-size: 1.25rem;"></i>
                 <span>Leave Applications</span>
             </a>
             <?php endif; ?>
-<?php if($hdr_emp_role !== 'Supervisor' || hasPermission('holidays_calendar_view')): ?>
-            <a href="holidays.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'holidays') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+<?php if(hasPermission('holidays_calendar_view')): ?>
+                <a href="holidays.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'holidays') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-flag-2-line" style="font-size: 1.25rem;"></i>
                 <span>Holidays Calendar</span>
             </a>
             <?php endif; ?>
 
-            <?php if($hdr_emp_role !== 'Supervisor' || hasPermission('earnings_ot_view')): ?>
-            <a href="earnings.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'earnings') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+<?php if(hasPermission('holidays_calendar_view')): ?>
+                <a href="earnings.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'earnings') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-wallet-3-line" style="font-size: 1.25rem;"></i>
                 <span>My Earnings & OT</span>
             </a>
                         <?php endif; ?>
 
-<?php if($hdr_emp_role !== 'Supervisor' || hasPermission('profile_view')): ?>
-            <a href="profile.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'profile') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+<?php if(hasPermission('profile_view')): ?>
+                <a href="profile.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'profile') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-user-3-line" style="font-size: 1.25rem;"></i>
                 <span>My Profile</span>
             </a>
