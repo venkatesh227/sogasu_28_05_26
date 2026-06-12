@@ -66,10 +66,12 @@ if ($selected_role) {
     $active_permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
 
-// Complete list of permissions with descriptors and icons
-$modules_config = [
+
+
+// Complete list of permissions with descriptors and icons (ALL MODULES)
+$all_modules_config = [
     'dashboard' => [
-        'title' => 'Dashboard Overview',
+        'title' => 'Dashboard',
         'icon' => 'ri-dashboard-line',
         'color' => '#3b82f6',
         'description' => 'Access to the admin home dashboard, revenue intelligence charts, and recent activity log.'
@@ -81,37 +83,37 @@ $modules_config = [
         'description' => 'Manage job roles, branches, categories, measurements, services, racks, and global settings.'
     ],
     'orders' => [
-        'title' => 'Order Management',
+        'title' => 'Staff Workloads',
         'icon' => 'ri-shopping-bag-line',
         'color' => '#ec4899',
         'description' => 'Access to view, create, edit orders, assign employee tasks, and manage outsourcing records.'
     ],
     'employees_tasks' => [
-        'title' => 'Workshop Operations',
+        'title' => 'Assigned Tasks',
         'icon' => 'ri-task-line',
         'color' => '#f59e0b',
         'description' => 'View active workshop tasks, assign tasks to workers, and update real-time progress.'
     ],
     'hr' => [
-        'title' => 'HR & Payroll',
+        'title' => 'Attendance (Punch)',
         'icon' => 'ri-team-line',
         'color' => '#10b981',
         'description' => 'Manage employee profiles, working hours, shifts, attendance, payroll logs, and leave requests.'
     ],
     'appointments' => [
-        'title' => 'Appointments Calendar',
+        'title' => 'Shift Roster',
         'icon' => 'ri-calendar-event-line',
         'color' => '#06b6d4',
         'description' => 'Access to book, edit, and schedule customer boutique appointments.'
     ],
     'inventory' => [
-        'title' => 'Inventory & Sourcing',
+        'title' => 'Racks & Storage',
         'icon' => 'ri-archive-line',
         'color' => '#ef4444',
         'description' => 'Manage raw material inventory, category tags, procurement invoices, and material sourcing.'
     ],
     'assets' => [
-        'title' => 'Asset Management',
+        'title' => 'My Assets',
         'icon' => 'ri-tools-line',
         'color' => '#14b8a6',
         'description' => 'Track company equipment, machinery assets, categories, and maintenance schedules.'
@@ -145,8 +147,129 @@ $modules_config = [
         'icon' => 'ri-shield-user-line',
         'color' => '#db2777',
         'description' => 'Full control over administrative role permissions and authorization settings. (Highly Restricted)'
+    ],
+    'profile' => [
+        'title' => 'My Profile',
+        'icon' => 'ri-user-3-line',
+        'color' => '#ec4899',
+        'description' => 'Manage personal profile information and settings.'
+    ],
+    'leave_applications' => [
+        'title' => 'Leave Applications',
+        'icon' => 'ri-calendar-close-line',
+        'color' => '#f43f5e',
+        'description' => 'Submit and manage leave requests and approvals.'
+    ],
+    'holidays_calendar' => [
+        'title' => 'Holidays Calendar',
+        'icon' => 'ri-calendar-2-line',
+        'color' => '#8b5cf6',
+        'description' => 'View company holidays and important dates.'
+    ],
+    'earnings_ot' => [
+        'title' => 'My Earnings & OT',
+        'icon' => 'ri-money-dollar-circle-line',
+        'color' => '#06b6d4',
+        'description' => 'Track salary, overtime, and payment details.'
     ]
 ];
+
+// Define module sets for different role types
+// Supervisor: All 11 staff modules
+$supervisor_modules = [
+    'dashboard',            // Home / Dashboard
+
+    'employees_tasks',      // Assigned Tasks
+
+    'assets',               // My Assets
+
+    'orders',               // Staff Workloads
+
+    'inventory',            // Racks & Storage
+
+    'hr',                   // Attendance (Punch)
+
+    'appointments',         // Shift Roster
+
+    'leave_applications',   // Leave Applications
+
+    'holidays_calendar',    // Holidays Calendar
+
+    'earnings_ot',          // My Earnings & OT
+
+    'profile'               // My Profile
+];
+
+// Other staff roles (Tailor, Helper, etc.): Basic modules (like Image 2)
+$staff_modules = [
+    'dashboard',
+    'employees_tasks',
+    'assets',
+    'hr',
+    'appointments',
+    'leave_applications',
+    'holidays_calendar',
+    'earnings_ot',
+    'profile'
+];
+
+// Accountant: Finance-related modules only
+$accountant_modules = [
+    'dashboard',
+    'finance',
+    'customers',
+    'profile'
+];
+
+// Manager: Most modules (all except permissions and admin-only)
+$manager_modules = [
+    'dashboard',
+    'masters',
+    'orders',
+    'employees_tasks',
+    'hr',
+    'appointments',
+    'inventory',
+    'assets',
+    'finance',
+    'customers',
+    'reports',
+    'support',
+    'leave_applications',
+    'holidays_calendar',
+    'earnings_ot',
+    'profile'
+];
+
+// Filter modules based on selected role
+$modules_config = $all_modules_config;
+if ($selected_role === 'Supervisor') {
+
+    $modules_config = [];
+
+    foreach ($supervisor_modules as $module) {
+
+        if (isset($all_modules_config[$module])) {
+
+            $modules_config[$module] = $all_modules_config[$module];
+
+        }
+    }
+
+} elseif ($selected_role === 'Accountant') {
+    $modules_config = array_filter($all_modules_config, function($key) use ($accountant_modules) {
+        return in_array($key, $accountant_modules);
+    }, ARRAY_FILTER_USE_KEY);
+} elseif ($selected_role === 'Manager') {
+    $modules_config = array_filter($all_modules_config, function($key) use ($manager_modules) {
+        return in_array($key, $manager_modules);
+    }, ARRAY_FILTER_USE_KEY);
+} else {
+    // Other staff roles (Tailor, Helper, etc.)
+    $modules_config = array_filter($all_modules_config, function($key) use ($staff_modules) {
+        return in_array($key, $staff_modules);
+    }, ARRAY_FILTER_USE_KEY);
+}
 
 include 'includes/header.php';
 ?>
@@ -263,50 +386,90 @@ include 'includes/header.php';
                         </div>
 
                         <!-- Simplified Permissions Table -->
-                        <div class="table-responsive" style="overflow-x: auto; margin-bottom: 2rem; border: 1px solid #e2e8f0; border-radius: 8px;">
-                            <table class="simple-perms-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem; background: white;">
-                                <thead>
-                                    <tr style="border-bottom: 2px solid #e2e8f0; background: #f8fafc;">
-                                        <th style="padding: 0.75rem 1rem; font-weight: 700; color: #475569; width: 45%;">Module</th>
-                                        <th style="padding: 0.75rem 1rem; font-weight: 700; color: #475569; text-align: center; width: 11%;">Access</th>
-                                        <th style="padding: 0.75rem 1rem; font-weight: 700; color: #475569; text-align: center; width: 11%;">View</th>
-                                        <th style="padding: 0.75rem 1rem; font-weight: 700; color: #475569; text-align: center; width: 11%;">Add</th>
-                                        <th style="padding: 0.75rem 1rem; font-weight: 700; color: #475569; text-align: center; width: 11%;">Edit</th>
-                                        <th style="padding: 0.75rem 1rem; font-weight: 700; color: #475569; text-align: center; width: 11%;">Delete</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($modules_config as $key => $conf): 
-                                        $main_checked = in_array($key, $active_permissions);
-                                    ?>
-                                        <tr class="perm-row" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;">
-                                            <td style="padding: 0.75rem 1rem; display: flex; align-items: center; gap: 0.75rem;">
-                                                <span style="color: white; background: <?= $conf['color'] ?>; font-size: 0.9rem; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px;">
-                                                    <i class="<?= $conf['icon'] ?>"></i>
-                                                </span>
-                                                <span style="font-size: 0.85rem; font-weight: 700; color: #334155;"><?= $conf['title'] ?></span>
-                                            </td>
-                                            <td style="padding: 0.75rem 1rem; text-align: center; vertical-align: middle;">
-                                                <input type="checkbox" name="permissions[]" value="<?= $key ?>" <?= $main_checked ? 'checked' : '' ?> class="permission-chk simple-chk">
-                                            </td>
-                                            <td style="padding: 0.75rem 1rem; text-align: center; vertical-align: middle;">
-                                                <input type="checkbox" name="permissions[]" value="<?= $key ?>_view" <?= in_array($key . '_view', $active_permissions) ? 'checked' : '' ?> class="action-chk simple-chk" <?= !$main_checked ? 'disabled' : '' ?>>
-                                            </td>
-                                            <td style="padding: 0.75rem 1rem; text-align: center; vertical-align: middle;">
-                                                <input type="checkbox" name="permissions[]" value="<?= $key ?>_add" <?= in_array($key . '_add', $active_permissions) ? 'checked' : '' ?> class="action-chk simple-chk" <?= !$main_checked ? 'disabled' : '' ?>>
-                                            </td>
-                                            <td style="padding: 0.75rem 1rem; text-align: center; vertical-align: middle;">
-                                                <input type="checkbox" name="permissions[]" value="<?= $key ?>_edit" <?= in_array($key . '_edit', $active_permissions) ? 'checked' : '' ?> class="action-chk simple-chk" <?= !$main_checked ? 'disabled' : '' ?>>
-                                            </td>
-                                            <td style="padding: 0.75rem 1rem; text-align: center; vertical-align: middle;">
-                                                <input type="checkbox" name="permissions[]" value="<?= $key ?>_delete" <?= in_array($key . '_delete', $active_permissions) ? 'checked' : '' ?> class="action-chk simple-chk" <?= !$main_checked ? 'disabled' : '' ?>>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
+<?php
 
+$permission_map = [
+
+'dashboard' => ['view','create'],
+
+'employees_tasks' => ['view'],
+
+'assets' => ['view'],
+
+'orders' => ['view'],
+
+'inventory' => ['view'],
+
+'hr' => ['view','create'],
+
+'appointments' => ['view','create'],
+
+'leave_applications' => ['view','create'],
+
+'holidays_calendar' => ['view'],
+
+'earnings_ot' => ['view'],
+
+'profile' => ['view','edit']
+
+];
+
+?>
+
+<div class="permissions-list">
+
+<?php foreach ($modules_config as $key => $conf): ?>
+
+<div class="permission-row">
+
+    <div class="module-info">
+
+        <i class="<?= $conf['icon'] ?>"
+           style="color:<?= $conf['color'] ?>;"></i>
+
+        <strong><?= $conf['title'] ?></strong>
+
+    </div>
+
+    <div class="permission-actions">
+
+        <?php if(in_array('view',$permission_map[$key])): ?>
+        <label>
+<input type="checkbox"
+       name="permissions[]"
+       value="<?= $key ?>_view"
+       <?= in_array($key.'_view', $active_permissions) ? 'checked' : '' ?>>
+            View
+        </label>
+        <?php endif; ?>
+
+        <?php if(in_array('create',$permission_map[$key])): ?>
+        <label>
+<input type="checkbox"
+       name="permissions[]"
+       value="<?= $key ?>_create"
+       <?= in_array($key.'_create', $active_permissions) ? 'checked' : '' ?>>
+            Create
+        </label>
+        <?php endif; ?>
+
+        <?php if(in_array('edit',$permission_map[$key])): ?>
+        <label>
+<input type="checkbox"
+       name="permissions[]"
+       value="<?= $key ?>_edit"
+       <?= in_array($key.'_edit', $active_permissions) ? 'checked' : '' ?>>
+            Edit
+        </label>
+        <?php endif; ?>
+
+    </div>
+
+</div>
+
+<?php endforeach; ?>
+
+</div>
                         <!-- Submit Button -->
                         <div style="display: flex; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid #f1f5f9;">
                             <button type="submit" name="save_permissions" class="btn btn-primary" style="background: #4f46e5; border: none; padding: 12px 32px; border-radius: 8px; font-weight: 700; cursor: pointer; color: white; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);">
@@ -328,6 +491,37 @@ include 'includes/header.php';
 </main>
 
 <style>
+    .permissions-list{
+    display:flex;
+    flex-direction:column;
+}
+
+.permission-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:15px;
+    border-bottom:1px solid #e5e7eb;
+}
+
+.module-info{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    font-weight:700;
+}
+
+.permission-actions{
+    display:flex;
+    gap:20px;
+    align-items:center;
+}
+
+.permission-actions label{
+    display:flex;
+    gap:5px;
+    align-items:center;
+}
     .role-list-item:hover {
         background: #f8fafc !important;
         border-color: #cbd5e1 !important;

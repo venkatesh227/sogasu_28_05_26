@@ -71,6 +71,13 @@ $stmt = $pdo->prepare("
 $stmt->execute([$employee_id]);
 $requests = $stmt->fetchAll();
 
+$stmt = $pdo->prepare("
+    SELECT permission_key
+    FROM role_permissions
+    WHERE role_name='Supervisor'
+");
+$stmt->execute();
+$permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
 $pageTitle = "Leave Management - Sogasu";
 $headerTitle = "Leave Management";
 $activePage = "leaves";
@@ -90,10 +97,15 @@ include 'includes/header.php';
     </div>
 
     <!-- Apply Button -->
-    <button onclick="document.getElementById('applyModal').style.display='flex'" class="punch-btn" style="width: 100%; background: #4338ca; color: white; border: none; padding: 1rem; border-radius: 12px; font-weight: 700; margin-bottom: 2rem; box-shadow: 0 4px 6px -1px rgba(67, 56, 202, 0.2);">
-        <i class="ri-add-circle-line"></i> Apply New Leave
-    </button>
+<?php if(in_array('leave_applications_create', $permissions)): ?>
 
+<button onclick="document.getElementById('applyModal').style.display='flex'"
+class="punch-btn"
+style="width: 100%; background: #4338ca; color: white; border: none; padding: 1rem; border-radius: 12px; font-weight: 700; margin-bottom: 2rem;">
+    <i class="ri-add-circle-line"></i> Apply New Leave
+</button>
+
+<?php endif; ?>
     <!-- Recent Requests -->
     <div class="section-title">History</div>
     <?php if (empty($requests)): ?>
@@ -121,6 +133,8 @@ include 'includes/header.php';
         <?php endforeach; ?>
     <?php endif; ?>
 </div>
+
+<?php if(in_array('leave_applications_create', $permissions)): ?>
 
 <!-- Apply Modal -->
 <div id="applyModal" style="display: <?= isset($_GET['success']) || !empty($message) ? 'none' : 'none' ?>; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px); padding: 1rem;">
@@ -169,5 +183,5 @@ include 'includes/header.php';
 <style>
 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 </style>
-
+<?php endif; ?>
 <?php include 'includes/bottom-nav.php'; ?>

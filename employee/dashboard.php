@@ -33,10 +33,25 @@ if ($emp) {
     $role_name = $emp['job_role'] ?? '';
     $payCycle = $emp['pay_cycle'] ?? '';
 
-    if (isset($role_name) && strcasecmp($role_name, 'Supervisor') === 0) {
-        include 'supervisor-dashboard.php';
+if (isset($role_name) && strcasecmp($role_name, 'Supervisor') === 0) {
+
+    $stmt = $pdo->prepare("
+        SELECT permission_key
+        FROM role_permissions
+        WHERE role_name = 'Supervisor'
+    ");
+    $stmt->execute();
+
+    $permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!in_array('dashboard_view', $permissions)) {
+        header("Location: profile.php");
         exit();
     }
+
+    include 'supervisor-dashboard.php';
+    exit();
+}
 }
 
 function getCurrentPayCycleCondition($column, $payCycle) {

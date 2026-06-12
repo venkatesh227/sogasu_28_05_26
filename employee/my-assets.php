@@ -78,4 +78,4 @@ include 'includes/header.php';
     <?php endif; ?>
 </div>
 
-<?php include 'includes/bottom_nav.php'; ?>
+<?php include 'includes/bottom-nav.php'; ?>

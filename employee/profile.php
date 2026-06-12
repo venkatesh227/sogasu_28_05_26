@@ -120,10 +120,23 @@ $notifStmt = $pdo->prepare("SELECT * FROM notifications
 $notifStmt->execute([$employee['id']]);
 $notifications = $notifStmt->fetchAll() ?? [];
 
+$stmt = $pdo->prepare("
+    SELECT permission_key
+    FROM role_permissions
+    WHERE role_name='Supervisor'
+");
+$stmt->execute();
+$permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
 $pageTitle = $t['page_title'];
 $headerTitle = $t['header_title'];
 $activePage = "profile";
+
+if (!in_array('profile_view', $permissions)) {
+    header("Location: dashboard.php");
+    exit();
+}
 include 'includes/header.php';
+
 ?>
 
 <div class="container">
@@ -190,8 +203,12 @@ include 'includes/header.php';
                 <div style="font-size: 0.75rem; color: var(--text-muted);"><?php echo $t['mobile_number']; ?></div>
                 <div style="font-size: 0.95rem; font-weight: 500;">+91 <?php echo htmlspecialchars($employee['phone'] ?? $t['not_set']); ?></div>
             </div>
-            <button onclick="openEditModal('phone')" style="background: transparent; border: none; color: var(--primary); font-size: 0.9rem; font-weight: 600; cursor: pointer;"><?php echo $t['edit']; ?></button>
-        </div>
+<?php if(in_array('profile_edit', $permissions)): ?>
+<button onclick="openEditModal('phone')"
+style="background: transparent; border: none; color: var(--primary); font-size: 0.9rem; font-weight: 600; cursor: pointer;">
+    <?php echo $t['edit']; ?>
+</button>
+<?php endif; ?>        </div>
         <div style="padding: 0.75rem 0; display: flex; align-items: center; gap: 1rem;">
             <div style="width: 36px; height: 36px; background: var(--background); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
                 <i class="ri-map-pin-line"></i>
@@ -200,8 +217,12 @@ include 'includes/header.php';
                 <div style="font-size: 0.75rem; color: var(--text-muted);"><?php echo $t['address']; ?></div>
                 <div style="font-size: 0.95rem; font-weight: 500;"><?php echo htmlspecialchars($employee['address'] ?? $t['not_set']); ?></div>
             </div>
-            <button onclick="openEditModal('address')" style="background: transparent; border: none; color: var(--primary); font-size: 0.9rem; font-weight: 600; cursor: pointer;"><?php echo $t['edit']; ?></button>
-        </div>
+<?php if(in_array('profile_edit', $permissions)): ?>
+<button onclick="openEditModal('address')"
+style="background: transparent; border: none; color: var(--primary); font-size: 0.9rem; font-weight: 600; cursor: pointer;">
+    <?php echo $t['edit']; ?>
+</button>
+<?php endif; ?>        </div>
     </div>
 
     <!-- App Settings -->
@@ -252,6 +273,7 @@ include 'includes/header.php';
     </div>
 
 </div>
+<?php if(in_array('profile_edit', $permissions)): ?>
 
 <!-- Edit Profile Modal -->
 <div id="editModal" class="modal" style="display: none;">
@@ -274,7 +296,7 @@ include 'includes/header.php';
         </form>
     </div>
 </div>
-
+<?php endif; ?>
 <!-- Change Password Modal -->
 <div id="passwordModal" class="modal" style="display: none;">
     <div class="modal-content">

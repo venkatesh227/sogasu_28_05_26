@@ -1,6 +1,23 @@
 <?php
 session_start();
 require_once '../includes/db.php';
+$stmt = $pdo->prepare("
+    SELECT permission_key
+    FROM role_permissions
+    WHERE role_name = 'Supervisor'
+");
+$stmt->execute();
+
+$permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+if (
+    isset($_SESSION['role']) &&
+    $_SESSION['role'] === 'employee' &&
+    !in_array('hr_view', $permissions)
+) {
+    header("Location: profile.php");
+    exit();
+}
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
     header("Location: login.php");
@@ -114,7 +131,7 @@ include 'includes/header.php';
                 <div style="font-weight: 700; color: #1e293b; font-size: 1.1rem;"><?= (!empty($today_att) && $today_att['check_out']) ? date('h:i A', strtotime($today_att['check_out'])) : '--:--' ?></div>
             </div>
         </div>
-
+<?php if (in_array('hr_create', $permissions)): ?>
         <?php 
         $canPunchIn = ($today_shift && strpos(strtolower($today_shift['name']), 'off') === false);
         if (!$last_log || $last_log === 'Out'): ?>
@@ -128,6 +145,7 @@ include 'includes/header.php';
                 <i class="ri-logout-circle-line"></i> PUNCH OUT
             </button>
         <?php endif; ?>
+<?php endif; ?>
     </div>
 
     <div class="section-title" style="margin-top: 1.5rem;">Recent Logs</div>

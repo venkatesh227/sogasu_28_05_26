@@ -522,6 +522,7 @@ $today_holiday = $h_stmt->fetch();
     </div>
 
     <!-- Quick Tools Section (Added for Supervisor HR) -->
+     <?php if (hasPermission('dashboard_create')): ?>
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.5rem;">
         <button onclick="window.location.href='attendance.php'"
             style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
@@ -584,6 +585,7 @@ $today_holiday = $h_stmt->fetch();
             <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">History</span>
         </button>
     </div>
+    <?php endif; ?>
     <!-- Issues & Alerts -->
     <?php if (!empty($open_issues)): ?>
         <div class="section-title" style="color: #e11d48;">
