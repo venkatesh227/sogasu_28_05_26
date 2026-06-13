@@ -55,6 +55,10 @@ $page_permission_map = [
     'print-job-card' => 'orders',
     'outsourcing' => 'orders',
 
+    'outsourcing-employees' => 'orders',
+    'outsourcing-orders' => 'orders',
+    'outsource-order-assignment' => 'orders',
+
     // Tasks & Employees (Operations)
     'employees-tasks' => 'employees_tasks',
     'tasks' => 'employees_tasks',
@@ -473,6 +477,13 @@ if ($required_permission && !has_permission($required_permission)) {
         $mastersPages = ['job-roles', 'branches', 'categories', 'sub-categories', 'measurement', 'services', 'racks', 'quick-notes', 'global-settings', 'bulk-upload', 'suppliers', 'add-supplier'];
         $inventoryPages = ['inventory', 'inventory-categories', 'procurement', 'sourcing', 'inventory-reports', 'purchase-orders', 'add-purchase-order', 'receive-po'];
         $hrPages = ['employees', 'employee-devices', 'shift-roster', 'attendance', 'holidays', 'add-employee', 'hr_reports', 'leaves', 'payroll', 'leave-types', 'ot-requests'];
+        $outsourcingPages = [
+            'outsourcing',
+            'employees-tasks',
+            'outsourcing-employees',
+            'outsourcing-orders',
+            'outsource-order-assignment'
+        ];
         $assetsPages = ['assets', 'asset-categories', 'asset-reports'];
         $financePages = ['billing', 'payments', 'expenses', 'expense-categories'];
 
@@ -560,9 +571,29 @@ if ($required_permission && !has_permission($required_permission)) {
                         <span class="sidebar-badge"><?= $newOrdersCount ?></span>
                     <?php endif; ?>
                 </a>
-                <a href="outsourcing.php" class="nav-item <?php echo ($activePage == 'outsourcing') ? 'active' : ''; ?>">
-                    <i class="ri-external-link-line"></i> Outsourcing
-                </a>
+                <div class="nav-item nav-item-parent <?php echo in_array($activePage, $outsourcingPages) ? 'open' : ''; ?>"
+                    onclick="toggleMenu('outsourcing-menu')">
+                    <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
+                        <i class="ri-external-link-line"></i> Outsourcing
+                    </div>
+                </div>
+
+                <div id="outsourcing-menu"
+                    class="sub-menu <?php echo in_array($activePage, $outsourcingPages) ? 'open' : ''; ?>">
+                    <a href="outsource_employees.php"
+                        class="sub-nav-item <?php echo ($activePage == 'outsourcing-employees') ? 'active' : ''; ?>">
+                        <i class="ri-arrow-right-s-line" style="font-size: 1rem; width: auto;"></i> Employees List
+                    </a>
+
+                    <a href="outsourcing_orders.php"
+                        class="sub-nav-item <?php echo ($activePage == 'outsourcing-orders') ? 'active' : ''; ?>">  
+                        <i class="ri-list-check-2" style="font-size: 1rem; width: auto;"></i> Outsourcing Orders
+                    </a>
+                    <a href="outsource-order-assignment.php"
+                        class="sub-nav-item <?php echo ($activePage == 'outsource-order-assignment') ? 'active' : ''; ?>">
+                        <i class="ri-user-shared-line" style="font-size: 1rem; width: auto;"></i> Order Assignment
+                    </a>
+                </div>
             <?php endif; ?>
 
             <?php if (has_permission('employees_tasks')): ?>

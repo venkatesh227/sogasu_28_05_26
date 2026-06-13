@@ -38,7 +38,7 @@ $stmt = $pdo->query("
     SELECT *
     FROM employees
     WHERE is_deleted = 0
-      AND employee_type = 'inhouse'
+    AND employee_type = 'outsource'
     ORDER BY id DESC
 ");
 $employees = $stmt->fetchAll();
@@ -48,9 +48,8 @@ $total = count($employees);
 $active = 0;
 foreach($employees as $e) if($e['status'] == 1) $active++;
 $inactive = $total - $active;
-
-$pageTitle = "Employee Master List - Sogasu";
-$activePage = "employees";
+$pageTitle = "Outsource Employees - Sogasu";
+$activePage = "outsourcing-employees";
 include 'includes/header.php';
 ?>
 
@@ -62,8 +61,8 @@ include 'includes/header.php';
         <!-- Standard Header -->
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;">Employee Master List</h2>
-                <p style="color: #64748b; margin-top: 0.25rem;">Manage your staff records, roles, and real-time performance tracking.</p>
+                <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;">Outsorce Employees</h2>
+                <p style="color: #64748b; margin-top: 0.25rem;">Manage outsourced employee records.</p>
             </div>
             <div style="display: flex; gap: 0.5rem;">
                 <a href="add-employee.php" class="btn btn-primary" style="background: #4f46e5; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 0.5rem;">
@@ -216,7 +215,7 @@ include 'includes/header.php';
         formData.append('id', id);
         formData.append('status', status);
 
-        fetch('employees.php', { method: 'POST', body: formData })
+        fetch('outsource_employees.php', { method: 'POST', body: formData })
         .then(res => res.json())
         .then(data => {
             if (data.success) {

@@ -50,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $customer_id = $_POST['customer_id'];
             $category_id = $_POST['category_id'] ?: null;
+            $order_type = $_POST['order_type'] ?? 'inhouse';
             $sub_category_id = $_POST['sub_category_id'] ?: null;
             $fabric_details = $_POST['fabric_details'] ?? '';
             $due_date = $_POST['due_date'] ?: null;
@@ -120,10 +121,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Generate Order Code
             $order_code = "ORD-" . date('Y') . "-" . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
+            $table_name = ($order_type === 'outsource')
+                ? 'outsource_orders'
+                : 'orders';
+            if ($order_type === 'inhouse') {
 
-            $stmt = $pdo->prepare("
-            INSERT INTO orders (
+                $stmt = $pdo->prepare("
+        INSERT INTO orders (
+            order_code,
+            customer_id,
+            family_member_id,
+            category_id,
+            sub_category_id,
+            fabric_details,
+            notes,
+            material_image,
+            referral_image,
+            order_status,
+            status_history,
+            payment_status,
+            supervisor_id,
+            base_price,
+            extra_charges,
+            total_amount,
+            advance_amount,
+            paid_amount,
+            advance_payment_mode,
+            transaction_reference,
+            due_date,
+            measurement_unit
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+
+                $stmt->execute([
+                    $order_code,
+                    $customer_id,
+                    $family_member_id,
+                    $category_id,
+                    $sub_category_id,
+                    $fabric_details,
+                    $design_notes,
+                    $material_image,
+                    $referral_image,
+                    $order_status,
+                    'pending',
+                    'pending',
+                    $supervisor_id,
+                    $base_price,
+                    $extra_charges,
+                    $total_amount,
+                    $advance_amount,
+                    0,
+                    $advance_payment_mode,
+                    $transaction_reference,
+                    $due_date,
+                    $measurement_unit
+                ]);
+            } else {
+
+                $stmt = $pdo->prepare("
+            INSERT INTO outsource_orders (
                 order_code,
+                order_type,
                 customer_id,
                 family_member_id,
                 category_id,
@@ -133,7 +192,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 material_image,
                 referral_image,
                 order_status,
-                status_history,
                 payment_status,
                 supervisor_id,
                 base_price,
@@ -145,90 +203,119 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 transaction_reference,
                 due_date,
                 measurement_unit
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
-            $stmt->execute([
-                $order_code,
-                $customer_id,
-                $family_member_id,
-                $category_id,
-                $sub_category_id,
-                $fabric_details,
-                $design_notes,
-                $material_image,
-                $referral_image,
-                $order_status,
-                'pending',
-                'unpaid',
-                $supervisor_id,
-                $base_price,
-                $extra_charges,
-                $total_amount,
-                $advance_amount,
-                0,
-                $advance_payment_mode,
-                $transaction_reference,
-                $due_date,
-                $measurement_unit
-            ]);
+                $stmt->execute([
+                    $order_code,
+                    'outsource',
+                    $customer_id,
+                    $family_member_id,
+                    $category_id,
+                    $sub_category_id,
+                    $fabric_details,
+                    $design_notes,
+                    $material_image,
+                    $referral_image,
+                    $order_status,
+                    'pending',
+                    $supervisor_id,
+                    $base_price,
+                    $extra_charges,
+                    $total_amount,
+                    $advance_amount,
+                    0,
+                    $advance_payment_mode,
+                    $transaction_reference,
+                    $due_date,
+                    $measurement_unit
+                ]);
+            }
 
             $order_id = $pdo->lastInsertId();
-    //         try {
-    //             $payable_amount = $advance_amount > 0 ? $advance_amount : $total_amount;
-    //             $payment = $api->paymentLink->create([
+            if ($order_type === 'outsource') {
 
-    //                 'amount' => $payable_amount * 100,
+                $empStmt = $pdo->prepare("
+        SELECT id
+        FROM employees
+        WHERE employee_type = 'outsource'
+        AND is_deleted = 0
+    ");
+                $empStmt->execute();
+                $outsourceEmployees = $empStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    //                 'currency' => 'INR',
+                $notificationTitle = 'New Outsource Order Available';
+                $notificationMessage = 'Order ' . $order_code . ' is available';
 
-    //                 'accept_partial' => false,
+                $notifStmt = $pdo->prepare("
+                    INSERT INTO notifications
+                    (employee_id, title, message)
+                    VALUES (?, ?, ?)
+                ");
 
-    //                 'description' => "Payment for Order #{$order_code}",
+                foreach ($outsourceEmployees as $emp) {
+                    $notifStmt->execute([
+                        $emp['id'],
+                        $notificationTitle,
+                        $notificationMessage
+                    ]);
+                }
+            }
+            //         try {
+            //             $payable_amount = $advance_amount > 0 ? $advance_amount : $total_amount;
+            //             $payment = $api->paymentLink->create([
 
-    //                 'customer' => [
-    //                     'name' => 'Customer',
-    //                     'contact' => preg_replace('/[^0-9]/', '', $_POST['mobile_number'])
-    //                 ],
+            //                 'amount' => $payable_amount * 100,
 
-    //                 'notify' => [
-    //                     'sms' => false,
-    //                     'email' => false
-    //                 ],
+            //                 'currency' => 'INR',
 
-    //                 'reminder_enable' => false,
-    //                 'callback_url' => 'http://localhost/sogasu_28_05_26/admin/payment-verify.php',
+            //                 'accept_partial' => false,
 
-    //                 'callback_method' => 'get'
+            //                 'description' => "Payment for Order #{$order_code}",
 
-    //             ]);
+            //                 'customer' => [
+            //                     'name' => 'Customer',
+            //                     'contact' => preg_replace('/[^0-9]/', '', $_POST['mobile_number'])
+            //                 ],
 
-    //             $payment_link_id = $payment['id'];
+            //                 'notify' => [
+            //                     'sms' => false,
+            //                     'email' => false
+            //                 ],
 
-    //             $payment_link = $payment['short_url'];
+            //                 'reminder_enable' => false,
+            //                 'callback_url' => 'http://localhost/sogasu_28_05_26/admin/payment-verify.php',
 
-    //             $stmtPayment = $pdo->prepare("
-    //     UPDATE orders
-    //     SET
-    //         razorpay_payment_link_id = ?,
-    //         payment_link = ?
-    //     WHERE id = ?
-    // ");
+            //                 'callback_method' => 'get'
 
-    //             $stmtPayment->execute([
-    //                 $payment_link_id,
-    //                 $payment_link,
-    //                 $order_id
-    //             ]);
+            //             ]);
 
-    //         } catch (Exception $e) {
+            //             $payment_link_id = $payment['id'];
 
-    //             file_put_contents(
-    //                 'razorpay_error_log.txt',
-    //                 date('Y-m-d H:i:s') . " - " . $e->getMessage() . PHP_EOL,
-    //                 FILE_APPEND
-    //             );
-    //         }
+            //             $payment_link = $payment['short_url'];
+
+            //             $stmtPayment = $pdo->prepare("
+            //     UPDATE orders
+            //     SET
+            //         razorpay_payment_link_id = ?,
+            //         payment_link = ?
+            //     WHERE id = ?
+            // ");
+
+            //             $stmtPayment->execute([
+            //                 $payment_link_id,
+            //                 $payment_link,
+            //                 $order_id
+            //             ]);
+
+            //         } catch (Exception $e) {
+
+            //             file_put_contents(
+            //                 'razorpay_error_log.txt',
+            //                 date('Y-m-d H:i:s') . " - " . $e->getMessage() . PHP_EOL,
+            //                 FILE_APPEND
+            //             );
+            //         }
 
 
             // Save Additional Services
@@ -414,9 +501,37 @@ include 'includes/header.php';
 
             <!-- Customer Details -->
             <div style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 8px;">
-                <h3
-                    style="font-size: 1.1rem; font-weight: 600; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                    <i class="ri-user-line" style="color: var(--primary);"></i> Customer Details
+                <h3 style="
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+">
+
+                    <span style="display:flex; align-items:center; gap:0.5rem;">
+                        <i class="ri-user-line" style="color: var(--primary);"></i>
+                        Customer Details
+                    </span>
+
+                    <span style="display:flex; align-items:center; gap:15px; font-size:14px; font-weight:500;">
+
+                        <span>Type :</span>
+
+                        <label style="display:flex; align-items:center; gap:5px; margin:0;">
+                            <input type="radio" name="order_type" value="inhouse" checked>
+                            Inhouse
+                        </label>
+
+                        <label style="display:flex; align-items:center; gap:5px; margin:0;">
+                            <input type="radio" name="order_type" value="outsource">
+                            Outsource
+                        </label>
+
+                    </span>
+
                 </h3>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">

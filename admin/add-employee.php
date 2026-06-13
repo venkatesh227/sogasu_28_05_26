@@ -72,7 +72,8 @@ $supervisorList = $supervisorStmt->fetchAll();
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     $current_user_id = $_SESSION['user_id'] ?? 1;
-
+    $employee_type = $_POST['employee_type'] ?? 'inhouse';
+    $old['employee_type'] = $employee_type;
 
     // GET DATA
     $old['first_name'] = trim($_POST['first_name'] ?? '');
@@ -126,8 +127,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     } elseif ($old['joining_date'] > date('Y-m-d')) {
         $errors['joining_date'] = "Future dates not allowed";
     }
-    if ($old['base_salary'] === '' || !is_numeric($old['base_salary']) || $old['base_salary'] < 0) {
-        $errors['base_salary'] = "Salary must be a valid positive number";
+    if ($employee_type === 'inhouse') {
+
+        if ($old['base_salary'] === '') {
+
+            $errors['base_salary'] = 'Base salary is required';
+
+        } elseif (!is_numeric($old['base_salary']) || $old['base_salary'] < 0) {
+
+            $errors['base_salary'] = 'Enter valid salary';
+
+        }
+
     }
     if ($old['job_role'] == '') {
         $errors['job_role'] = "Job role is required";
@@ -165,8 +176,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $errors['employment_status'] = "Employment status is required";
     }
 
-    if ($old['payment_model'] == '') {
-        $errors['payment_model'] = "Payment model is required";
+    if ($employee_type === 'inhouse' && empty($old['payment_model'])) {
+        $errors['payment_model'] = 'Payment model is required';
     }
 
     if ($old['pay_cycle'] == '') {
@@ -189,7 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 UPDATE employees SET 
                 first_name=?, last_name=?, phone=?, email=?, address=?,
                 job_role=?, supervisor_id=?, joining_date=?, branch=?, default_shift_id=?, employment_status=?,
-                payment_model=?, base_salary=?, pay_cycle=?,
+                payment_model=?, base_salary=?, pay_cycle=?,employee_type=?,
                 status=?, updated_at=NOW(), updated_by=?
                 WHERE id=?
             ");
@@ -210,6 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $old['payment_model'],
                     $old['base_salary'],
                     $old['pay_cycle'],
+                    $employee_type,
                     $old['status'],
                     $current_user_id,
                     $id
@@ -276,6 +288,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $pdo->beginTransaction();
 
                     try {
+                        if ($employee_type === 'outsource') {
+                            $old['payment_model'] = null;
+                            $old['base_salary'] = 0;
+                        }
 
                         $userStmt = $pdo->prepare("
                         INSERT INTO users (username,email,mobile,password,role,status,created_at)
@@ -297,8 +313,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             INSERT INTO employees 
                             (user_id,first_name,last_name,phone,email,address,
                             job_role,supervisor_id,joining_date,branch,default_shift_id,employment_status,
-                            payment_model,base_salary,pay_cycle,status,created_at,created_by)
-                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW(),?)
+                            payment_model,base_salary,pay_cycle,status,created_at,created_by,employee_type)
+                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW(),?,?)
                         ");
 
                         $empStmt->execute([
@@ -318,12 +334,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             $old['base_salary'],
                             $old['pay_cycle'],
                             $old['status'],
-                            $current_user_id
+                            $current_user_id,
+                            $employee_type
                         ]);
 
                         $pdo->commit();
 
-                        $_SESSION['success'] = "added";
+                        $_SESSION['success'] = "Employee Created Successfully";
                         header("Location: payroll.php");
                         exit;
 
@@ -362,8 +379,31 @@ include 'includes/header.php'; ?>
 
             <!-- Personal Info -->
             <div style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 8px;">
-                <h3 style="font-size: 1.1rem; font-weight: 600; color: #1e293b; margin-bottom: 1rem;">Personal
-                    Information</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+
+                    <h3 style="font-size:1.1rem; font-weight:600; color:#1e293b; margin:0;">
+                        Personal Information
+                    </h3>
+
+                    <div style="display:flex; align-items:center; gap:15px;">
+
+                        <span style="font-weight:600; color:#475569;">
+                            Type :
+                        </span>
+
+                        <label style="display:flex; align-items:center; gap:5px; margin:0; cursor:pointer;">
+                            <input type="radio" name="employee_type" value="inhouse" <?= (($old['employee_type'] ?? 'inhouse') == 'inhouse') ? 'checked' : '' ?>>
+                            Inhouse
+                        </label>
+
+                        <label style="display:flex; align-items:center; gap:5px; margin:0; cursor:pointer;">
+                            <input type="radio" name="employee_type" value="outsource" <?= (($old['employee_type'] ?? '') == 'outsource') ? 'checked' : '' ?>>
+                            Outsource
+                        </label>
+
+                    </div>
+
+                </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div class="form-group">
@@ -530,7 +570,7 @@ include 'includes/header.php'; ?>
                 <h3 style="font-size: 1.1rem; font-weight: 600; color: #1e293b; margin-bottom: 1rem;">Salary Structure
                 </h3>
 
-                <div class="form-group" style="margin-bottom: 1rem;">
+                <div class="form-group" id="paymentModelWrapper" style="margin-bottom: 1rem;">
                     <label class="form-label">Payment Model <span style="color:red">*</span></label>
                     <select class="form-select" name="payment_model">
                         <option <?= ($old['payment_model'] ?? '') == 'Fixed Monthly' ? 'selected' : '' ?>>Fixed Monthly
@@ -545,7 +585,7 @@ include 'includes/header.php'; ?>
                     <?php endif; ?>
                 </div>
 
-                <div class="form-group" style="margin-bottom: 1rem;">
+                <div class="form-group" id="baseSalaryWrapper" style="margin-bottom: 1rem;">
                     <label class="form-label">Base Salary / Rate <span style="color:red">*</span></label>
                     <div style="position: relative;">
                         <span
@@ -654,6 +694,37 @@ include 'includes/header.php'; ?>
 
     // Run on page load
     document.addEventListener('DOMContentLoaded', toggleSupervisorField);
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+        const paymentModelWrapper = document.getElementById('paymentModelWrapper');
+        const baseSalaryWrapper = document.getElementById('baseSalaryWrapper');
+
+        function toggleSalaryFields() {
+
+            const employeeType =
+                document.querySelector('input[name="employee_type"]:checked').value;
+
+            if (employeeType === 'outsource') {
+
+                paymentModelWrapper.style.display = 'none';
+                baseSalaryWrapper.style.display = 'none';
+
+            } else {
+
+                paymentModelWrapper.style.display = 'block';
+                baseSalaryWrapper.style.display = 'block';
+
+            }
+        }
+
+        document.querySelectorAll('input[name="employee_type"]').forEach(function (radio) {
+            radio.addEventListener('change', toggleSalaryFields);
+        });
+
+        toggleSalaryFields();
+    });
 </script>
 <?php
 include 'includes/footer.php';

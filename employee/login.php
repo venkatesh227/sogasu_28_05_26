@@ -39,14 +39,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Fetch employee preferred language
             $empStmt = $pdo->prepare("
-            SELECT preferred_language 
-            FROM employees 
-            WHERE user_id = ?
-        ");
+                SELECT preferred_language, employee_type
+                FROM employees 
+                WHERE user_id = ?
+            ");
 
             $empStmt->execute([$user['id']]);
             $emp = $empStmt->fetch();
 
+            $_SESSION['employee_type'] = $emp['employee_type'] ?? 'inhouse';
             $_SESSION['language'] = $emp['preferred_language'] ?? 'en';
 
             // Update DB
@@ -65,7 +66,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user['id']
             ]);
 
-            header("Location: dashboard.php");
+            if (($emp['employee_type'] ?? '') === 'outsource') {
+                header("Location: outsourcing_dashboard.php");
+            } else {
+                header("Location: dashboard.php");
+            }
             exit();
         }
 
