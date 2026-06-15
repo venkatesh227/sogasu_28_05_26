@@ -542,6 +542,9 @@ include 'includes/header.php'; ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <?php if (isset($errors['supervisor'])): ?>
+                            <small style="color:red"><?= $errors['supervisor'] ?></small>
+                        <?php endif; ?>
                     </div>
 
                     <div class="form-group">
