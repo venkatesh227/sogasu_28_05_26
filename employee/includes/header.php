@@ -327,8 +327,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <span>Attendance (Punch)</span>
             </a>
             <?php endif; ?>
-<?php if(hasPermission('hr_view')): ?>
-                <a href="roster.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'roster') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+<?php if(hasPermission('appointments_view')): ?>
+                    <a href="roster.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'roster') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-calendar-event-line" style="font-size: 1.25rem;"></i>
                 <span>Shift Roster</span>
             </a>
@@ -346,8 +346,8 @@ document.addEventListener('DOMContentLoaded', function() {
             </a>
             <?php endif; ?>
 
-<?php if(hasPermission('holidays_calendar_view')): ?>
-                <a href="earnings.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'earnings') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+<?php if(hasPermission('earnings_ot_view')): ?>
+                    <a href="earnings.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'earnings') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-wallet-3-line" style="font-size: 1.25rem;"></i>
                 <span>My Earnings & OT</span>
             </a>

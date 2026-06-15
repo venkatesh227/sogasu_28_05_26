@@ -1,6 +1,28 @@
 <?php
 session_start();
 require_once '../includes/db.php';
+$stmt = $pdo->prepare("
+    SELECT job_role
+    FROM employees
+    WHERE user_id = ?
+");
+$stmt->execute([$_SESSION['user_id']]);
+
+$role_name = $stmt->fetchColumn();
+
+$stmt = $pdo->prepare("
+    SELECT permission_key
+    FROM role_permissions
+    WHERE role_name = ?
+");
+$stmt->execute([$role_name]);
+
+$permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+if (!in_array('appointments_view', $permissions)) {
+    header("Location: profile.php");
+    exit();
+}
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
     header("Location: login.php");
@@ -101,10 +123,13 @@ include 'includes/header.php';
                             </div>
                             <!-- Request Change Link -->
                             <div style="margin-top: 0.5rem; text-align: right;">
-                                <button onclick="openRequestModal('<?= $date ?>', '<?= htmlspecialchars($shift['shift_name']) ?>')" style="background: none; border: none; color: #db2777; font-size: 0.7rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.25rem; margin-left: auto;">
-                                    <i class="ri-edit-line"></i> Request Change
-                                </button>
-                            </div>
+<?php if (in_array('appointments_create', $permissions)): ?>
+
+<button onclick="openRequestModal('<?= $date ?>', '<?= htmlspecialchars($shift['shift_name']) ?>')" style="background: none; border: none; color: #db2777;">
+    <i class="ri-edit-line"></i> Request Change
+</button>
+
+<?php endif; ?>                            </div>
                         <?php else: ?>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div style="color: #94a3b8; font-size: 0.85rem; font-style: italic;">No shift assigned / Day Off</div>
@@ -119,7 +144,7 @@ include 'includes/header.php';
         <?php endforeach; ?>
     </div>
 </div>
-
+<?php if (in_array('appointments_create', $permissions)): ?>
 <!-- Request Change Modal -->
 <div id="requestModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; align-items: flex-end;">
     <div style="background: white; width: 100%; border-radius: 24px 24px 0 0; padding: 1.5rem; animation: slideUp 0.3s ease-out;">
@@ -127,6 +152,7 @@ include 'includes/header.php';
             <h3 style="font-size: 1.25rem; font-weight: 800; color: #1e293b;">Shift Change Request</h3>
             <button onclick="closeRequestModal()" style="border: none; background: #f1f5f9; width: 32px; height: 32px; border-radius: 50%; color: #64748b;">&times;</button>
         </div>
+      
         <form id="requestForm" onsubmit="event.preventDefault(); submitRequest()">
             <input type="hidden" name="request_date" id="modal-date">
             
@@ -153,7 +179,7 @@ include 'includes/header.php';
         </form>
     </div>
 </div>
-
+  <?php endif; ?>
 <style>
     @keyframes slideUp {
         from { transform: translateY(100%); }

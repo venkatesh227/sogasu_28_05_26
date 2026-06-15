@@ -72,12 +72,27 @@ $stmt->execute([$employee_id]);
 $requests = $stmt->fetchAll();
 
 $stmt = $pdo->prepare("
+    SELECT job_role
+    FROM employees
+    WHERE user_id = ?
+");
+$stmt->execute([$_SESSION['user_id']]);
+
+$role_name = $stmt->fetchColumn();
+
+$stmt = $pdo->prepare("
     SELECT permission_key
     FROM role_permissions
-    WHERE role_name='Supervisor'
+    WHERE role_name = ?
 ");
-$stmt->execute();
+$stmt->execute([$role_name]);
+
 $permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+if (!in_array('leave_applications_view', $permissions)) {
+    header("Location: dashboard.php");
+    exit();
+}
 $pageTitle = "Leave Management - Sogasu";
 $headerTitle = "Leave Management";
 $activePage = "leaves";

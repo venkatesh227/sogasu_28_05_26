@@ -73,13 +73,14 @@ if ($selected_role) {
 
     $active_permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-    if (empty($active_permissions) &&
-        (
-            $selected_role === 'Tailor (Stitching)' ||
-            $selected_role === 'Helper (Finishing)' ||
-            $selected_role === 'Master (Cutter)'
-        )
-    ) {
+if (empty($active_permissions) &&
+(
+    $selected_role === 'Tailor (Stitching)' ||
+    $selected_role === 'Helper (Finishing)' ||
+    $selected_role === 'Master (Cutter)' ||
+    $selected_role === 'Manager'
+))
+{
 
         $active_permissions = [
             'dashboard_view',
@@ -258,23 +259,15 @@ $accountant_modules = [
 // Manager: Most modules (all except permissions and admin-only)
 $manager_modules = [
     'dashboard',
-    'masters',
-    'orders',
     'employees_tasks',
+    'assets',
     'hr',
     'appointments',
-    'inventory',
-    'assets',
-    'finance',
-    'customers',
-    'reports',
-    'support',
     'leave_applications',
     'holidays_calendar',
     'earnings_ot',
     'profile'
 ];
-
 // Filter modules based on selected role
 
 $modules_config = [];
@@ -289,7 +282,7 @@ if ($selected_role === 'Supervisor') {
 
 } elseif ($selected_role === 'Manager') {
 
-    foreach ($supervisor_modules as $module) {
+    foreach ($manager_modules as $module) {
         if (isset($all_modules_config[$module])) {
             $modules_config[$module] = $all_modules_config[$module];
         }
@@ -367,9 +360,20 @@ include 'includes/header.php';
                         if ($role === 'super_admin') continue;
                         
                         // Count active permissions for badge
-                        $cStmt = $pdo->prepare("SELECT COUNT(*) FROM role_permissions WHERE role_name = ?");
-                        $cStmt->execute([$role]);
-                        $permCount = $cStmt->fetchColumn();
+$cStmt = $pdo->prepare("
+    SELECT COUNT(DISTINCT
+        REPLACE(
+            REPLACE(
+                REPLACE(permission_key,'_view',''),
+            '_create',''),
+        '_edit','')
+    )
+    FROM role_permissions
+    WHERE role_name = ?
+");
+
+$cStmt->execute([$role]);
+$permCount = $cStmt->fetchColumn();
                         
                         $is_active = ($selected_role === $role);
                     ?>

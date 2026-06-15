@@ -2,11 +2,20 @@
 session_start();
 require_once '../includes/db.php';
 $stmt = $pdo->prepare("
+    SELECT job_role
+    FROM employees
+    WHERE user_id = ?
+");
+$stmt->execute([$_SESSION['user_id']]);
+
+$role_name = $stmt->fetchColumn();
+
+$stmt = $pdo->prepare("
     SELECT permission_key
     FROM role_permissions
-    WHERE role_name = 'Supervisor'
+    WHERE role_name = ?
 ");
-$stmt->execute();
+$stmt->execute([$role_name]);
 
 $permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
 

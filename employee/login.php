@@ -38,16 +38,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['session_token'] = $sessionToken;
 
             // Fetch employee preferred language
-            $empStmt = $pdo->prepare("
-                SELECT preferred_language, employee_type
-                FROM employees 
-                WHERE user_id = ?
-            ");
+$empStmt = $pdo->prepare("
+    SELECT preferred_language, job_role
+    FROM employees
+    WHERE user_id = ?
+");
 
             $empStmt->execute([$user['id']]);
             $emp = $empStmt->fetch();
 
-            $_SESSION['employee_type'] = $emp['employee_type'] ?? 'inhouse';
+$_SESSION['job_role'] = $emp['job_role'] ?? '';
             $_SESSION['language'] = $emp['preferred_language'] ?? 'en';
 
             // Update DB
@@ -66,12 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user['id']
             ]);
 
-            if (($emp['employee_type'] ?? '') === 'outsource') {
-                header("Location: outsourcing_dashboard.php");
-            } else {
-                header("Location: dashboard.php");
-            }
-            exit();
+header("Location: dashboard.php");
+exit();
         }
 
     } else {
