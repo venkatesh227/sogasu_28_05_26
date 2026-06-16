@@ -7,14 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $mobile = $_POST['login'] ?? '';
     $password = $_POST['password'] ?? '';
 
-    $stmt = $pdo->prepare("
-    SELECT u.*
-    FROM users u
-    INNER JOIN employees e ON e.user_id = u.id
-    WHERE u.mobile = ?
-      AND u.role = 'employee'
-      AND e.is_deleted = 0
-");
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE mobile = ? AND role = 'employee'");
     $stmt->execute([$mobile]);
     $user = $stmt->fetch();
 
@@ -49,13 +42,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 SELECT preferred_language, employee_type
                 FROM employees 
                 WHERE user_id = ?
-                AND is_deleted = 0
             ");
 
             $empStmt->execute([$user['id']]);
-            $emp = $empStmt->fetch() ?: [];
+            $emp = $empStmt->fetch();
 
-$_SESSION['job_role'] = $emp['job_role'] ?? '';
+            $_SESSION['employee_type'] = $emp['employee_type'] ?? 'inhouse';
             $_SESSION['language'] = $emp['preferred_language'] ?? 'en';
 
             // Update DB
@@ -74,8 +66,12 @@ $_SESSION['job_role'] = $emp['job_role'] ?? '';
                 $user['id']
             ]);
 
-header("Location: dashboard.php");
-exit();
+            if (($emp['employee_type'] ?? '') === 'outsource') {
+                header("Location: outsourcing_dashboard.php");
+            } else {
+                header("Location: dashboard.php");
+            }
+            exit();
         }
 
     } else {
