@@ -22,12 +22,11 @@ $permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
 if (
     isset($_SESSION['role']) &&
     $_SESSION['role'] === 'employee' &&
-    !in_array('hr_view', $permissions)
+!in_array('hr_view', $permissions)
 ) {
-    header("Location: profile.php");
+    header("Location: dashboard.php");
     exit();
 }
-
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
     header("Location: login.php");
     exit();

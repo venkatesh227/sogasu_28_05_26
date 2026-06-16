@@ -751,7 +751,7 @@ $today_holiday = $h_stmt->fetch();
             </div>
         <?php endforeach; ?>
     </div>
-
+<?php if (hasPermission('dashboard_create')): ?>
     <!-- Orders Needing Attention -->
     <div class="section-title">Assigned Orders</div>
     <?php if (empty($my_orders)): ?>
@@ -800,6 +800,7 @@ $today_holiday = $h_stmt->fetch();
         <?php endforeach; ?>
     <?php endif; ?>
 </div>
+<?php endif; ?>
 
 <!-- Delegation Modal -->
 <div id="delegateModal"

@@ -6,7 +6,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
     header("Location: login.php");
     exit();
 }
-// Fetch upcoming holidays
+// Fetch upcoming holidays from the database
 $stmt = $pdo->prepare("SELECT * FROM holidays WHERE holiday_date >= CURRENT_DATE() ORDER BY holiday_date ASC LIMIT 10");
 $stmt->execute();
 $holidays = $stmt->fetchAll();

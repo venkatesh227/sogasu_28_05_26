@@ -218,7 +218,8 @@ include 'includes/header.php';
 style="background: transparent; border: none; color: var(--primary); font-size: 0.9rem; font-weight: 600; cursor: pointer;">
     <?php echo $t['edit']; ?>
 </button>
-<?php endif; ?>        </div>
+<?php endif; ?>     
+   </div>
         <div style="padding: 0.75rem 0; display: flex; align-items: center; gap: 1rem;">
             <div style="width: 36px; height: 36px; background: var(--background); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
                 <i class="ri-map-pin-line"></i>
@@ -232,7 +233,8 @@ style="background: transparent; border: none; color: var(--primary); font-size: 
 style="background: transparent; border: none; color: var(--primary); font-size: 0.9rem; font-weight: 600; cursor: pointer;">
     <?php echo $t['edit']; ?>
 </button>
-<?php endif; ?>        </div>
+<?php endif; ?>    
+    </div>
     </div>
 
     <!-- App Settings -->
@@ -516,7 +518,7 @@ style="background: transparent; border: none; color: var(--primary); font-size: 
         }
     }
     
-    // Close modal when clicking outside
+    // Close modal when clicking outside 
     document.addEventListener('click', function(e) {
         const modals = document.querySelectorAll('.modal');
         modals.forEach(modal => {

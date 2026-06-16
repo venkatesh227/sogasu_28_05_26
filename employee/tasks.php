@@ -9,7 +9,28 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
 }
 
 $user_id = $_SESSION['user_id'];
+$stmt = $pdo->prepare("
+    SELECT job_role
+    FROM employees
+    WHERE user_id = ?
+");
+$stmt->execute([$_SESSION['user_id']]);
 
+$role_name = $stmt->fetchColumn();
+
+$stmt = $pdo->prepare("
+    SELECT permission_key
+    FROM role_permissions
+    WHERE role_name = ?
+");
+$stmt->execute([$role_name]);
+
+$permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+if (!in_array('employees_tasks_view', $permissions)) {
+    header("Location: dashboard.php");
+    exit();
+}
 // ================== GET EMPLOYEE ==================
 $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
 $stmt->execute([$user_id]);
