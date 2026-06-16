@@ -7,7 +7,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $mobile = $_POST['login'] ?? '';
     $password = $_POST['password'] ?? '';
 
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE mobile = ? AND role = 'employee'");
+    $stmt = $pdo->prepare("
+    SELECT u.*
+    FROM users u
+    INNER JOIN employees e ON e.user_id = u.id
+    WHERE u.mobile = ?
+      AND u.role = 'employee'
+      AND e.is_deleted = 0
+");
     $stmt->execute([$mobile]);
     $user = $stmt->fetch();
 
@@ -38,14 +45,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['session_token'] = $sessionToken;
 
             // Fetch employee preferred language
-$empStmt = $pdo->prepare("
-    SELECT preferred_language, job_role
-    FROM employees
-    WHERE user_id = ?
-");
+            $empStmt = $pdo->prepare("
+                SELECT preferred_language, employee_type
+                FROM employees 
+                WHERE user_id = ?
+                AND is_deleted = 0
+            ");
 
             $empStmt->execute([$user['id']]);
-            $emp = $empStmt->fetch();
+            $emp = $empStmt->fetch() ?: [];
 
 $_SESSION['job_role'] = $emp['job_role'] ?? '';
             $_SESSION['language'] = $emp['preferred_language'] ?? 'en';

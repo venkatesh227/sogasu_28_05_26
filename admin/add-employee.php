@@ -15,14 +15,18 @@ $payCycleList = $payCycleStmt->fetchAll();
 $shiftStmt = $pdo->query("SELECT id, name FROM shift_types ORDER BY name ASC");
 $shiftList = $shiftStmt->fetchAll();
 
-$pageTitle = "Add New Employee - Sogasu";
+$id = $_GET['id'] ?? null;
+$pageTitle = $id ? "Edit Employee - Sogasu" : "Add New Employee - Sogasu";
 $activePage = "add-employee";
 $errors = [];
 $old = [];
-$id = $_GET['id'] ?? null;
 
 if ($id) {
-    $stmt = $pdo->prepare("SELECT * FROM employees WHERE id = ?");
+    $stmt = $pdo->prepare("
+    SELECT * FROM employees 
+    WHERE id = ?
+    AND is_deleted = 0
+");
     $stmt->execute([$id]);
     $employee = $stmt->fetch();
 
@@ -95,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $old['status'] = $_POST['status'] ?? 1;
     $password = $_POST['password'] ?? '';
     $role = 'employee';
+    $employee_type = $_POST['employee_type'] ?? 'inhouse';
 
     // ===== VALIDATIONS =====
 
@@ -115,8 +120,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     } elseif (!preg_match("/^[6-9]/", $old['phone'])) {
         $errors['phone'] = "Must start with 6, 7, 8 or 9";
     }
+    if (empty($errors) && $id) {
+        $checkPhone = $pdo->prepare("
+        SELECT id 
+        FROM employees
+        WHERE phone = ?
+        AND id != ?
+        AND is_deleted = 0
+    ");
+
+        $checkPhone->execute([$old['phone'], $id]);
+
+        if ($checkPhone->fetch()) {
+            $errors['phone'] = "Phone number already exists";
+        }
+    }
     if ($old['email'] != '' && !filter_var($old['email'], FILTER_VALIDATE_EMAIL)) {
         $errors['email'] = "Invalid email format";
+    }
+    if ($id && $old['email'] != '') {
+        $checkEmail = $pdo->prepare("
+        SELECT id FROM employees
+        WHERE email = ? AND id != ? AND is_deleted = 0
+    ");
+        $checkEmail->execute([$old['email'], $id]);
+
+        if ($checkEmail->fetch()) {
+            $errors['email'] = "Email already exists";
+        }
     }
     if ($old['address'] == '') {
         $errors['address'] = "Address is required";
@@ -266,7 +297,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
 
                 $_SESSION['success'] = "updated";
-                header("Location: payroll.php");
+
+                if ($employee_type === 'outsource') {
+                    header("Location: outsource_employees.php");
+                } else {
+                    header("Location: employees.php");
+                }
                 exit;
             }
 
@@ -361,7 +397,9 @@ include 'includes/header.php'; ?>
     <div>
         <div style="display: flex; align-items: center; justify-content: space-between;">
             <div>
-                <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b;">Add New Employee</h2>
+                <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b;">
+                    <?= $id ? 'Edit Employee' : 'Add New Employee' ?>
+                </h2>
                 <p class="text-muted">Enter staff details and salary configuration</p>
             </div>
             <button class="btn" onclick="history.back()"

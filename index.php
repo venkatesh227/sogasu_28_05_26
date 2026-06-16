@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,6 +17,7 @@
             background: linear-gradient(135deg, #1a237e 0%, #0d1245 100%);
             padding: 1rem;
         }
+
         .login-card {
             background: white;
             padding: 2.5rem;
@@ -23,8 +25,9 @@
             width: 100%;
             max-width: 400px;
             text-align: center;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
         }
+
         .brand-logo {
             width: 64px;
             height: 64px;
@@ -37,6 +40,7 @@
             font-size: 2rem;
             margin-bottom: 1rem;
         }
+
         .role-btn {
             display: flex;
             align-items: center;
@@ -50,11 +54,17 @@
             transition: all 0.2s;
             cursor: pointer;
         }
+
         .role-btn:hover {
             border-color: var(--primary);
             background: #f0f4ff;
             transform: translateX(5px);
         }
+
+        .role-btn.register-btn {
+            border: 1px solid #1a237e;
+        }
+
         .role-icon {
             width: 40px;
             height: 40px;
@@ -66,15 +76,64 @@
             color: var(--primary);
             box-shadow: var(--shadow-sm);
         }
+
+        .register-section {
+            margin-top: 1.5rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .register-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            border: 1px solid var(--primary);
+            border-radius: 999px;
+            color: var(--primary);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+        }
+
+        .register-link:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .register-card {
+            margin-top: 1.25rem;
+            padding: 0.9rem 1rem;
+            border: 1px dashed #1a237e;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            color: #1a237e;
+            font-weight: 600;
+            cursor: pointer;
+            background: #f8faff;
+            transition: all 0.2s ease;
+        }
+
+        .register-card:hover {
+            background: #eef3ff;
+            transform: translateY(-2px);
+        }
     </style>
 </head>
+
 <body>
 
     <div class="login-card">
         <h1 style="margin-bottom: 0.5rem; color: var(--primary);">SOGASU</h1>
         <p class="text-muted" style="margin-bottom: 2rem;">Boutique Management System</p>
 
-        <h3 style="text-align: left; font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">Select Role to Login</h3>
+        <h3 style="text-align: left; font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">Select Role to
+            Login</h3>
 
         <div class="role-btn" onclick="window.location.href='admin/login.php'">
             <div class="role-icon"><i class="ri-admin-line"></i></div>
@@ -99,8 +158,15 @@
                 <div style="font-size: 0.75rem; color: var(--text-muted);">Track orders & status</div>
             </div>
         </div>
+        <div class="register-section">
+            <div class="register-card" onclick="window.location.href='register.php'">
+                <i class="ri-user-add-line"></i>
+                <span>Register Employee</span>
+            </div>
+        </div>
 
     </div>
 
 </body>
+
 </html>
