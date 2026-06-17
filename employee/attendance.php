@@ -34,7 +34,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
 
 $user_id = $_SESSION['user_id'];
 
-// Fetch employee ID
+// Fetch employee ID 
 $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ? AND is_deleted = 0");
 $stmt->execute([$user_id]);
 $emp = $stmt->fetch();
@@ -56,14 +56,14 @@ $shiftStmt = $pdo->prepare("
 $shiftStmt->execute([$employee_id, $today]);
 $today_shift = $shiftStmt->fetch();
 
-// Handle Punch In/Out
+// Handle Punch In/Out 
 if (isset($_POST['action'])) {
     header('Content-Type: application/json');
     $action = $_POST['action'];
     $time = date('H:i:s');
     $log_type = ($action === 'punch_in') ? 'In' : 'Out';
     
-    // Check shift if punching in
+    // Check shift if punching in  
     if ($action === 'punch_in') {
         if (!$today_shift || strpos(strtolower($today_shift['name']), 'off') !== false) {
             echo json_encode(['success' => false, 'error' => 'You do not have an active shift assigned for today.']);
@@ -78,7 +78,7 @@ if (isset($_POST['action'])) {
         $logStmt = $pdo->prepare("INSERT INTO attendance_logs (employee_id, log_date, log_time, log_type) VALUES (?, ?, ?, ?)");
         $logStmt->execute([$employee_id, $today, $time, $log_type]);
 
-        // 2. Update/Insert Summary in attendance table
+        // 2. Update/Insert Summary in attendance table   
         if ($action === 'punch_in') {
             $stmt = $pdo->prepare("INSERT INTO attendance (employee_id, attendance_date, status, check_in, working_from) 
                                  VALUES (?, ?, 'Present', ?, 'Office') 
@@ -184,7 +184,8 @@ document.addEventListener('DOMContentLoaded', function() {
             text: 'You must punch in your attendance before you can perform any work actions.',
             confirmButtonColor: '#059669'
         });
-        // Remove the parameter from URL without reloading
+
+        // Remove the parameter from URL without reloading the page
         if (window.history.replaceState) {
             const newUrl = window.location.pathname;
             window.history.replaceState({}, '', newUrl);

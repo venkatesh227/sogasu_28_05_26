@@ -150,7 +150,7 @@ include 'includes/header.php';
 ?>
 
 <div class="container">
-    <!-- Notifications Banner -->
+    <!--- Notifications Banner --->
     <?php if ($notifCount > 0): ?>
     <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -183,7 +183,7 @@ include 'includes/header.php';
     </div>
     <?php endif; ?>
     
-    <!-- Profile Header -->
+    <!---Profile Header --->
     <div class="card" style="text-align: center; padding: 2rem 1rem; border: none; background: linear-gradient(135deg, var(--background), #fff);">
         <div style="position: relative; display: inline-block; margin-bottom: 1rem;">
             <img id="profileImg" src="<?php echo !empty($employee['profile_photo']) ? 'uploads/' . htmlspecialchars($employee['profile_photo']) : 'https://ui-avatars.com/api/?name=' . urlencode($employee['first_name'] . ' ' . $employee['last_name']) . '&background=fce7f3&color=db2777&size=128'; ?>" style="width: 100px; height: 100px; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); object-fit: cover;">
@@ -202,7 +202,7 @@ include 'includes/header.php';
         </p>
     </div>
 
-    <!-- Personal Info -->
+    <!--- Personal Info --->
     <div class="section-title"><?php echo $t['personal_details']; ?></div>
     <div class="card">
         <div style="padding: 0.75rem 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 1rem;">
@@ -287,7 +287,7 @@ style="background: transparent; border: none; color: var(--primary); font-size: 
 </div>
 <?php if(in_array('profile_edit', $permissions)): ?>
 
-<!-- Edit Profile Modal -->
+<!--- Edit Profile Modal --->
 <div id="editModal" class="modal" style="display: none;">
     <div class="modal-content">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
@@ -309,7 +309,8 @@ style="background: transparent; border: none; color: var(--primary); font-size: 
     </div>
 </div>
 <?php endif; ?>
-<!-- Change Password Modal -->
+
+<!--- Change Password Modal --->
 <div id="passwordModal" class="modal" style="display: none;">
     <div class="modal-content">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">

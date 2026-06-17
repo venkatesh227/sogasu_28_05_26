@@ -100,6 +100,7 @@ include 'includes/header.php';
 ?>
 
 <div class="container">
+
     <!-- Balances Section -->
     <div class="section-title">Leave Balance (<?= $current_year ?>)</div>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">
@@ -112,6 +113,7 @@ include 'includes/header.php';
     </div>
 
     <!-- Apply Button -->
+
 <?php if(in_array('leave_applications_create', $permissions)): ?>
 
 <button onclick="document.getElementById('applyModal').style.display='flex'"
@@ -121,7 +123,9 @@ style="width: 100%; background: #4338ca; color: white; border: none; padding: 1r
 </button>
 
 <?php endif; ?>
+
     <!-- Recent Requests -->
+
     <div class="section-title">History</div>
     <?php if (empty($requests)): ?>
         <div class="card" style="text-align: center; color: #94a3b8; padding: 2rem;">No leave history found.</div>
@@ -152,6 +156,7 @@ style="width: 100%; background: #4338ca; color: white; border: none; padding: 1r
 <?php if(in_array('leave_applications_create', $permissions)): ?>
 
 <!-- Apply Modal -->
+ 
 <div id="applyModal" style="display: <?= isset($_GET['success']) || !empty($message) ? 'none' : 'none' ?>; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px); padding: 1rem;">
     <div style="background: white; width: 100%; max-width: 400px; border-radius: 16px; overflow: hidden; animation: slideUp 0.3s ease-out;">
         <div style="padding: 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">

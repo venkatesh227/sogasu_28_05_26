@@ -466,6 +466,10 @@ $permission_map = [
 
 'earnings_ot' => ['view'],
 
+'finance' => ['view','create'],
+
+'customers' => ['view','create'],
+
 'profile' => ['view','edit']
 
 ];
@@ -652,8 +656,7 @@ $permission_map = [
 
 <script>
 function toggleAll(checked) {
-    $('.permission-chk').prop('checked', checked);
-    $('.action-chk').prop('checked', checked).prop('disabled', !checked);
+    $('input[name="permissions[]"]').prop('checked', checked);
 }
 
 $(document).ready(function() {

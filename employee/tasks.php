@@ -31,13 +31,14 @@ if (!in_array('employees_tasks_view', $permissions)) {
     header("Location: dashboard.php");
     exit();
 }
-// ================== GET EMPLOYEE ==================
+
+// ================= GET EMPLOYEE =================
 $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
 $stmt->execute([$user_id]);
 $emp = $stmt->fetch();
 $employee_id = $emp['id'] ?? 0;
 
-// ================== STATUS LIST ==================
+// ================= STATUS LIST =================
 $all_status = [
     'all' => 'All',
     'pending' => 'Pending',
@@ -56,7 +57,7 @@ $current_status = $_GET['status'] ?? 'all';
 $from_date = $_GET['from_date'] ?? '';
 $to_date = $_GET['to_date'] ?? '';
 
-// ================== FETCH TASKS ==================
+// ================= FETCH TASKS =================
 $stmt = $pdo->prepare("
 
     SELECT 
@@ -213,6 +214,7 @@ include 'includes/header.php';
 <div
     style="background: var(--surface); padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); position: sticky; top: 60px; z-index: 40; box-shadow: var(--shadow-sm);">
 
+    
     <!-- Date Filters -->
     <form method="GET" style="display:flex; gap:0.5rem; align-items:flex-end; margin-bottom: 1rem;">
         <input type="hidden" name="status" value="<?= $current_status ?>">
