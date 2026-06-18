@@ -46,11 +46,15 @@ $total_outsource_orders = $stmt->fetchColumn();
 
 // Fetch Active Tasks (Urgent first)
 $stmt = $pdo->prepare("
-    SELECT *
-    FROM outsource_orders
-    WHERE order_status = 'pending'
-    AND is_deleted = 0
-    ORDER BY created_at DESC
+    SELECT 
+        oo.*,
+        sc.name AS sub_category_name
+    FROM outsource_orders oo
+    LEFT JOIN sub_categories sc 
+        ON sc.id = oo.sub_category_id
+    WHERE oo.order_status IN ('pending', 'accepted')
+    AND oo.is_deleted = 0
+    ORDER BY oo.created_at DESC
     LIMIT 10
 ");
 $stmt->execute();
@@ -88,7 +92,8 @@ if ($popupNotification) {
     $markReadStmt->execute([$popupNotification['id']]);
 }
 
-include 'includes/header.php';
+include 'includes/outsource-header.php';
+
 ?>
 
 <div class="container" style="padding-bottom: 100px;">
@@ -154,21 +159,27 @@ include 'includes/header.php';
                     </div>
 
                     <span style="
-        background:#fef3c7;
-        color:#b45309;
-        padding:6px 12px;
-        border-radius:999px;
-        font-size:12px;
-        font-weight:700;">
+                        background:#fef3c7;
+                        color:#b45309;
+                        padding:6px 12px;
+                        border-radius:999px;
+                        font-size:12px;
+                        font-weight:700;">
                         <?= ucfirst(str_replace('_', ' ', $job['order_status'])) ?>
                     </span>
                 </div>
 
                 <div style="margin-top:14px;color:#64748b;font-size:14px;">
-                    <div><b>Order ID:</b> #<?= $job['id'] ?></div>
+                    <div><b>Order ID:</b> #<?= htmlspecialchars($job['order_code']) ?></div>
                     <div style="margin-top:4px;">
                         <b>Created:</b> <?= date('d M Y', strtotime($job['created_at'])) ?>
                     </div>
+                    <?php if (!empty($job['sub_category_name'])): ?>
+                        <div style="margin-top:4px;">
+                            <b>Garment:</b>
+                            <?= htmlspecialchars($job['sub_category_name']) ?>
+                        </div>
+                    <?php endif; ?>
 
                     <?php if (!empty($job['due_date'])): ?>
                         <div style="margin-top:4px;">
@@ -184,7 +195,7 @@ include 'includes/header.php';
                 </div>
 
                 <div style="display:flex; gap:10px; margin-top:18px;">
-                    <?php if ($job['order_status'] === 'pending' && !$alreadyResponded): ?>
+                    <?php if (in_array($job['order_status'], ['pending', 'accepted']) && !$alreadyResponded): ?>
 
                         <a href="#" onclick="confirmAccept(<?= $job['id'] ?>)" style="
                             text-decoration:none;
@@ -249,7 +260,7 @@ include 'includes/header.php';
             <div style="margin-top:8px;font-size:13px;font-weight:600;">Accepted</div>
         </div>
 
-        <div onclick="location.href='notifications.php'" style="
+        <div onclick="location.href='outsource-notifications.php'" style="
         background:white;
         padding:18px 12px;
         border-radius:18px;
@@ -325,34 +336,38 @@ include 'includes/header.php';
     }
 </script>
 <?php if ($success === 'accepted'): ?>
-    <script>
-        Swal.fire({
-            icon: 'success',
-            title: 'Order Accepted'
-        });
-    </script>
-    <?php unset($_SESSION['success']); ?>
+<script>
+    Swal.fire({
+        icon: 'success',
+        title: 'Order Accepted'
+    }).then(() => {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    });
+</script>
 <?php endif; ?>
 
 <?php if ($success === 'rejected'): ?>
-    <script>
-        Swal.fire({
-            icon: 'success',
-            title: 'All Employees Rejected',
-            text: 'Order moved to rejected'
-        });
-    </script>
-    <?php unset($_SESSION['success']); ?>
+<script>
+    Swal.fire({
+        icon: 'success',
+        title: 'All Employees Rejected',
+        text: 'Order moved to rejected'
+    }).then(() => {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    });
+</script>
 <?php endif; ?>
 
 <?php if ($success === 'response_saved'): ?>
-    <script>
-        Swal.fire({
-            icon: 'info',
-            title: 'Response Saved',
-            text: 'Waiting for other employees'
-        });
-    </script>
+<script>
+    Swal.fire({
+        icon: 'info',
+        title: 'Response Saved',
+        text: 'Waiting for other employees'
+    }).then(() => {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    });
+</script>
 <?php endif; ?>
 
 <?php if ($error === 'already_responded'): ?>

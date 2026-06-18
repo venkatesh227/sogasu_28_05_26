@@ -39,19 +39,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Fetch employee preferred language
             $empStmt = $pdo->prepare("
-                SELECT preferred_language, employee_type
+                SELECT preferred_language, employee_type, job_role
                 FROM employees 
                 WHERE user_id = ?
             ");
 
             $empStmt->execute([$user['id']]);
             $emp = $empStmt->fetch();
+            if (!$emp) {
+                $error = "Employee record not found";
+            } else {
 
-            $_SESSION['employee_type'] = $emp['employee_type'] ?? 'inhouse';
-            $_SESSION['language'] = $emp['preferred_language'] ?? 'en';
+                $_SESSION['employee_type'] = $emp['employee_type'] ?? 'inhouse';
+                $_SESSION['job_role'] = $emp['job_role'] ?? '';
+                $_SESSION['language'] = $emp['preferred_language'] ?? 'en';
 
-            // Update DB
-            $updateStmt = $pdo->prepare("
+                // Update DB
+                $updateStmt = $pdo->prepare("
             UPDATE users
             SET
                 is_logged_in = 1,
@@ -60,18 +64,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             WHERE id = ?
         ");
 
-            $updateStmt->execute([
-                $sessionToken,
-                $deviceToken,
-                $user['id']
-            ]);
+                $updateStmt->execute([
+                    $sessionToken,
+                    $deviceToken,
+                    $user['id']
+                ]);
 
-            if (($emp['employee_type'] ?? '') === 'outsource') {
-                header("Location: outsourcing_dashboard.php");
-            } else {
-                header("Location: dashboard.php");
+                if (($emp['employee_type'] ?? '') === 'outsource') {
+                    header("Location: outsourcing_dashboard.php");
+                } elseif (strtolower(trim($emp['job_role'] ?? '')) === 'supervisor') {
+                    header("Location: supervisor-dashboard.php");
+                } else {
+                    header("Location: dashboard.php");
+                }
+                exit();
             }
-            exit();
         }
 
     } else {

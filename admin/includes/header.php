@@ -58,7 +58,8 @@ $page_permission_map = [
     'outsourcing-employees' => 'orders',
     'outsourcing-orders' => 'orders',
     'outsource-order-assignment' => 'orders',
-
+    'view-outsource-employee' => 'orders',
+    'edit-outsource-order' => 'orders',
 
     // Tasks & Employees (Operations)
     'employees-tasks' => 'employees_tasks',
@@ -484,7 +485,9 @@ if ($required_permission && !has_permission($required_permission)) {
             'employees-tasks',
             'outsourcing-employees',
             'outsourcing-orders',
-            'outsource-order-assignment'
+            'outsource-order-assignment',
+            'view-outsource-employee',
+            'edit-outsource-order'
         ];
         $assetsPages = ['assets', 'asset-categories', 'asset-reports'];
         $financePages = ['billing', 'payments', 'expenses', 'expense-categories'];

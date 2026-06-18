@@ -17,12 +17,23 @@ $t = $translations[$language] ?? $translations['en'];
 
 // Fetch employee data and job role
 $stmt = $pdo->prepare("
-    SELECT e.id, e.first_name, e.last_name, e.preferred_language, e.job_role, e.pay_cycle
+    SELECT e.id, e.first_name, e.last_name, e.preferred_language, 
+           e.job_role, e.pay_cycle, e.employee_type
     FROM employees e 
     WHERE e.user_id = ? AND e.is_deleted = 0
 ");
 $stmt->execute([$user_id]);
 $emp = $stmt->fetch();
+
+if (!$emp) {
+    header("Location: login.php");
+    exit();
+}
+
+if ($emp['employee_type'] !== 'inhouse') {
+    header("Location: outsourcing_dashboard.php");
+    exit();
+}
 
 $employee_id = null;
 $payCycle = '';

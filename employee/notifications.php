@@ -10,9 +10,19 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
 $user_id = $_SESSION['user_id'];
 
 // Get employee id
-$stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+$stmt = $pdo->prepare("
+    SELECT id 
+    FROM employees 
+    WHERE user_id = ?
+    AND employee_type = 'inhouse'
+");
 $stmt->execute([$user_id]);
 $employee_id = $stmt->fetchColumn();
+
+if (!$employee_id) {
+    header("Location: outsourcing_dashboard.php");
+    exit();
+}
 
 // Fetch notifications FIRST to keep their unread state for the UI render
 $stmt = $pdo->prepare("SELECT * FROM notifications WHERE employee_id = ? ORDER BY created_at DESC LIMIT 50");

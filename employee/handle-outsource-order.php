@@ -55,7 +55,7 @@ if (!$order) {
 }
 
 /* Order already finalized */
-if (!in_array($order['order_status'], ['pending'])) {
+if (!in_array($order['order_status'], ['pending', 'accepted'])) {
     header("Location: outsourcing_dashboard.php?error=already_processed");
     exit;
 }

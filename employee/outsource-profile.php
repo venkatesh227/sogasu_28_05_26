@@ -151,7 +151,7 @@ $notifications = $notifStmt->fetchAll() ?? [];
 $pageTitle = $t['page_title'];
 $headerTitle = $t['header_title'];
 $activePage = "profile";
-include 'includes/header.php';
+include 'includes/outsource-header.php';
 ?>
 
 <div class="container">

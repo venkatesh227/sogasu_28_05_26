@@ -154,7 +154,7 @@ $pageTitle = "Outsource Orders - Sogasu";
 $headerTitle = "Outsource Orders";
 $activePage = "orders";
 
-include 'includes/header.php';
+include 'includes/outsource-header.php';
 ?>
 
 <div class="container" style="padding-bottom:100px;">

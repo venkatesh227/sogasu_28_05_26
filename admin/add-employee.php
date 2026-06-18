@@ -377,7 +377,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $pdo->commit();
 
                         $_SESSION['success'] = "Employee Created Successfully";
-                        header("Location: payroll.php");
+
+                        if ($employee_type === 'outsource') {
+                            header("Location: outsource_employees.php");
+                        } else {
+                            header("Location: employees.php");
+                        }
                         exit;
 
                     } catch (Exception $e) {

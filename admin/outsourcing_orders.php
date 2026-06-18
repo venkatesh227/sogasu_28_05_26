@@ -7,101 +7,6 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'assign_supervisor') {
-    $order_id = $_POST['order_id'] ?? null;
-    $order_type = $_POST['order_type'] ?? '';
-    $supervisor_id = $_POST['supervisor_id'] ?: null;
-    $tab = $_GET['tab'] ?? 'all';
-
-    if ($order_id) {
-        try {
-            if ($order_type === 'admin') {
-
-                $stmt = $pdo->prepare("
-                    UPDATE outsource_orders
-                    SET supervisor_id = ?
-                    WHERE id = ?
-                ");
-
-                $stmt->execute([$supervisor_id, $order_id]);
-
-            } elseif ($order_type === 'customer') {
-
-                $stmt = $pdo->prepare("
-                    UPDATE customer_orders
-                    SET supervisor_id = ?
-                    WHERE id = ?
-                ");
-
-                $stmt->execute([$supervisor_id, $order_id]);
-            }
-
-            $_SESSION['success'] = "supervisor_assigned";
-        } catch (PDOException $e) {
-            $_SESSION['error'] = "Error: " . $e->getMessage();
-        }
-    }
-    header("Location: outsorce_orders.php" . ($tab !== 'all' ? "?tab=$tab" : ""));
-    exit();
-}
-
-// Fetch Supervisor Workload / Active Orders
-$activeOrders = $pdo->query("
-        SELECT 
-            o.id,
-            'admin' as order_type,
-            o.order_code,
-            o.total_amount,
-            o.advance_amount,
-            o.paid_amount,
-            o.due_date,
-            o.order_status,
-            o.supervisor_id,
-            o.payment_link,
-            o.payment_status,
-            b.id as bill_id,
-            sc.name as garment
-        FROM outsource_orders o
-        LEFT JOIN sub_categories sc ON o.sub_category_id = sc.id
-        LEFT JOIN bills b ON b.order_id = o.id
-        WHERE o.is_deleted = 0 
-        AND o.supervisor_id IS NOT NULL 
-        AND o.order_status NOT IN ('completed', 'delivered', 'cancelled')
-
-        UNION ALL
-
-        SELECT 
-            co.id,
-            'customer' as order_type,
-            co.order_code,
-            co.total_amount,
-            0 as advance_amount,
-            0 as paid_amount,
-            co.appointment_date as due_date,
-            co.status as order_status,
-            co.supervisor_id,
-            NULL as payment_link,
-            NULL as payment_status,
-            NULL as bill_id,
-            sc.name as garment
-        FROM customer_orders co
-        LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
-        WHERE co.is_deleted = 0 
-        AND co.slot_status != 'rejected'
-        AND co.supervisor_id IS NOT NULL 
-        AND co.status NOT IN ('completed', 'delivered', 'cancelled')
-
-        ORDER BY due_date ASC
-")->fetchAll(PDO::FETCH_ASSOC);
-
-$supervisorWorkloads = [];
-foreach ($activeOrders as $orderItem) {
-    $supervisorWorkloads[$orderItem['supervisor_id']][] = $orderItem;
-}
-
-// Fetch Supervisors
-$supervisors = $pdo->query("SELECT id, CONCAT(first_name, ' ', last_name) as name FROM employees WHERE is_deleted=0 AND job_role = 'Supervisor'")->fetchAll(PDO::FETCH_ASSOC);
-
 // Logic
 $tab = $_GET['tab'] ?? 'all';
 // Fetch order status ENUM values dynamically
@@ -134,9 +39,7 @@ include 'includes/header.php';
             <div
                 style="background: #ecfdf5; color: #047857; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #a7f3d0; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
                 <i class="ri-checkbox-circle-line" style="font-size: 1.2rem;"></i>
-                <span>
-                    <?= $_SESSION['success'] === 'supervisor_assigned' ? 'Supervisor assigned successfully!' : 'Success!' ?>
-                </span>
+                <span>Success!</span>
             </div>
             <?php unset($_SESSION['success']); ?>
         <?php endif; ?>
@@ -390,15 +293,8 @@ include 'includes/header.php';
                             </td>
                             <td style="padding: 1rem; text-align: right;">
                                 <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                                    <button onclick="openSupervisorModal(
-                                        <?= $o['id'] ?>,
-                                        '<?= $o['order_type'] ?>',
-                                        '<?= htmlspecialchars($o['order_code']) ?>',
-                                        '<?= htmlspecialchars($o['supervisor_id'] ?? '') ?>'
-                                    )" class="btn btn-sm"
-                                        style="background: #f8fafc; color: #f59e0b; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; cursor: pointer;"
-                                        title="Assign Supervisor"><i class="ri-user-star-line"></i> Supervisor</button>
-                                    <a href="view-order.php?id=<?= $o['id'] ?>" class="btn btn-sm"
+                                    
+                                    <a href="view-outsource-order.php?id=<?= $o['id'] ?>" class="btn btn-sm"
                                         style="background: #f8fafc; color: #6366f1; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; text-decoration: none;"><i
                                             class="ri-eye-line"></i> View</a>
                                     <?php if (
@@ -412,7 +308,7 @@ include 'includes/header.php';
                                         </a>
 
                                     <?php endif; ?>
-                                    <a href="edit-order.php?id=<?= $o['id'] ?>&type=<?= $o['order_type'] ?>"
+                                    <a href="edit-outsource-order.php?id=<?= $o['id'] ?>&type=<?= $o['order_type'] ?>"
                                         class="btn btn-sm"
                                         style="background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; text-decoration: none;"><i
                                             class="ri-pencil-line"></i> Edit</a>
@@ -426,116 +322,14 @@ include 'includes/header.php';
     </div>
 </main>
 
-<!-- Supervisor Assignment Modal -->
-<div id="supervisorModal"
-    style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center; transition: all 0.3s;">
-    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 400px; width: 90%; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); transform: scale(0.95); transition: all 0.2s;"
-        id="modalContent">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-            <h3
-                style="font-size: 1.1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
-                <i class="ri-user-star-line" style="color: #4f46e5;"></i> Assign Supervisor
-            </h3>
-            <button onclick="closeSupervisorModal()"
-                style="border: none; background: transparent; color: #64748b; font-size: 1.2rem; cursor: pointer;"><i
-                    class="ri-close-line"></i></button>
-        </div>
-
-        <form method="POST">
-            <input type="hidden" name="action" value="assign_supervisor">
-            <input type="hidden" name="order_id" id="modalOrderId">
-            <input type="hidden" name="order_type" id="modalOrderType">
-
-            <p style="font-size: 0.85rem; color: #64748b; margin-top: -0.25rem; margin-bottom: 1.25rem;">
-                Select a supervisor for Order <strong id="modalOrderCode" style="color: #4f46e5;"></strong>.
-            </p>
-
-            <div style="margin-bottom: 1rem;">
-                <label
-                    style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 0.5rem;">Supervisor</label>
-                <select name="supervisor_id" id="modalSupervisorSelect"
-                    style="width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none; transition: border-color 0.2s;"
-                    onfocus="this.style.borderColor='#4f46e5'" onblur="this.style.borderColor='#cbd5e1'">
-                    <option value="">-- Select Supervisor --</option>
-                    <?php foreach ($supervisors as $sup): ?>
-                        <option value="<?= $sup['id'] ?>"><?= htmlspecialchars($sup['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <!-- Workload & Timeline Container -->
-            <div id="modalWorkloadContainer" style="display: none; margin-bottom: 1.25rem;"></div>
-
-            <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
-                <button type="button" onclick="closeSupervisorModal()"
-                    style="padding: 0.625rem 1rem; border: 1px solid #e2e8f0; background: white; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; transition: background 0.2s;"
-                    onmouseover="this.style.background='#f8fafc'"
-                    onmouseout="this.style.background='white'">Cancel</button>
-                <button type="submit"
-                    style="padding: 0.625rem 1.25rem; border: none; background: #4f46e5; color: white; font-weight: 600; border-radius: 8px; cursor: pointer; transition: opacity 0.2s;"
-                    onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Assign</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <?php include __DIR__ . '/includes/datatable.php'; ?>
 <script>
-    const supervisorWorkloads = <?= json_encode($supervisorWorkloads) ?>;
 
     $(document).ready(function () {
         initializeDataTable('ordersTable', 'Orders Report');
-
-        document.getElementById('modalSupervisorSelect').addEventListener('change', function () {
-            handleSupervisorChange(this.value);
-        });
     });
 
-    function openSupervisorModal(orderId, orderType, orderCode, currentSupId) {
-        document.getElementById('modalOrderId').value = orderId;
-        document.getElementById('modalOrderType').value = orderType;
-        document.getElementById('modalOrderCode').innerText = '#' + orderCode;
-        document.getElementById('modalSupervisorSelect').value = currentSupId;
-
-        // Trigger workload display load
-        handleSupervisorChange(currentSupId);
-
-        const modal = document.getElementById('supervisorModal');
-        modal.style.display = 'flex';
-        setTimeout(() => {
-            document.getElementById('modalContent').style.transform = 'scale(1)';
-        }, 10);
-    }
-
-    function closeSupervisorModal() {
-        document.getElementById('modalContent').style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            document.getElementById('supervisorModal').style.display = 'none';
-        }, 150);
-    }
-
-    function handleSupervisorChange(supervisorId) {
-        const container = document.getElementById('modalWorkloadContainer');
-        if (!supervisorId) {
-            container.style.display = 'none';
-            container.innerHTML = '';
-            return;
-        }
-
-        const orders = supervisorWorkloads[supervisorId] || [];
-        const orderCount = orders.length;
-        const loadPercent = Math.min(orderCount * 20, 100);
-
-        let progressColor = '#22c55e'; // Green
-        let loadText = 'Available / Light';
-        if (orderCount >= 5) {
-            progressColor = '#ef4444'; // Red
-            loadText = 'Overloaded / Heavy';
-        } else if (orderCount >= 3) {
-            progressColor = '#f59e0b'; // Amber
-            loadText = 'Moderate';
-        }
-
+    
         let html = `
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-top: 0.5rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">

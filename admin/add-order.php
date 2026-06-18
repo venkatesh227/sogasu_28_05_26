@@ -127,31 +127,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($order_type === 'inhouse') {
 
                 $stmt = $pdo->prepare("
-        INSERT INTO orders (
-            order_code,
-            customer_id,
-            family_member_id,
-            category_id,
-            sub_category_id,
-            fabric_details,
-            notes,
-            material_image,
-            referral_image,
-            order_status,
-            status_history,
-            payment_status,
-            supervisor_id,
-            base_price,
-            extra_charges,
-            total_amount,
-            advance_amount,
-            paid_amount,
-            advance_payment_mode,
-            transaction_reference,
-            due_date,
-            measurement_unit
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ");
+                    INSERT INTO orders (
+                        order_code,
+                        customer_id,
+                        family_member_id,
+                        category_id,
+                        sub_category_id,
+                        fabric_details,
+                        notes,
+                        material_image,
+                        referral_image,
+                        order_status,
+                        status_history,
+                        payment_status,
+                        supervisor_id,
+                        base_price,
+                        extra_charges,
+                        total_amount,
+                        advance_amount,
+                        paid_amount,
+                        advance_payment_mode,
+                        transaction_reference,
+                        due_date,
+                        measurement_unit
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
 
                 $stmt->execute([
                     $order_code,
@@ -236,11 +236,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($order_type === 'outsource') {
 
                 $empStmt = $pdo->prepare("
-        SELECT id
-        FROM employees
-        WHERE employee_type = 'outsource'
-        AND is_deleted = 0
-    ");
+                    SELECT id
+                    FROM employees
+                    WHERE employee_type = 'outsource'
+                    AND is_deleted = 0
+                ");
                 $empStmt->execute();
                 $outsourceEmployees = $empStmt->fetchAll(PDO::FETCH_ASSOC);
 

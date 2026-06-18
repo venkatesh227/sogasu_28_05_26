@@ -167,8 +167,8 @@ include 'includes/header.php';
                                 <td style="text-align: right;">
                                     <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                                         <button class="btn-icon-p" onclick="openPassModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['first_name']) ?>')" title="Change Password" style="color: var(--warning);"><i class="ri-lock-password-line"></i></button>
-                                        <a href="view-employee.php?id=<?= $row['id'] ?>" class="btn-icon-p" title="View Profile" style="color: var(--primary);"><i class="ri-eye-line"></i></a>
-                                        <a href="view-employee.php?id=<?= $row['id'] ?>#tasks-section" class="btn-icon-p" title="Tasks & Performance" style="color: var(--success);"><i class="ri-list-check"></i></a>
+                                        <a href="view-outsource-employee.php?id=<?= $row['id'] ?>" class="btn-icon-p" title="View Profile" style="color: var(--primary);"><i class="ri-eye-line"></i></a>
+                                        <!-- <a href="view-outsource-employee.php?id=<?= $row['id'] ?>#tasks-section" class="btn-icon-p" title="Tasks & Performance" style="color: var(--success);"><i class="ri-list-check"></i></a> -->
                                         <a href="add-employee.php?id=<?= $row['id'] ?>" class="btn-icon-p" title="Edit Record"><i class="ri-edit-line"></i></a>
                                         <button class="btn-icon-p" onclick="confirmDelete(<?= $row['id'] ?>)" title="Delete Employee" style="color: var(--danger);"><i class="ri-delete-bin-line"></i></button>
                                     </div>

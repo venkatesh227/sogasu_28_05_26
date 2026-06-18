@@ -41,8 +41,8 @@ $stmt = $pdo->query("
     FROM employees e
     INNER JOIN users u ON u.id = e.user_id
     WHERE e.is_deleted = 0
-      AND u.role = 'employee'
-      AND u.is_registered = 1
+        AND u.is_registered = 1
+        AND (e.job_role IS NULL OR e.job_role = '')
     ORDER BY e.id DESC
 ");
 $employees = $stmt->fetchAll();
@@ -54,9 +54,9 @@ $stmt = $pdo->query("
     FROM employees e
     INNER JOIN users u ON u.id = e.user_id
     WHERE e.is_deleted = 0
-      AND u.role = 'employee'
-      AND u.is_registered = 1
-      AND e.status = 1
+        AND u.is_registered = 1
+        AND (e.job_role IS NULL OR e.job_role = '')
+        AND e.status = 1
 ");
 $activeEmployees = $stmt->fetchColumn();
 
@@ -65,9 +65,9 @@ $stmt = $pdo->query("
     FROM employees e
     INNER JOIN users u ON u.id = e.user_id
     WHERE e.is_deleted = 0
-      AND u.role = 'employee'
-      AND u.is_registered = 1
-      AND DATE(e.created_at) = CURDATE()
+        AND u.is_registered = 1
+        AND (e.job_role IS NULL OR e.job_role = '')
+        AND DATE(e.created_at) = CURDATE()
 ");
 $todayRegistrations = $stmt->fetchColumn();
 
@@ -76,10 +76,10 @@ $stmt = $pdo->query("
     FROM employees e
     INNER JOIN users u ON u.id = e.user_id
     WHERE e.is_deleted = 0
-      AND u.role = 'employee'
-      AND u.is_registered = 1
-      AND MONTH(e.created_at) = MONTH(CURDATE())
-      AND YEAR(e.created_at) = YEAR(CURDATE())
+        AND u.is_registered = 1
+        AND (e.job_role IS NULL OR e.job_role = '')
+        AND MONTH(e.created_at) = MONTH(CURDATE())
+        AND YEAR(e.created_at) = YEAR(CURDATE())
 ");
 $monthRegistrations = $stmt->fetchColumn();
 
@@ -325,14 +325,14 @@ include 'includes/header.php';
     });
 </script>
 <?php if (isset($_GET['deleted'])): ?>
-<script>
-    Swal.fire({
-        icon: 'success',
-        title: 'Deleted Successfully',
-        text: 'Employee deleted successfully.',
-        confirmButtonColor: '#16a34a'
-    });
-</script>
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: 'Deleted Successfully',
+            text: 'Employee deleted successfully.',
+            confirmButtonColor: '#16a34a'
+        });
+    </script>
 <?php endif; ?>
 
 <?php include 'includes/footer.php'; ?>
