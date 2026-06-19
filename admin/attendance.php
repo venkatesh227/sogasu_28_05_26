@@ -13,7 +13,10 @@ $days_in_month = cal_days_in_month(CAL_GREGORIAN, $month, $year);
 $roles = $pdo->query("SELECT DISTINCT role_name FROM job_roles WHERE is_deleted = 0 ORDER BY role_name ASC")->fetchAll();
 
 // Fetch Employees
-$query = "SELECT id, first_name, last_name, job_role FROM employees WHERE is_deleted = 0";
+$query = "SELECT id, first_name, last_name, job_role 
+          FROM employees 
+          WHERE is_deleted = 0
+          AND employee_type = 'inhouse'";
 $params = [];
 if (!empty($role_filter)) {
     $query .= " AND job_role = ?";

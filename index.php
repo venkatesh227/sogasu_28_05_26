@@ -76,53 +76,6 @@
             color: var(--primary);
             box-shadow: var(--shadow-sm);
         }
-
-        .register-section {
-            margin-top: 1.5rem;
-            padding-top: 1.25rem;
-            border-top: 1px solid #e5e7eb;
-        }
-
-        .register-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.25rem;
-            border: 1px solid var(--primary);
-            border-radius: 999px;
-            color: var(--primary);
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 0.9rem;
-        }
-
-        .register-link:hover {
-            background: var(--primary);
-            color: white;
-            transform: translateY(-2px);
-        }
-
-        .register-card {
-            margin-top: 1.25rem;
-            padding: 0.9rem 1rem;
-            border: 1px dashed #1a237e;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.6rem;
-            color: #1a237e;
-            font-weight: 600;
-            cursor: pointer;
-            background: #f8faff;
-            transition: all 0.2s ease;
-        }
-
-        .register-card:hover {
-            background: #eef3ff;
-            transform: translateY(-2px);
-        }
     </style>
 </head>
 
@@ -158,13 +111,6 @@
                 <div style="font-size: 0.75rem; color: var(--text-muted);">Track orders & status</div>
             </div>
         </div>
-        <div class="register-section">
-            <div class="register-card" onclick="window.location.href='register.php'">
-                <i class="ri-user-add-line"></i>
-                <span>Register Employee</span>
-            </div>
-        </div>
-
     </div>
 
 </body>

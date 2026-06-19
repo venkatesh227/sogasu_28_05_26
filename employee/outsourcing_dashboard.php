@@ -336,38 +336,38 @@ include 'includes/outsource-header.php';
     }
 </script>
 <?php if ($success === 'accepted'): ?>
-<script>
-    Swal.fire({
-        icon: 'success',
-        title: 'Order Accepted'
-    }).then(() => {
-        window.history.replaceState({}, document.title, window.location.pathname);
-    });
-</script>
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: 'Interest Submitted Successfully',
+            text: 'Your interest in this order has been recorded. Admin will review and assign the order accordingly.',
+            confirmButtonColor: '#db2777'
+        });
+    </script>
 <?php endif; ?>
 
 <?php if ($success === 'rejected'): ?>
-<script>
-    Swal.fire({
-        icon: 'success',
-        title: 'All Employees Rejected',
-        text: 'Order moved to rejected'
-    }).then(() => {
-        window.history.replaceState({}, document.title, window.location.pathname);
-    });
-</script>
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: 'All Employees Rejected',
+            text: 'Order moved to rejected'
+        }).then(() => {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        });
+    </script>
 <?php endif; ?>
 
 <?php if ($success === 'response_saved'): ?>
-<script>
-    Swal.fire({
-        icon: 'info',
-        title: 'Response Saved',
-        text: 'Waiting for other employees'
-    }).then(() => {
-        window.history.replaceState({}, document.title, window.location.pathname);
-    });
-</script>
+    <script>
+        Swal.fire({
+            icon: 'info',
+            title: 'Response Saved',
+            text: 'Waiting for other employees'
+        }).then(() => {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        });
+    </script>
 <?php endif; ?>
 
 <?php if ($error === 'already_responded'): ?>

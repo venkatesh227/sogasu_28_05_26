@@ -459,3 +459,11 @@ Attempting to save: Sholder = 11
 Attempting to save: hand = 11
 Attempting to save: Chest = 11
 Attempting to save: Waist = 11
+Found measurements array for order 5
+Attempting to save: Sholder = 11
+Attempting to save: hand = 11
+Attempting to save: Chest = 11
+Attempting to save: Front Length = 11
+Attempting to save: Waist = 11
+Attempting to save: Arm Round = 11
+Attempting to save: Arm Hole = 11

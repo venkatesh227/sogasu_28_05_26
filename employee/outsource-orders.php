@@ -302,18 +302,37 @@ include 'includes/outsource-header.php';
                             <input type="hidden" name="order_id" value="<?= $order['id'] ?>">
                             <input type="hidden" name="new_status" value="completed">
 
-                            <button type="submit" style="
-            background:#16a34a;
-            color:white;
-            border:none;
-            padding:10px 18px;
-            border-radius:12px;
-            font-size:14px;
-            font-weight:600;
-            cursor:pointer;
-        ">
-                                Mark Completed
-                            </button>
+                            <div style="display:flex; gap:10px; margin-top:15px; align-items:center;">
+
+                                <a href="view-outsource-order.php?id=<?= $order['id'] ?>" style="
+                                    display:inline-flex;
+                                    align-items:center;
+                                    gap:5px;
+                                    background:#2563eb;
+                                    color:white;
+                                    text-decoration:none;
+                                    padding:10px 18px;
+                                    border-radius:12px;
+                                    font-size:14px;
+                                    font-weight:600;
+                                ">
+                                    View
+                                </a>
+
+                                <button type="submit" style="
+                                    background:#16a34a;
+                                    color:white;
+                                    border:none;
+                                    padding:10px 18px;
+                                    border-radius:12px;
+                                    font-size:14px;
+                                    font-weight:600;
+                                    cursor:pointer;
+                                ">
+                                    Mark Completed
+                                </button>
+
+                            </div>
                         </form>
                     <?php endif; ?>
                 </div>

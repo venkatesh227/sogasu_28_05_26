@@ -8,7 +8,13 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
 }
 
 $user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ? AND is_deleted = 0");
+$stmt = $pdo->prepare("
+    SELECT id 
+    FROM employees 
+    WHERE user_id = ? 
+    AND is_deleted = 0
+    AND employee_type = 'inhouse'
+");
 $stmt->execute([$user_id]);
 $employee = $stmt->fetch();
 $employee_id = $employee['id'];

@@ -119,7 +119,10 @@ $filter_name = isset($_GET['employee_name']) ? trim($_GET['employee_name']) : ''
 $filter_role = isset($_GET['role']) ? trim($_GET['role']) : '';
 
 // Fetch Employees with filters
-$query = "SELECT id, first_name, last_name, job_role FROM employees WHERE is_deleted = 0";
+$query = "SELECT id, first_name, last_name, job_role 
+          FROM employees 
+          WHERE is_deleted = 0 
+          AND employee_type = 'inhouse'";
 $params = [];
 
 if ($filter_name !== '') {

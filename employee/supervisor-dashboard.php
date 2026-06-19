@@ -1,4 +1,8 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+require_once '../includes/db.php';
 // supervisor-dashboard.php
 // This file is included in dashboard.php when role is Supervisor
 
@@ -51,7 +55,7 @@ $stmt = $pdo->prepare("
     ) as total_pending
 ");
 
-$stmt->execute([$employee_id,$employee_id]);
+$stmt->execute([$employee_id, $employee_id]);
 $needs_delegation = $stmt->fetchColumn();
 
 // Fetch orders assigned to this supervisor
@@ -522,69 +526,81 @@ $today_holiday = $h_stmt->fetch();
     </div>
 
     <!-- Quick Tools Section (Added for Supervisor HR) -->
-     <?php if (hasPermission('dashboard_create')): ?>
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.5rem;">
-        <button onclick="window.location.href='attendance.php'"
-            style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
-            <div
-                style="width: 36px; height: 36px; background: #ecfdf5; color: #059669; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                <i class="ri-checkbox-circle-line" style="font-size: 1.2rem;"></i>
-            </div>
-            <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Attendance</span>
-        </button>
+    <?php if (hasPermission('dashboard_create')): ?>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.5rem;">
+            <button onclick="window.location.href='attendance.php'"
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <div
+                    style="width: 36px; height: 36px; background: #ecfdf5; color: #059669; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="ri-checkbox-circle-line" style="font-size: 1.2rem;"></i>
+                </div>
+                <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Attendance</span>
+            </button>
 
-        <button onclick="window.location.href='roster.php'"
-            style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
-            <div
-                style="width: 36px; height: 36px; background: #fffbeb; color: #d97706; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                <i class="ri-calendar-event-line" style="font-size: 1.25rem;"></i>
-            </div>
-            <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Shift</span>
-        </button>
+            <button onclick="window.location.href='roster.php'"
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <div
+                    style="width: 36px; height: 36px; background: #fffbeb; color: #d97706; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="ri-calendar-event-line" style="font-size: 1.25rem;"></i>
+                </div>
+                <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Shift</span>
+            </button>
 
-        <button onclick="window.location.href='holidays.php'"
-            style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
-            <div
-                style="width: 36px; height: 36px; background: #fdf2f8; color: #db2777; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                <i class="ri-flag-2-line" style="font-size: 1.25rem;"></i>
-            </div>
-            <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Holidays</span>
-        </button>
-        <button onclick="document.getElementById('add-ot-modal').style.display = 'flex';"
-            style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
-            <div
-                style="width: 36px; height: 36px; background: #fdf2f8; color: #db2777; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                <i class="ri-timer-flash-line" style="font-size: 1.2rem;"></i>
-            </div>
-            <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Add OT</span>
-        </button>
+            <button onclick="window.location.href='holidays.php'"
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <div
+                    style="width: 36px; height: 36px; background: #fdf2f8; color: #db2777; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="ri-flag-2-line" style="font-size: 1.25rem;"></i>
+                </div>
+                <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Holidays</span>
+            </button>
+            <button onclick="document.getElementById('add-ot-modal').style.display = 'flex';"
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <div
+                    style="width: 36px; height: 36px; background: #fdf2f8; color: #db2777; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="ri-timer-flash-line" style="font-size: 1.2rem;"></i>
+                </div>
+                <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Add OT</span>
+            </button>
 
-<button onclick="window.location.href='supervisor-earnings.php'"
-            style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
-            <div
-                style="width: 36px; height: 36px; background: #f0fdf4; color: #166534; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                <i class="ri-wallet-3-line" style="font-size: 1.2rem;"></i>
-            </div>
-            <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Earnings</span>
-        </button>
+            <button onclick="window.location.href='supervisor-earnings.php'"
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <div
+                    style="width: 36px; height: 36px; background: #f0fdf4; color: #166534; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="ri-wallet-3-line" style="font-size: 1.2rem;"></i>
+                </div>
+                <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Earnings</span>
+            </button>
 
-        <button onclick="window.location.href='leaves.php'"
-            style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
-            <div
-                style="width: 36px; height: 36px; background: #e0e7ff; color: #4338ca; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                <i class="ri-umbrella-line" style="font-size: 1.2rem;"></i>
-            </div>
-            <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Leaves</span>
-        </button>
-        <button onclick="window.location.href='tasks.php'"
-            style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
-            <div
-                style="width: 36px; height: 36px; background: #eff6ff; color: #1e40af; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                <i class="ri-history-line" style="font-size: 1.2rem;"></i>
-            </div>
-            <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">History</span>
-        </button>
-    </div>
+            <button onclick="window.location.href='leaves.php'"
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <div
+                    style="width: 36px; height: 36px; background: #e0e7ff; color: #4338ca; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="ri-umbrella-line" style="font-size: 1.2rem;"></i>
+                </div>
+                <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Leaves</span>
+            </button>
+            <button onclick="window.location.href='tasks.php'"
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <div
+                    style="width: 36px; height: 36px; background: #eff6ff; color: #1e40af; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="ri-history-line" style="font-size: 1.2rem;"></i>
+                </div>
+                <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">History</span>
+            </button>
+            <button onclick="window.location.href='outsource-tracking.php'"
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
+
+                <div
+                    style="width: 36px; height: 36px; background: #f3e8ff; color: #7c3aed; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="ri-truck-line" style="font-size: 1.2rem;"></i>
+                </div>
+
+                <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">
+                    Outsource
+                </span>
+            </button>
+        </div>
     <?php endif; ?>
     <!-- Issues & Alerts -->
     <?php if (!empty($open_issues)): ?>
@@ -751,55 +767,55 @@ $today_holiday = $h_stmt->fetch();
             </div>
         <?php endforeach; ?>
     </div>
-<?php if (hasPermission('dashboard_create')): ?>
-    <!-- Orders Needing Attention -->
-    <div class="section-title">Assigned Orders</div>
-    <?php if (empty($my_orders)): ?>
-        <div class="card" style="text-align: center; padding: 2rem; color: #94a3b8;">
-            No orders assigned to you yet.
-        </div>
-    <?php else: ?>
-        <?php foreach ($my_orders as $order): ?>
-            <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
-                    <div>
-                        <div style="font-weight: 700; font-size: 1rem;">#<?= $order['order_code'] ?> - <?= $order['garment'] ?>
-                        </div>
-                        <div style="font-size: 0.8rem; color: #64748b;"><?= $order['cust_first'] ?>         <?= $order['cust_last'] ?>
-                        </div>
-                    </div>
-                    <span class="badge"
-                        style="background: <?= $order['assigned_employee_id'] ? '#f0fdf4' : '#fff1f2' ?>; color: <?= $order['assigned_employee_id'] ? '#166534' : '#991b1b' ?>;">
-                        <?= $order['assigned_employee_id'] ? 'Delegated' : 'Pending Delegation' ?>
-                    </span>
-                </div>
-
-                <div
-                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; font-size: 0.85rem;">
-                    <div style="display: flex; align-items: center; gap: 0.4rem; color: #475569;">
-                        <i class="ri-user-settings-line"></i>
-                        <?= $order['emp_first'] ? $order['emp_first'] : '<span style="color:#ef4444;">Unassigned</span>' ?>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 0.4rem; color: #475569;">
-                        <i class="ri-archive-line"></i>
-                        <?= $order['rack_name'] ? $order['rack_name'] : '<span style="color:#ef4444;">No Rack</span>' ?>
-                    </div>
-                </div>
-
-                <div style="display: flex; gap: 0.5rem;">
-                    <button onclick="openDelegateModal(<?= $order['id'] ?>, '<?= $order['order_code'] ?>')" class="btn-action"
-                        style="flex: 1; background: var(--primary); color: white; border: none; padding: 0.6rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem;">
-                        Delegate
-                    </button>
-                    <button onclick="openRackModal(<?= $order['id'] ?>, '<?= $order['order_code'] ?>')" class="btn-action"
-                        style="flex: 1; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem;">
-                        Assign Rack
-                    </button>
-                </div>
+    <?php if (hasPermission('dashboard_create')): ?>
+        <!-- Orders Needing Attention -->
+        <div class="section-title">Assigned Orders</div>
+        <?php if (empty($my_orders)): ?>
+            <div class="card" style="text-align: center; padding: 2rem; color: #94a3b8;">
+                No orders assigned to you yet.
             </div>
-        <?php endforeach; ?>
-    <?php endif; ?>
-</div>
+        <?php else: ?>
+            <?php foreach ($my_orders as $order): ?>
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+                        <div>
+                            <div style="font-weight: 700; font-size: 1rem;">#<?= $order['order_code'] ?> - <?= $order['garment'] ?>
+                            </div>
+                            <div style="font-size: 0.8rem; color: #64748b;"><?= $order['cust_first'] ?>             <?= $order['cust_last'] ?>
+                            </div>
+                        </div>
+                        <span class="badge"
+                            style="background: <?= $order['assigned_employee_id'] ? '#f0fdf4' : '#fff1f2' ?>; color: <?= $order['assigned_employee_id'] ? '#166534' : '#991b1b' ?>;">
+                            <?= $order['assigned_employee_id'] ? 'Delegated' : 'Pending Delegation' ?>
+                        </span>
+                    </div>
+
+                    <div
+                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; font-size: 0.85rem;">
+                        <div style="display: flex; align-items: center; gap: 0.4rem; color: #475569;">
+                            <i class="ri-user-settings-line"></i>
+                            <?= $order['emp_first'] ? $order['emp_first'] : '<span style="color:#ef4444;">Unassigned</span>' ?>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.4rem; color: #475569;">
+                            <i class="ri-archive-line"></i>
+                            <?= $order['rack_name'] ? $order['rack_name'] : '<span style="color:#ef4444;">No Rack</span>' ?>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button onclick="openDelegateModal(<?= $order['id'] ?>, '<?= $order['order_code'] ?>')" class="btn-action"
+                            style="flex: 1; background: var(--primary); color: white; border: none; padding: 0.6rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem;">
+                            Delegate
+                        </button>
+                        <button onclick="openRackModal(<?= $order['id'] ?>, '<?= $order['order_code'] ?>')" class="btn-action"
+                            style="flex: 1; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem;">
+                            Assign Rack
+                        </button>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
 <?php endif; ?>
 
 <!-- Delegation Modal -->

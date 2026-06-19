@@ -1,32 +1,35 @@
 Array
 (
     [order_type] => outsource
-    [customer_id] => 2
-    [mobile_number] => 8888888888
+    [customer_id] => 1
+    [mobile_number] => 7981242293
     [family_member_id] => 
     [delivery_address] => Nandulapet, Tenali
-    [category_id] => 1
-    [sub_category_id] => 3
-    [fabric_details] => silk
-    [due_date] => 2026-06-19
+    [category_id] => 4
+    [sub_category_id] => 2
+    [fabric_details] => kjsdh
+    [due_date] => 2026-06-20
     [measurement_unit] => CMS
     [measurements] => Array
         (
             [Sholder] => 11
             [hand] => 11
             [Chest] => 11
+            [Front Length] => 11
             [Waist] => 11
+            [Arm Round] => 11
+            [Arm Hole] => 11
         )
 
-    [design_notes] => Back Rope
+    [design_notes] => jhgjk
     [selected_services] => Array
         (
             [0] => 2
         )
 
-    [base_price] => 700.00
-    [extra_charges] => 
-    [advance_amount] => 500
+    [base_price] => 500.00
+    [extra_charges] => 500
+    [advance_amount] => 300
     [advance_payment_mode] => Cash
     [transaction_reference] => 
     [submit_order] => 1

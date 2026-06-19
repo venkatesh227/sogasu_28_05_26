@@ -218,6 +218,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-size: 0.9rem;
             text-decoration: none;
         }
+
+        .register-employee {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 1rem;
+            margin-left: auto;
+            padding: 0.65rem 1rem;
+            background: #fff0f6;
+            border: 1px solid #f9a8d4;
+            border-radius: 10px;
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .register-employee:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -246,6 +270,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <button type="submit" class="btn-login">Login to Workspace</button>
     </form>
     <a href="#" class="forgot-pass">Forgot Password?</a>
+    <div style="display:flex;">
+        <a href="../register.php" class="register-employee">
+            <i class="ri-user-add-line"></i>
+            Register Employee
+        </a>
+    </div>
     <script>
         function generateDeviceToken() {
             let token = localStorage.getItem("device_token");
