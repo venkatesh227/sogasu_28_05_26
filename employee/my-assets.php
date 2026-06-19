@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once '../includes/db.php';
 
-// Fetch the employee's ID
+// Fetch the employee's ID   
 $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ? AND is_deleted = 0");
 $stmt->execute([$_SESSION['user_id']]);
 $employee = $stmt->fetch();
@@ -46,8 +46,9 @@ include 'includes/header.php';
         </div>
     <?php else: ?>
         <div style="display: grid; gap: 1rem;">
-            <?php foreach ($assets as $asset): 
-                // Determine condition badge style
+            <?php foreach ($assets as $asset):
+
+                // Determine condition badge style        
                 $condClass = 'completed'; // Green
                 if ($asset['condition_status'] === 'Needs Repair') $condClass = 'progress'; // Orange
                 if ($asset['condition_status'] === 'Broken') $condClass = 'pending'; // Red

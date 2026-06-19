@@ -47,7 +47,7 @@ $roles_stmt = $pdo->query("SELECT role_name FROM job_roles WHERE is_deleted = 0 
 $all_roles = $roles_stmt->fetchAll(PDO::FETCH_COLUMN);
 
 // Ensure standard admin roles are included
-$std_roles = ['Manager', 'Accountant', 'Supervisor'];
+$std_roles = ['Manager',  'Supervisor'];
 foreach ($std_roles as $sr) {
     if (!in_array($sr, $all_roles)) {
         $all_roles[] = $sr;
@@ -58,6 +58,10 @@ sort($all_roles);
 // Get currently selected role (default to the first available role)
 $selected_role = $_GET['role'] ?? ($all_roles[0] ?? '');
 
+if ($selected_role === 'super_admin') {
+    header("Location: permissions.php?role=Supervisor");
+    exit();
+}
 // Fetch permissions for the selected role
 $active_permissions = [];
 
@@ -73,33 +77,48 @@ if ($selected_role) {
 
     $active_permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-if (empty($active_permissions) &&
-(
-    $selected_role === 'Tailor (Stitching)' ||
-    $selected_role === 'Helper (Finishing)' ||
-    $selected_role === 'Master (Cutter)' ||
-    $selected_role === 'Manager'
-))
-{
+if (empty($active_permissions)) {
 
-        $active_permissions = [
-            'dashboard_view',
-            'dashboard_create',
-            'employees_tasks_view',
-            'assets_view',
-            'hr_view',
-            'hr_create',
-            'appointments_view',
-            'appointments_create',
-            'leave_applications_view',
-            'leave_applications_create',
-            'holidays_calendar_view',
-            'earnings_ot_view',
-            'profile_view',
-            'profile_edit'
-        ];
+    $active_permissions = [
+
+        'dashboard_view',
+        'dashboard_create',
+
+        'employees_tasks_view',
+
+        'assets_view',
+
+        'hr_view',
+        'hr_create',
+
+        'appointments_view',
+        'appointments_create',
+
+        'leave_applications_view',
+        'leave_applications_create',
+
+        'holidays_calendar_view',
+
+        'earnings_ot_view',
+
+        'profile_view',
+        'profile_edit'
+    ];
+
+    // Supervisor gets these 2 modules checked
+
+    if ($selected_role === 'Supervisor') {
+
+        $active_permissions[] = 'orders_view';
+
+        $active_permissions[] = 'inventory_view';
+
     }
+
 }
+    
+    }
+
 
 
 
@@ -268,53 +287,18 @@ $manager_modules = [
     'earnings_ot',
     'profile'
 ];
-// Filter modules based on selected role
+// Show same modules for all roles
 
 $modules_config = [];
 
-if ($selected_role === 'Supervisor') {
+foreach ($supervisor_modules as $module) {
 
-    foreach ($supervisor_modules as $module) {
-        if (isset($all_modules_config[$module])) {
-            $modules_config[$module] = $all_modules_config[$module];
-        }
+    if (isset($all_modules_config[$module])) {
+
+        $modules_config[$module] = $all_modules_config[$module];
+
     }
 
-} elseif ($selected_role === 'Manager') {
-
-    foreach ($manager_modules as $module) {
-        if (isset($all_modules_config[$module])) {
-            $modules_config[$module] = $all_modules_config[$module];
-        }
-    }
-
-} elseif ($selected_role === 'Accountant') {
-
-    foreach ($accountant_modules as $module) {
-        if (isset($all_modules_config[$module])) {
-            $modules_config[$module] = $all_modules_config[$module];
-        }
-    }
-
-} elseif (
-    $selected_role === 'Tailor (Stitching)' ||
-    $selected_role === 'Helper (Finishing)' ||
-    $selected_role === 'Master (Cutter)'
-) {
-
-    foreach ($staff_modules as $module) {
-        if (isset($all_modules_config[$module])) {
-            $modules_config[$module] = $all_modules_config[$module];
-        }
-    }
-
-} else {
-
-    foreach ($staff_modules as $module) {
-        if (isset($all_modules_config[$module])) {
-            $modules_config[$module] = $all_modules_config[$module];
-        }
-    }
 }
 include 'includes/header.php';
 ?>
@@ -357,6 +341,8 @@ include 'includes/header.php';
                     </div>
 
                     <?php foreach ($all_roles as $role): 
+
+                      if ($role === 'Accountant') continue;
                         if ($role === 'super_admin') continue;
                         
                         // Count active permissions for badge
@@ -446,7 +432,7 @@ $permCount = $cStmt->fetchColumn();
 
 $permission_map = [
 
-'dashboard' => ['view','create'],
+'dashboard' => ['create'],
 
 'employees_tasks' => ['view'],
 

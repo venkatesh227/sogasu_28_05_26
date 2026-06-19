@@ -161,7 +161,7 @@ foreach ($tasks as $t) {
     }
 }
 
-// ================== FILTER TASKS =================
+// ================ FILTER TASKS ===============
 $filtered_tasks = [];
 foreach ($tasks as $task) {
     $task_date = date('Y-m-d', strtotime($task['due_date']));
@@ -215,7 +215,7 @@ include 'includes/header.php';
     style="background: var(--surface); padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); position: sticky; top: 60px; z-index: 40; box-shadow: var(--shadow-sm);">
 
     
-    <!-- Date Filters -->
+    <!-- Date Filters -->     
     <form method="GET" style="display:flex; gap:0.5rem; align-items:flex-end; margin-bottom: 1rem;">
         <input type="hidden" name="status" value="<?= $current_status ?>">
         <div style="flex:1;">
@@ -271,6 +271,7 @@ include 'includes/header.php';
                 <div class="card" onclick="window.location.href='task-detail.php?id=<?= $job['id'] ?>'"
                     style="padding: 0; overflow: hidden; position: relative; border-radius: 16px; transition: transform 0.2s;">
                     <div style="display: flex;">
+
                         <!-- Image Preview -->
                         <div style="width: 100px; height: 125px; flex-shrink: 0;">
                             <?php
