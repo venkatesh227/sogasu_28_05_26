@@ -287,12 +287,10 @@ document.addEventListener('DOMContentLoaded', function() {
         <!-- Drawer Links -->
         <div style="flex: 1; overflow-y: auto; padding: 1.25rem 0.75rem; display: flex; flex-direction: column; gap: 0.25rem;">
             
-<?php if(hasPermission('dashboard_view')): ?>
     <a href="dashboard.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'dashboard') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-home-4-line" style="font-size: 1.25rem;"></i>
                 <span>Home / Dashboard</span>
             </a>
-<?php endif; ?>
 <?php if(hasPermission('employees_tasks_view')): ?>
                 <a href="tasks.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'tasks') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
                 <i class="ri-task-line" style="font-size: 1.25rem;"></i>

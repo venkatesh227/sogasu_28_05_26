@@ -56,10 +56,7 @@ if (!empty($role_name)) {
 
     $permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-    if (!in_array('dashboard_view', $permissions)) {
-        header("Location: tasks.php");
-        exit();
-    }
+ 
 
     if (strcasecmp($role_name, 'Supervisor') === 0) {
         include 'supervisor-dashboard.php';

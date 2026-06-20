@@ -467,3 +467,9 @@ Attempting to save: Front Length = 11
 Attempting to save: Waist = 11
 Attempting to save: Arm Round = 11
 Attempting to save: Arm Hole = 11
+Found measurements array for order 3
+Attempting to save: Sholder = 23
+Attempting to save: Chest = 23
+Attempting to save: Waist = 23
+Attempting to save: height = 23
+Attempting to save: width = 23
