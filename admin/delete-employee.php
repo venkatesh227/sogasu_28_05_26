@@ -30,16 +30,19 @@ if ($id) {
             // UPDATED soft delete
             $pdo->prepare("
                 UPDATE employees 
-                SET is_deleted = 1, deleted_by = ?, deleted_at = NOW() 
+                SET is_deleted = 1
                 WHERE id = ?
-            ")->execute([$current_user_id, $id]);
+            ")->execute([$id]);
 
             $pdo->commit();
 
             $_SESSION['success'] = "deleted";
 
-        } catch (Exception $e) {
-            $pdo->rollBack();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            die($e->getMessage());
         }
     }
 }

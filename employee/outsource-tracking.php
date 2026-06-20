@@ -228,6 +228,7 @@ include 'includes/header.php';
             <table>
                 <thead>
                     <tr>
+                        <th>S.No</th>
                         <th>Order</th>
                         <th>Employee</th>
                         <th>Status</th>
@@ -237,7 +238,7 @@ include 'includes/header.php';
                     </tr>
                 </thead>
                 <tbody>
-
+                    <?php $i = 1; ?>
                     <?php foreach ($orders as $row): ?>
                         <?php
                         $progress = 0;
@@ -260,6 +261,7 @@ include 'includes/header.php';
                         }
                         ?>
                         <tr>
+                            <td><?= $i++ ?></td>
                             <td><?= $row['order_code'] ?></td>
                             <td><?= $row['employee_name'] ?? 'N/A' ?></td>
                             <td>
@@ -289,6 +291,7 @@ include 'includes/header.php';
             <table>
                 <thead>
                     <tr>
+                        <th>S.No</th>
                         <th>Employee</th>
                         <th>Phone</th>
                         <th>Total Orders</th>
@@ -296,8 +299,10 @@ include 'includes/header.php';
                     </tr>
                 </thead>
                 <tbody>
+                    <?php $j = 1; ?>
                     <?php foreach ($employees as $emp): ?>
                         <tr>
+                            <td><?= $j++ ?></td>
                             <td><?= $emp['first_name'] . ' ' . $emp['last_name'] ?></td>
                             <td><?= $emp['phone'] ?: 'N/A' ?></td>
                             <td><?= $emp['total_orders'] ?></td>

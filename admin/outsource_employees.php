@@ -61,7 +61,7 @@ include 'includes/header.php';
         <!-- Standard Header -->
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;">Outsorce Employees</h2>
+                <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;">Outsource Employees</h2>
                 <p style="color: #64748b; margin-top: 0.25rem;">Manage outsourced employee records.</p>
             </div>
             <div style="display: flex; gap: 0.5rem;">
@@ -238,7 +238,7 @@ include 'includes/header.php';
             confirmButtonText: 'Yes, delete it!'
         }).then((result) => {
             if (result.isConfirmed) {
-                window.location.href = 'delete-employee.php?id=' + id + '&redirect=employees';
+                window.location.href = 'delete-employee.php?id=' + id + '&redirect=outsource_employees';
             }
         });
     }

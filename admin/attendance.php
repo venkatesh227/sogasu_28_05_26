@@ -27,6 +27,63 @@ $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 $employees = $stmt->fetchAll();
 
+// ================= AUTO ABSENT LOGIC START =================
+$today = date('Y-m-d');
+$currentTime = date('H:i:s');
+
+foreach ($employees as $emp) {
+    $employeeId = $emp['id'];
+
+    // Get today's shift for employee
+    $shiftStmt = $pdo->prepare("
+        SELECT st.start_time, st.end_time, st.max_checkin
+        FROM shift_roster sr
+        JOIN shift_types st ON sr.shift_type_id = st.id
+        WHERE sr.employee_id = ?
+        AND sr.roster_date = ?
+        LIMIT 1
+    ");
+    $shiftStmt->execute([$employeeId, $today]);
+    $shift = $shiftStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$shift) {
+        continue; // no shift assigned
+    }
+
+    // Calculate absent cutoff time
+    $cutoffTime = date(
+        'H:i:s',
+        strtotime($shift['start_time'] . " +{$shift['max_checkin']} hours")
+    );
+
+    // If current time crossed cutoff
+    if ($currentTime > $shift['end_time']) {
+
+        // Check if attendance already exists
+        $attendanceCheck = $pdo->prepare("
+            SELECT id
+            FROM attendance
+            WHERE employee_id = ?
+            AND attendance_date = ?
+            LIMIT 1
+        ");
+        $attendanceCheck->execute([$employeeId, $today]);
+
+        if (!$attendanceCheck->fetch()) {
+
+            // Insert absent record
+            $insertAbsent = $pdo->prepare("
+                INSERT INTO attendance (
+                    employee_id,
+                    attendance_date,
+                    status
+                ) VALUES (?, ?, 'Absent')
+            ");
+
+            $insertAbsent->execute([$employeeId, $today]);
+        }
+    }
+}
 // Fetch Monthly Attendance Data
 $att_stmt = $pdo->prepare("SELECT employee_id, DAY(attendance_date) as day, status FROM attendance WHERE MONTH(attendance_date) = ? AND YEAR(attendance_date) = ?");
 $att_stmt->execute([$month, $year]);
