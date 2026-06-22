@@ -106,6 +106,16 @@ $next_week = date('Y-m-d', strtotime('+1 week', strtotime($week_start)));
 // Fetch Shift Types
 $shift_types = $pdo->query("SELECT * FROM shift_types ORDER BY id")->fetchAll();
 
+$shift_map = [];
+
+foreach ($shift_types as $shift) {
+    $shift_map[$shift['id']] = [
+        'shift_name' => $shift['name'],
+        'color' => $shift['color'],
+        'start_time' => $shift['start_time'],
+        'end_time' => $shift['end_time']
+    ];
+}
 // Fetch Roles for filter
 $roles = $pdo->query("SELECT DISTINCT role_name FROM job_roles WHERE is_deleted = 0 ORDER BY role_name ASC")->fetchAll();
 
@@ -114,8 +124,8 @@ $filter_name = isset($_GET['employee_name']) ? trim($_GET['employee_name']) : ''
 $filter_role = isset($_GET['role']) ? trim($_GET['role']) : '';
 
 // Fetch Employees with filters
-$query = "SELECT id, first_name, last_name, job_role 
-          FROM employees 
+$query = "SELECT id, first_name, last_name, job_role, default_shift_id
+          FROM employees
           WHERE is_deleted = 0 
           AND employee_type = 'inhouse'";
 $params = [];
@@ -166,10 +176,12 @@ foreach ($roster_data as $row) {
 $days = [];
 for ($i = 0; $i < 7; $i++) {
     $date = date('Y-m-d', strtotime("+$i days", strtotime($week_start)));
+
     $days[] = [
         'date' => $date,
         'day_name' => date('D', strtotime($date)),
-        'day_num' => date('d M', strtotime($date))
+        'day_num' => date('d M', strtotime($date)),
+        'is_sunday' => (date('w', strtotime($date)) == 0)
     ];
 }
 
@@ -280,10 +292,12 @@ include 'includes/header.php';
                                     style="padding: 1rem 0.5rem; text-align: center; border-right: 1px solid #e2e8f0; <?= $isToday ? 'background: #eef2ff;' : '' ?>; width: 100px;">
                                     <div
                                         style="font-size: 0.7rem; font-weight: 700; color: <?= $isToday ? '#4f46e5' : '#64748b' ?>; text-transform: uppercase; margin-bottom: 0.25rem;">
-                                        <?= $day['day_name'] ?></div>
+                                        <?= $day['day_name'] ?>
+                                    </div>
                                     <div
                                         style="font-size: 1rem; font-weight: 800; color: <?= $isToday ? '#4f46e5' : '#1e293b' ?>;">
-                                        <?= date('d M', strtotime($day['date'])) ?></div>
+                                        <?= date('d M', strtotime($day['date'])) ?>
+                                    </div>
                                 </th>
                             <?php endforeach; ?>
                         </tr>
@@ -298,14 +312,17 @@ include 'includes/header.php';
                                     <div style="display: flex; align-items: center; gap: 0.75rem;">
                                         <div
                                             style="width: 36px; height: 36px; border-radius: 50%; font-size: 0.8rem; background: #f1f5f9; color: #475569; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                            <?= $initials ?></div>
+                                            <?= $initials ?>
+                                        </div>
                                         <div>
                                             <div
                                                 style="font-weight: 600; color: #1e293b; font-size: 0.9rem; line-height: 1.2;">
-                                                <?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name']) ?></div>
+                                                <?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name']) ?>
+                                            </div>
                                             <div
                                                 style="font-size: 0.75rem; color: #64748b; font-weight: 500; margin-top: 0.1rem;">
-                                                <?= htmlspecialchars($emp['job_role']) ?></div>
+                                                <?= htmlspecialchars($emp['job_role']) ?>
+                                            </div>
                                         </div>
                                     </div>
                                 </td>
@@ -313,27 +330,41 @@ include 'includes/header.php';
                                     $date = $day['date'];
                                     $is_past = $date < date('Y-m-d');
                                     $isToday = $date == date('Y-m-d');
-                                    $assigned = isset($roster[$emp['id']][$date]) ? $roster[$emp['id']][$date] : null;
+                                    $assigned = null;
+
+                                    // First priority: Manual roster / approved shift request
+                                    $isSunday = (date('w', strtotime($date)) == 0); // Sunday = 0
+                            
+                                    if (isset($roster[$emp['id']][$date])) {
+                                        $assigned = $roster[$emp['id']][$date];
+                                    } elseif (!$isSunday && !empty($emp['default_shift_id']) && isset($shift_map[$emp['default_shift_id']])) {
+                                        $assigned = $shift_map[$emp['default_shift_id']];
+                                    }
                                     ?>
                                     <td
                                         style="padding: 0.5rem; border-right: 1px solid #f1f5f9; vertical-align: middle; <?= $isToday ? 'background: #f8fafc;' : '' ?>">
                                         <div class="shift-cell <?= $is_past ? 'is-past' : '' ?>" data-emp-id="<?= $emp['id'] ?>"
                                             data-date="<?= $date ?>" onclick="showShiftSelector(this)"
-                                            style="min-height: 48px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border: 1px dashed <?= $assigned ? 'transparent' : '#cbd5e1' ?>; <?= $assigned ? "background: {$assigned['color']}15; color: {$assigned['color']}; border: 1px solid {$assigned['color']}40;" : 'background: transparent; color: #94a3b8;' ?>; position: relative;">
+                                            style="min-height: 48px; border-radius: 8px; cursor: <?= $isSunday ? 'default' : 'pointer' ?>; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border: 1px dashed <?= $assigned ? 'transparent' : '#cbd5e1' ?>; <?= $assigned ? "background: {$assigned['color']}15; color: {$assigned['color']}; border: 1px solid {$assigned['color']}40;" : 'background: transparent; color: #94a3b8;' ?>; position: relative;">
 
                                             <?php if ($assigned): ?>
                                                 <div style="text-align: center; z-index: 2;">
                                                     <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">
-                                                        <?= $assigned['shift_name'] ?></div>
+                                                        <?= $assigned['shift_name'] ?>
+                                                    </div>
                                                     <div
                                                         style="font-size: 0.65rem; font-weight: 600; opacity: 0.8; margin-top: 0.1rem;">
                                                         <?= date('H:i', strtotime($assigned['start_time'])) ?>-<?= date('H:i', strtotime($assigned['end_time'])) ?>
                                                     </div>
                                                 </div>
                                             <?php else: ?>
+                                            <?php if ($isSunday): ?>
+                                                <span style="color:#ef4444; font-weight:600; font-size:12px;">Holiday</span>
+                                            <?php else: ?>
                                                 <i class="<?= $is_past ? 'ri-subtract-line' : 'ri-add-line' ?>"
                                                     style="font-size: 1.2rem; opacity: 0.5;"></i>
                                             <?php endif; ?>
+                                        <?php endif; ?>
                                         </div>
                                     </td>
                                 <?php endforeach; ?>
@@ -372,7 +403,8 @@ include 'includes/header.php';
                         <div style="font-weight: 600; color: #1e293b; font-size: 0.9rem;"><?= $type['name'] ?></div>
                         <div style="font-size: 0.75rem; color: #64748b;">
                             <?= date('g:i A', strtotime($type['start_time'])) ?> -
-                            <?= date('g:i A', strtotime($type['end_time'])) ?></div>
+                            <?= date('g:i A', strtotime($type['end_time'])) ?>
+                        </div>
                     </div>
                 </button>
             <?php endforeach; ?>
@@ -408,10 +440,12 @@ include 'includes/header.php';
                         </div>
                         <div style="flex: 1;">
                             <div style="font-weight: 600; color: #1e293b; font-size: 0.85rem;">
-                                <?= htmlspecialchars($type['name']) ?></div>
+                                <?= htmlspecialchars($type['name']) ?>
+                            </div>
                             <div style="font-size: 0.7rem; color: #64748b;">
                                 <?= date('H:i', strtotime($type['start_time'])) ?> -
-                                <?= date('H:i', strtotime($type['end_time'])) ?></div>
+                                <?= date('H:i', strtotime($type['end_time'])) ?>
+                            </div>
                         </div>
                     </button>
                 <?php endforeach; ?>

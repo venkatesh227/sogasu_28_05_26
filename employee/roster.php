@@ -33,7 +33,7 @@ $user_id = $_SESSION['user_id'];
 
 // Fetch employee ID
 $stmt = $pdo->prepare("
-    SELECT id
+    SELECT id, default_shift_id
     FROM employees
     WHERE user_id = ?
     AND is_deleted = 0
@@ -41,6 +41,9 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$user_id]);
 $emp = $stmt->fetch();
+
+$employee_id = $emp['id'];
+$default_shift_id = $emp['default_shift_id'];
 
 if (!$emp) {
     header("Location: outsourcing_dashboard.php");
@@ -87,6 +90,17 @@ $roster = [];
 foreach ($roster_data as $row) {
     $roster[$row['roster_date']] = $row;
 }
+$default_shift = null;
+
+if (!empty($default_shift_id)) {
+    $stmt = $pdo->prepare("
+        SELECT name as shift_name, start_time, end_time, color, short_code
+        FROM shift_types
+        WHERE id = ?
+    ");
+    $stmt->execute([$default_shift_id]);
+    $default_shift = $stmt->fetch(PDO::FETCH_ASSOC);
+}
 
 // Fetch available shift types for the request modal
 $shift_types = $pdo->query("SELECT id, name, start_time, end_time FROM shift_types ORDER BY name ASC")->fetchAll();
@@ -109,7 +123,16 @@ include 'includes/header.php';
             $day_name = date('D', strtotime($date));
             $day_num = date('d', strtotime($date));
             $is_today = ($date === date('Y-m-d'));
-            $shift = $roster[$date] ?? null;
+            $shift = null;
+
+            // First priority: manually assigned / approved request shift
+            if (isset($roster[$date])) {
+                $shift = $roster[$date];
+            }
+            // Second priority: employee default shift
+            elseif ($default_shift) {
+                $shift = $default_shift;
+            }
             ?>
             <div class="card"
                 style="padding: 0; overflow: hidden; border-left: 4px solid <?= $shift ? $shift['color'] : '#e2e8f0' ?>; <?= $is_today ? 'background: #fff; box-shadow: 0 4px 12px rgba(219, 39, 119, 0.1); border-color: #db2777;' : '' ?>">
@@ -119,9 +142,11 @@ include 'includes/header.php';
                         style="width: 65px; padding: 1rem; text-align: center; border-right: 1px solid #f1f5f9; background: <?= $is_today ? '#fdf2f8' : 'transparent' ?>;">
                         <div
                             style="font-size: 0.7rem; font-weight: 700; color: <?= $is_today ? '#db2777' : '#94a3b8' ?>; text-transform: uppercase;">
-                            <?= $day_name ?></div>
+                            <?= $day_name ?>
+                        </div>
                         <div style="font-size: 1.25rem; font-weight: 800; color: <?= $is_today ? '#db2777' : '#1e293b' ?>;">
-                            <?= $day_num ?></div>
+                            <?= $day_num ?>
+                        </div>
                     </div>
 
                     <!-- Shift Column -->
@@ -130,7 +155,8 @@ include 'includes/header.php';
                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                                 <div>
                                     <div style="font-weight: 700; color: #1e293b; font-size: 1rem; margin-bottom: 0.25rem;">
-                                        <?= htmlspecialchars($shift['shift_name']) ?></div>
+                                        <?= htmlspecialchars($shift['shift_name']) ?>
+                                    </div>
                                     <div
                                         style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: #64748b; font-weight: 600;">
                                         <i class="ri-time-line"></i>
@@ -201,7 +227,8 @@ include 'includes/header.php';
                         <?php foreach ($shift_types as $st): ?>
                             <option value="<?= $st['id'] ?>"><?= htmlspecialchars($st['name']) ?>
                                 (<?= date('H:i', strtotime($st['start_time'])) ?> -
-                                <?= date('H:i', strtotime($st['end_time'])) ?>)</option>
+                                <?= date('H:i', strtotime($st['end_time'])) ?>)
+                            </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
