@@ -29,32 +29,52 @@ $employees = $stmt->fetchAll();
 
 // ================= AUTO ABSENT LOGIC START =================
 $today = date('Y-m-d');
+$processDate = $today;
 $currentTime = time();
 
-foreach ($employees as $emp) {
-    $employeeId = $emp['id'];
+$selectedMonth = (int) $month;
+$selectedYear = (int) $year;
+$currentMonth = (int) date('n');
+$currentYear = (int) date('Y');
+if ($selectedMonth == $currentMonth && $selectedYear == $currentYear) {
+    $datesToCheck = [];
 
-    $isSunday = (date('N', strtotime($today)) == 7);
+            if ($selectedMonth == $currentMonth && $selectedYear == $currentYear) {
+                for ($d = 1; $d <= date('j'); $d++) {
+                    $datesToCheck[] = sprintf('%04d-%02d-%02d', $currentYear, $currentMonth, $d);
+                }
+            } else {
+                for ($d = 1; $d <= $days_in_month; $d++) {
+                    $datesToCheck[] = sprintf('%04d-%02d-%02d', $selectedYear, $selectedMonth, $d);
+                }
+            }
 
-// Checking whether the sunday is shift assigned or not
-if ($isSunday) {
-    $checkSundayShift = $pdo->prepare("
+    foreach ($employees as $emp) {
+        foreach ($datesToCheck as $processDate) {
+            
+            $employeeId = $emp['id'];
+
+            $isSunday = (date('N', strtotime($processDate)) == 7);
+
+            // Checking whether the sunday is shift assigned or not
+            if ($isSunday) {
+                $checkSundayShift = $pdo->prepare("
         SELECT id 
         FROM shift_roster 
         WHERE employee_id = ? 
         AND DATE(roster_date) = ?
         LIMIT 1
     ");
-    $checkSundayShift->execute([$employeeId, $today]);
+                $checkSundayShift->execute([$employeeId, $processDate]);
 
-    // No shift assigned → holiday, skip as before
-    if (!$checkSundayShift->fetch()) {
-        continue;
-    }
-}
+                // No shift assigned → holiday, skip as before
+                if (!$checkSundayShift->fetch()) {
+                    continue;
+                }
+            }
 
-    // Get today's shift for employee
-    $shiftStmt = $pdo->prepare("
+            // Get today's shift for employee
+            $shiftStmt = $pdo->prepare("
     SELECT 
         st.start_time, 
         st.end_time, 
@@ -66,52 +86,60 @@ if ($isSunday) {
     AND DATE(sr.roster_date) = ?
     LIMIT 1
 ");
-    $shiftStmt->execute([$employeeId, $today]);
-$shift = $shiftStmt->fetch(PDO::FETCH_ASSOC);
+            $shiftStmt->execute([$employeeId, $processDate]);
+            $shift = $shiftStmt->fetch(PDO::FETCH_ASSOC);
 
-// Fallback: use employee default shift if roster not found
-if (!$shift) {
-    $fallbackStmt = $pdo->prepare("
+            // Fallback: use employee default shift if roster not found
+            if (!$shift) {
+                $fallbackStmt = $pdo->prepare("
         SELECT st.start_time, st.end_time, st.max_checkin
         FROM employees e
         JOIN shift_types st ON e.default_shift_id = st.id
         WHERE e.id = ?
         LIMIT 1
     ");
-    $fallbackStmt->execute([$employeeId]);
-    $shift = $fallbackStmt->fetch(PDO::FETCH_ASSOC);
-}
+                $fallbackStmt->execute([$employeeId]);
+                $shift = $fallbackStmt->fetch(PDO::FETCH_ASSOC);
+            }
 
-    if (!$shift) {
-    error_log("No shift found for employee: " . $employeeId . " on " . $today);
-    continue;
-}
+            if (!$shift) {
+                error_log("No shift found for employee: " . $employeeId . " on " . $processDate);
+                continue;
+            }
 
-    // Calculate absent cutoff time
-    $cutoffTime = date(
-        'H:i:s',
-        strtotime($shift['start_time'] . " +{$shift['max_checkin']} hours")
-    );
+            // Calculate absent cutoff time
+            $cutoffTime = date(
+                'H:i:s',
+                strtotime($shift['start_time'] . " +{$shift['max_checkin']} hours")
+            );
 
-    // If current time crossed cutoff
-    $shiftEndTime = strtotime($today . ' ' . $shift['end_time']);
+            // If current time crossed cutoff
+            $shiftStartTime = strtotime($processDate . ' ' . $shift['start_time']);
+            $shiftEndTime = strtotime($processDate . ' ' . $shift['end_time']);
 
-    if ($currentTime > $shiftEndTime) {
+            // Night shift handling (example 22:00 to 06:00)
+            if ($shift['end_time'] <= $shift['start_time']) {
+                $shiftEndTime = strtotime($processDate . ' ' . $shift['end_time'] . ' +1 day');
+            }
 
-        // Check if attendance already exists
-        $attendanceCheck = $pdo->prepare("
-            SELECT id
-            FROM attendance
-            WHERE employee_id = ?
-            AND attendance_date = ?
-            LIMIT 1
-        ");
-        $attendanceCheck->execute([$employeeId, $today]);
+            if ($currentTime > $shiftEndTime && $currentTime >= $shiftStartTime) {
 
-        if (!$attendanceCheck->fetch()) {
+                // Check if attendance already exists
+                $attendanceCheck = $pdo->prepare("
+                SELECT id, check_in
+                FROM attendance
+                WHERE employee_id = ?
+                AND attendance_date = ?
+                LIMIT 1
+            ");
+                $attendanceCheck->execute([$employeeId, $processDate]);
 
-            // Insert absent record
-            $insertAbsent = $pdo->prepare("
+                $attendance = $attendanceCheck->fetch(PDO::FETCH_ASSOC);
+
+                if (!$attendance) {
+
+                    // Insert absent record
+                    $insertAbsent = $pdo->prepare("
                 INSERT INTO attendance (
                     employee_id,
                     attendance_date,
@@ -119,11 +147,13 @@ if (!$shift) {
                 ) VALUES (?, ?, 'Absent')
             ");
 
-            $result = $insertAbsent->execute([$employeeId, $today]);
+                    $result = $insertAbsent->execute([$employeeId, $processDate]);
 
-            if (!$result) {
-                print_r($insertAbsent->errorInfo());
-                exit;
+                    if (!$result) {
+                        print_r($insertAbsent->errorInfo());
+                        exit;
+                    }
+                }
             }
         }
     }
@@ -317,7 +347,8 @@ include 'includes/header.php';
                         onchange="window.location.href='?month='+this.value+'&year=<?= $year ?>&role=<?= $role_filter ?>'">
                         <?php for ($m = 1; $m <= 12; $m++): ?>
                             <option value="<?= $m ?>" <?= $month == $m ? 'selected' : '' ?>>
-                                <?= date('F', mktime(0, 0, 0, $m, 1)) ?></option>
+                                <?= date('F', mktime(0, 0, 0, $m, 1)) ?>
+                            </option>
                         <?php endfor; ?>
                     </select>
                     <select
@@ -334,11 +365,14 @@ include 'includes/header.php';
             <!-- Legend -->
             <div class="attendance-legend">
                 <div class="legend-item"><i class="ri-checkbox-circle-fill" style="color: var(--success);"></i>
-                    <span>Present</span></div>
+                    <span>Present</span>
+                </div>
                 <div class="legend-item"><i class="ri-close-circle-fill" style="color: var(--danger);"></i>
-                    <span>Absent</span></div>
+                    <span>Absent</span>
+                </div>
                 <div class="legend-item"><i class="ri-error-warning-fill" style="color: var(--warning);"></i>
-                    <span>Late</span></div>
+                    <span>Late</span>
+                </div>
                 <div class="legend-item"><i class="ri-plane-fill" style="color: #7c3aed;"></i> <span>Leave</span></div>
             </div>
         </div>
@@ -478,7 +512,8 @@ include 'includes/header.php';
                                                     class="emp-cal-icon"></i>
                                             </div>
                                             <div style="font-size: 0.7rem; color: #64748b;">
-                                                <?= htmlspecialchars($emp['job_role']) ?></div>
+                                                <?= htmlspecialchars($emp['job_role']) ?>
+                                            </div>
                                         </div>
                                     </a>
                                 </td>
@@ -507,14 +542,13 @@ include 'includes/header.php';
                                             <?php endif; ?>
 
                                         <?php else: ?>
-                                        <?php if ($is_sun): ?>
-                                            <i class="ri-calendar-event-line att-icon"
-                                                style="color: var(--danger); opacity: 0.2;"
-                                                title="Holiday"></i>
-                                        <?php else: ?>
-                                            <span style="color: #e2e8f0;">-</span>
+                                            <?php if ($is_sun): ?>
+                                                <i class="ri-calendar-event-line att-icon" style="color: var(--danger); opacity: 0.2;"
+                                                    title="Holiday"></i>
+                                            <?php else: ?>
+                                                <span style="color: #e2e8f0;">-</span>
+                                            <?php endif; ?>
                                         <?php endif; ?>
-                                    <?php endif; ?>
                                     </td>
                                 <?php endfor; ?>
                                 <td class="score-col" style="background: #f8fafc; font-weight: 800; color: var(--primary);">
@@ -553,7 +587,8 @@ include 'includes/header.php';
                             <option value="">All Departments</option>
                             <?php foreach ($roles as $role): ?>
                                 <option value="<?= htmlspecialchars($role['role_name']) ?>">
-                                    <?= htmlspecialchars($role['role_name']) ?></option>
+                                    <?= htmlspecialchars($role['role_name']) ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -596,7 +631,8 @@ include 'includes/header.php';
                             <select name="month" class="premium-input">
                                 <?php for ($m = 1; $m <= 12; $m++): ?>
                                     <option value="<?= $m ?>" <?= $month == $m ? 'selected' : '' ?>>
-                                        <?= date('F', mktime(0, 0, 0, $m, 1)) ?></option>
+                                        <?= date('F', mktime(0, 0, 0, $m, 1)) ?>
+                                    </option>
                                 <?php endfor; ?>
                             </select>
                         </div>

@@ -103,6 +103,23 @@ if (isset($_POST['action'])) {
         $currentDateTime = new DateTime();
         $shiftEndDateTime = new DateTime($today . ' ' . $today_shift['end_time']);
 
+        $shiftStartDateTime = new DateTime($today . ' ' . $today_shift['start_time']);
+
+        // For night shift (example 22:00 to 06:00), don't block wrongly
+        if ($today_shift['end_time'] <= $today_shift['start_time']) {
+            $shiftEndDateTime->modify('+1 day');
+        }
+
+        // Block if current time is before shift start
+        if ($currentDateTime < $shiftStartDateTime) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Punch-in not allowed before shift start time (' .
+                    date('h:i A', strtotime($today_shift['start_time'])) . ').'
+            ]);
+            exit;
+        }
+
         /*
           Handle overnight shifts
           Example:
