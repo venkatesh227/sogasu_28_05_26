@@ -37,6 +37,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ) {
         $errors['transaction_reference'] = "Transaction Reference is required";
     }
+    if (
+        ($_POST['order_type'] ?? 'inhouse') === 'outsource' &&
+        (!isset($_POST['outsource_credit']) || $_POST['outsource_credit'] === '')
+    ) {
+        $errors['outsource_credit'] = "Outsource Credit is required";
+    }
 
     if (
         !isset($_POST['measurements']) ||
@@ -60,6 +66,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $base_price = $_POST['base_price'] ?: 0;
             $extra_charges = $_POST['extra_charges'] ?: 0;
             $advance_amount = $_POST['advance_amount'] ?: 0;
+            $outsource_credit = 0;
+
+            if (($order_type ?? 'inhouse') === 'outsource') {
+                $outsource_credit = $_POST['outsource_credit'] ?? 0;
+            }
             $advance_payment_mode = !empty($_POST['advance_payment_mode']) ? $_POST['advance_payment_mode'] : null;
             $transaction_reference = !empty($_POST['transaction_reference'])
                 ? trim($_POST['transaction_reference'])
@@ -197,13 +208,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 base_price,
                 extra_charges,
                 total_amount,
+                outsource_credit,
                 advance_amount,
                 paid_amount,
                 advance_payment_mode,
                 transaction_reference,
                 due_date,
                 measurement_unit
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
                 $stmt->execute([
@@ -223,6 +235,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $base_price,
                     $extra_charges,
                     $total_amount,
+                    $outsource_credit,
                     $advance_amount,
                     0,
                     $advance_payment_mode,
@@ -521,12 +534,12 @@ include 'includes/header.php';
                         <span>Type :</span>
 
                         <label style="display:flex; align-items:center; gap:5px; margin:0;">
-                            <input type="radio" name="order_type" value="inhouse" checked>
+                            <input type="radio" name="order_type" value="inhouse" <?= (($_POST['order_type'] ?? 'inhouse') === 'inhouse') ? 'checked' : '' ?>>
                             Inhouse
                         </label>
 
                         <label style="display:flex; align-items:center; gap:5px; margin:0;">
-                            <input type="radio" name="order_type" value="outsource">
+                            <input type="radio" name="order_type" value="outsource" <?= (($_POST['order_type'] ?? '') === 'outsource') ? 'checked' : '' ?>>
                             Outsource
                         </label>
 
@@ -808,6 +821,29 @@ include 'includes/header.php';
                         <input type="number" step="0.01" name="extra_charges" class="form-control" id="extra_charges"
                             style="padding-left: 2rem;" placeholder="0.00" oninput="calculateTotal()">
                     </div>
+                </div>
+                <div class="form-group" id="outsource-credit-group" style="display:none; margin-bottom: 1rem;">
+                    <label class="form-label">Outsource Credit <span style="color:red">*</span></label>
+
+                    <div style="position: relative;">
+                        <span style="
+                            position:absolute;
+                            left:1rem;
+                            top:50%;
+                            transform:translateY(-50%);
+                            color:#64748b;
+                        ">₹</span>
+
+                        <input type="number" step="0.01" name="outsource_credit" id="outsource_credit"
+                            class="form-control" style="padding-left:2rem;" placeholder="0.00"
+                            value="<?= htmlspecialchars($_POST['outsource_credit'] ?? '') ?>">
+                    </div>
+
+                    <?php if (isset($errors['outsource_credit'])): ?>
+                        <div style="color:red;font-size:0.85rem;margin-top:5px">
+                            <?= $errors['outsource_credit'] ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label class="form-label">Total Amount</label>
@@ -1331,5 +1367,28 @@ include 'includes/header.php';
 
     });
 
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const typeRadios = document.querySelectorAll('input[name="order_type"]');
+        const outsourceGroup = document.getElementById('outsource-credit-group');
+        const outsourceInput = document.getElementById('outsource_credit');
+
+        function toggleOutsourceCredit() {
+            const selected = document.querySelector('input[name="order_type"]:checked').value;
+
+            if (selected === 'outsource') {
+                outsourceGroup.style.display = 'block';
+            } else {
+                outsourceGroup.style.display = 'none';
+            }
+        }
+
+        typeRadios.forEach(radio => {
+            radio.addEventListener('change', toggleOutsourceCredit);
+        });
+
+        toggleOutsourceCredit();
+    });
 </script>
 <?php include 'includes/footer.php'; ?>

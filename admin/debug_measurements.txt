@@ -473,3 +473,14 @@ Attempting to save: Chest = 23
 Attempting to save: Waist = 23
 Attempting to save: height = 23
 Attempting to save: width = 23
+Found measurements array for order 6
+Attempting to save: Sholder = 22
+Attempting to save: Chest = 22
+Attempting to save: Waist = 22
+Attempting to save: height = 22
+Attempting to save: width = 22
+Found measurements array for order 7
+Attempting to save: Sholder = 11
+Attempting to save: hand = 11
+Attempting to save: Chest = 11
+Attempting to save: Waist = 11

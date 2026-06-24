@@ -1,34 +1,33 @@
 Array
 (
-    [order_type] => inhouse
-    [customer_id] => 1
-    [mobile_number] => 7981242293
-    [family_member_id] => 1
+    [order_type] => outsource
+    [customer_id] => 2
+    [mobile_number] => 8888888888
+    [family_member_id] => 
     [delivery_address] => Nandulapet, Tenali
-    [category_id] => 2
-    [sub_category_id] => 4
-    [fabric_details] => data
-    [due_date] => 2026-06-23
+    [category_id] => 1
+    [sub_category_id] => 3
+    [fabric_details] => cotton
+    [due_date] => 2026-06-25
     [measurement_unit] => CMS
     [measurements] => Array
         (
-            [Sholder] => 23
-            [Chest] => 23
-            [Waist] => 23
-            [height] => 23
-            [width] => 23
+            [Sholder] => 11
+            [hand] => 11
+            [Chest] => 11
+            [Waist] => 11
         )
 
-    [design_notes] => Back Zipper, Side Zipper
+    [design_notes] => Back Rope
     [selected_services] => Array
         (
-            [0] => 1
-            [1] => 2
+            [0] => 2
         )
 
-    [base_price] => 5000.00
-    [extra_charges] => 100
-    [advance_amount] => 100
+    [base_price] => 700.00
+    [extra_charges] => 400
+    [outsource_credit] => 800
+    [advance_amount] => 500
     [advance_payment_mode] => Cash
     [transaction_reference] => 
     [submit_order] => 1

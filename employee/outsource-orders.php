@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
 }
 
 $user_id = $_SESSION['user_id'];
-
+$success = $_GET['success'] ?? '';
 $stmt = $pdo->prepare("
     SELECT id, employee_type
     FROM employees
@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['order_id'], $_POST['n
         }
     }
 
-    header("Location: outsource-orders.php");
+    header("Location: outsource-orders.php?success=status_updated");
     exit;
 }
 
@@ -278,21 +278,37 @@ include 'includes/outsource-header.php';
                         <b>Created:</b>
                         <?= date('d M Y', strtotime($order['created_at'])) ?>
                     </div>
+                    <div style="margin-top:15px;">
+                        <a href="view-outsource-order.php?id=<?= $order['id'] ?>" style="
+                            display:inline-flex;
+                            align-items:center;
+                            gap:5px;
+                            background:#2563eb;
+                            color:white;
+                            text-decoration:none;
+                            padding:10px 18px;
+                            border-radius:12px;
+                            font-size:14px;
+                            font-weight:600;
+                        ">
+                            View
+                        </a>
+                    </div>
                     <?php if ($order['order_status'] === 'approved'): ?>
                         <form method="POST" style="margin-top:16px;">
                             <input type="hidden" name="order_id" value="<?= $order['id'] ?>">
                             <input type="hidden" name="new_status" value="in progress">
 
                             <button type="submit" style="
-            background:#f59e0b;
-            color:white;
-            border:none;
-            padding:10px 18px;
-            border-radius:12px;
-            font-size:14px;
-            font-weight:600;
-            cursor:pointer;
-        ">
+                                    background:#f59e0b;
+                                    color:white;
+                                    border:none;
+                                    padding:10px 18px;
+                                    border-radius:12px;
+                                    font-size:14px;
+                                    font-weight:600;
+                                    cursor:pointer;
+                                ">
                                 Start Work
                             </button>
                         </form>
@@ -303,22 +319,6 @@ include 'includes/outsource-header.php';
                             <input type="hidden" name="new_status" value="completed">
 
                             <div style="display:flex; gap:10px; margin-top:15px; align-items:center;">
-
-                                <a href="view-outsource-order.php?id=<?= $order['id'] ?>" style="
-                                    display:inline-flex;
-                                    align-items:center;
-                                    gap:5px;
-                                    background:#2563eb;
-                                    color:white;
-                                    text-decoration:none;
-                                    padding:10px 18px;
-                                    border-radius:12px;
-                                    font-size:14px;
-                                    font-weight:600;
-                                ">
-                                    View
-                                </a>
-
                                 <button type="submit" style="
                                     background:#16a34a;
                                     color:white;
@@ -340,4 +340,18 @@ include 'includes/outsource-header.php';
         <?php endforeach; ?>
     <?php endif; ?>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<?php if ($success === 'status_updated'): ?>
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: 'Order Completed Successfully',
+            text: 'Order status updated successfully.',
+            confirmButtonColor: '#16a34a'
+        }).then(() => {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        });
+    </script>
+<?php endif; ?>
 <?php include 'includes/outsource-bottom-nav.php'; ?>
