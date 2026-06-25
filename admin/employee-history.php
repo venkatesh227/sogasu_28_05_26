@@ -36,12 +36,16 @@ if ($is_outsource) {
     $outsourceEarned = $stmt->fetchColumn();
 
     $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(amount),0)
-        FROM employee_payments
-        WHERE employee_id = ?
-        AND payment_type = 'Outsource Payment'
-        AND status = 'Paid'
-    ");
+    SELECT COALESCE(SUM(
+        CASE 
+            WHEN payment_type = 'Outsource Payment' AND status = 'Paid' THEN amount
+            WHEN payment_type = 'Advance' AND LOWER(status) = 'deducted' THEN ABS(amount)
+            ELSE 0
+        END
+    ),0)
+    FROM employee_payments
+    WHERE employee_id = ?
+");
     $stmt->execute([$id]);
     $outsourcePaid = $stmt->fetchColumn();
 

@@ -30,9 +30,8 @@ $stmt = $pdo->prepare("
     WHERE assigned_employee_id = ?
     AND order_status = 'completed'
     AND is_deleted = 0
-    AND DATE(updated_at) BETWEEN ? AND ?
 ");
-$stmt->execute([$id, $from_date, $to_date]);
+$stmt->execute([$id]);
 $outsource_data = $stmt->fetch();
 
 $completed_orders = $outsource_data['completed_orders'] ?? 0;
@@ -73,6 +72,7 @@ $stmt->execute([$id]);
 $adv_repaid = $stmt->fetchColumn();
 
 $outstanding_advance = $adv_given - $adv_repaid;
+$payment_error = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
@@ -84,45 +84,58 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     $payment_date = date('Y-m-d');
     $paying_now = floatval($_POST['paying_now'] ?? 0);
-    if ($paying_now > $pending_amount) {
-        die("Cannot pay more than pending amount");
+    if ($advance_repay < 0) {
+        $payment_error = "Please enter a valid positive amount for advance repayment";
     }
 
-    // Insert Outsource Payment
-    $salary_to_log = $paying_now;
+    if ($paying_now < 0) {
+        $payment_error = "Please enter a valid positive payment amount";
+    }
+    if ($advance_repay < 0) {
+        $payment_error = "Enter valid deduction amount";
+    }
 
-    if ($salary_to_log > 0) {
-        $stmt = $pdo->prepare("
+    if ($paying_now > $pending_amount) {
+        $payment_error = "Amount cannot be greater than pending amount (₹" . number_format($pending_amount, 2) . ")";
+    }
+    if (empty($payment_error)) {
+
+        // Insert Outsource Payment
+        $salary_to_log = $paying_now;
+
+        if ($salary_to_log > 0) {
+            $stmt = $pdo->prepare("
             INSERT INTO employee_payments 
             (employee_id, payment_date, description, payment_type, amount, status) 
             VALUES (?, ?, ?, 'Outsource Payment', ?, 'Paid')
         ");
 
-        $stmt->execute([
-            $id,
-            $payment_date,
-            'Outsource Payment (' . $method . ')' . ($notes ? " - $notes" : ""),
-            $salary_to_log
-        ]);
-    }
-    // Advance Recovery
-    if ($advance_repay > 0) {
-        $stmt = $pdo->prepare("
+            $stmt->execute([
+                $id,
+                $payment_date,
+                'Outsource Payment (' . $method . ')' . ($notes ? " - $notes" : ""),
+                $salary_to_log
+            ]);
+        }
+        // Advance Recovery
+        if ($advance_repay > 0) {
+            $stmt = $pdo->prepare("
             INSERT INTO employee_payments 
             (employee_id, payment_date, description, payment_type, amount, status) 
             VALUES (?, ?, ?, 'Advance', ?, 'Deducted')
         ");
 
-        $stmt->execute([
-            $id,
-            $payment_date,
-            'Advance Repayment',
-            $advance_repay
-        ]);
-    }
+            $stmt->execute([
+                $id,
+                $payment_date,
+                'Advance Repayment',
+                $advance_repay
+            ]);
+        }
 
-    header("Location: employee-history.php?id=" . $id);
-    exit;
+        header("Location: employee-history.php?id=" . $id);
+        exit;
+    }
 }
 
 $pageTitle = "Process Payment - Sogasu";
@@ -307,6 +320,16 @@ include 'includes/header.php';
                         <input type="number" step="0.01" name="paying_now" id="paying_now" class="form-control"
                             style="padding-left: 2rem; font-size: 1.25rem; font-weight: 700; color: #1e293b;"
                             value="<?= $pending_amount ?>">
+                        <?php if (!empty($payment_error)): ?>
+                            <div style="
+                                color:#dc2626;
+                                font-size:13px;
+                                margin-top:6px;
+                                font-weight:500;
+                            ">
+                                <?= $payment_error ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -407,7 +430,20 @@ include 'includes/header.php';
 
     function calculateNet() {
         const base = parseFloat(document.getElementById('gross_total_hidden').value) || 0;
-        const adv_repay = parseFloat(document.getElementById('advance_repay').value) || 0;
+        let adv_repay = parseFloat(document.getElementById('advance_repay').value) || 0;
+        const dueAdvance = <?= $outstanding_advance ?>;
+
+        // NEW: Negative values ni block cheyyadaniki
+        if (adv_repay < 0) {
+            adv_repay = 0;
+            document.getElementById('advance_repay').value = 0;
+        }
+
+        // Already existing
+        if (dueAdvance > 0 && adv_repay > dueAdvance) {
+            adv_repay = dueAdvance;
+            document.getElementById('advance_repay').value = dueAdvance;
+        }
 
         const deductions = adv_repay;
         document.getElementById('deductions').value = deductions;
@@ -420,7 +456,6 @@ include 'includes/header.php';
         document.getElementById('net_payable').innerText = '₹ ' + net.toFixed(2);
         document.getElementById('paying_now').value = net.toFixed(2);
     }
-
     // Run once on load to populate accurate net if overtime is pre-filled
     window.addEventListener('DOMContentLoaded', calculateNet);
 </script>

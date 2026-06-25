@@ -118,6 +118,7 @@ if (!$order) {
 if (!$order) {
     die("Order not found");
 }
+$order_type = 'outsource';
 // ======================================================
 // CHECK CUSTOMER ORDER DATA
 // ======================================================
@@ -182,9 +183,10 @@ if (!empty($customerMeasurements) && is_array($customerMeasurements)) {
         SELECT key_name, measurement_value
         FROM order_measurements
         WHERE order_id = ?
+        AND order_type = ?
     ");
 
-    $stmt->execute([$id]);
+    $stmt->execute([$id, $order_type]);
 
     $measurements = $stmt->fetchAll();
 }
@@ -201,9 +203,10 @@ if ($is_customer_order) {
         FROM order_services os
         JOIN services s ON os.service_id = s.id
         WHERE os.order_id = ?
+        AND os.order_type = ?
     ");
 
-    $stmt->execute([$id]);
+    $stmt->execute([$id, $order_type]);
 
     $order_services = $stmt->fetchAll();
 }

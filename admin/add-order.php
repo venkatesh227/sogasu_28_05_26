@@ -338,10 +338,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $selected_services = array_unique($selected_services);
 
                 $stmt_s = $pdo->prepare("
-        INSERT INTO order_services 
-        (order_id, service_id, service_price) 
-        VALUES (?, ?, ?)
-    ");
+                    INSERT INTO order_services 
+                    (order_id, order_type, service_id, service_price) 
+                    VALUES (?, ?, ?, ?)
+                ");
 
                 foreach ($selected_services as $service_id) {
 
@@ -357,6 +357,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $stmt_s->execute([
                         $order_id,
+                        $order_type,
                         $service_id,
                         $s_price
                     ]);
@@ -366,11 +367,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Save Measurements
             if (isset($_POST['measurements']) && is_array($_POST['measurements'])) {
                 file_put_contents('debug_measurements.txt', "Found measurements array for order $order_id\n", FILE_APPEND);
-                $stmt_m = $pdo->prepare("INSERT INTO order_measurements (order_id, key_name, measurement_value) VALUES (?, ?, ?)");
+                $stmt_m = $pdo->prepare("
+                    INSERT INTO order_measurements 
+                    (order_id, order_type, key_name, measurement_value) 
+                    VALUES (?, ?, ?, ?)
+                ");
                 foreach ($_POST['measurements'] as $key => $value) {
                     file_put_contents('debug_measurements.txt', "Attempting to save: $key = $value\n", FILE_APPEND);
                     if ($value !== '') {
-                        $stmt_m->execute([$order_id, $key, $value]);
+                        $stmt_m->execute([
+                            $order_id,
+                            $order_type,
+                            $key,
+                            $value
+                        ]);
                     }
                 }
             }
@@ -410,7 +420,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $_SESSION['success'] = "Order #$order_code placed successfully!";
-            header("Location: orders.php");
+
+            if ($order_type === 'outsource') {
+                header("Location: outsourcing_orders.php");
+            } else {
+                header("Location: orders.php");
+            }
             exit;
         } catch (PDOException $e) {
             $error = "Database Error: " . $e->getMessage();

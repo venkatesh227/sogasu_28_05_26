@@ -65,6 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'assig
         }
     }
 
+    $_SESSION['success'] = 'employee_assigned';
     header("Location: outsource-order-assignment.php");
     exit;
 }
@@ -349,7 +350,7 @@ include 'includes/header.php';
         </form>
     </div>
 </div>
-
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     function openSupervisorModal(orderId, employeeId, orderCode) {
         document.getElementById('modal_order_id').value = orderId;
@@ -362,6 +363,16 @@ include 'includes/header.php';
         document.getElementById('supervisorModal').style.display = 'none';
     }
 </script>
-
+<?php if (!empty($_SESSION['success']) && $_SESSION['success'] === 'employee_assigned'): ?>
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: 'Success',
+            text: 'Employee assigned successfully!',
+            confirmButtonText: 'OK'
+        });
+    </script>
+    <?php unset($_SESSION['success']); ?>
+<?php endif; ?>
 
 <?php include 'includes/footer.php'; ?>

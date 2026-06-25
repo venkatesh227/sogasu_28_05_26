@@ -24,6 +24,8 @@ if (!$employee) {
 }
 
 $employee_id = $employee['id'];
+$fromDate = $_GET['from_date'] ?? date('Y-m-01'); // current month 1st
+$toDate = $_GET['to_date'] ?? date('Y-m-d');    // today
 
 $stmt = $pdo->prepare("
     SELECT 
@@ -31,15 +33,17 @@ $stmt = $pdo->prepare("
         order_code,
         outsource_credit,
         due_date,
+        created_at,
         updated_at,
         order_status
     FROM outsource_orders
     WHERE assigned_employee_id = ?
     AND order_status = 'completed'
     AND is_deleted = 0
-    ORDER BY updated_at DESC
+    AND DATE(created_at) BETWEEN ? AND ?
+    ORDER BY created_at DESC
 ");
-$stmt->execute([$employee_id]);
+$stmt->execute([$employee_id, $fromDate, $toDate]);
 $completedOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $totalEarned = 0;
@@ -122,35 +126,78 @@ include 'includes/outsource-header.php';
             </div>
         </div>
     </div>
+    <form method="GET" class="card" style="padding:1rem;margin-bottom:1rem;">
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:end;">
+
+            <div>
+                <label>From Date</label><br>
+                <input type="date" name="from_date" value="<?= $fromDate ?>"
+                    style="padding:.5rem;border:1px solid #ccc;border-radius:8px;">
+            </div>
+
+            <div>
+                <label>To Date</label><br>
+                <input type="date" name="to_date" value="<?= $toDate ?>"
+                    style="padding:.5rem;border:1px solid #ccc;border-radius:8px;">
+            </div>
+
+            <div>
+                <div style="display:flex;gap:.5rem;">
+
+                    <button type="submit"
+                        style="padding:.6rem 1rem;border:none;background:#7c3aed;color:white;border-radius:8px;cursor:pointer;">
+                        Filter
+                    </button>
+
+                    <a href="outsource-earnings.php" style="
+                        padding:.6rem 1rem;
+                        background:#ef4444;
+                        color:white;
+                        text-decoration:none;
+                        border-radius:8px;
+                        display:inline-flex;
+                        align-items:center;
+                        justify-content:center;
+                    ">
+                        Reset
+                    </a>
+
+                </div>
+            </div>
+
+        </div>
+    </form>
 
     <!-- History -->
+    <!-- History -->
     <div class="section-title" style="
-        margin-top:2rem;
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-    ">
+    margin-top:2rem;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+">
         <span>Earnings History</span>
         <i class="ri-history-line" style="color:#64748b;"></i>
     </div>
 
     <?php if (empty($completedOrders)): ?>
+
         <div class="card" style="
-            text-align:center;
-            padding:3rem 1.5rem;
-            border-style:dashed;
-        ">
+        text-align:center;
+        padding:3rem 1.5rem;
+        border-style:dashed;
+    ">
             <div style="
-                width:60px;
-                height:60px;
-                background:#f1f5f9;
-                color:#94a3b8;
-                border-radius:50%;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                margin:0 auto 1rem;
-            ">
+            width:60px;
+            height:60px;
+            background:#f1f5f9;
+            color:#94a3b8;
+            border-radius:50%;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            margin:0 auto 1rem;
+        ">
                 <i class="ri-money-rupee-circle-line" style="font-size:2rem;"></i>
             </div>
 
@@ -160,73 +207,43 @@ include 'includes/outsource-header.php';
         </div>
 
     <?php else: ?>
-        <div class="card" style="padding:0;overflow:hidden;border-radius:20px;">
 
-            <?php foreach ($completedOrders as $index => $order): ?>
-                <div style="
-                    padding:1.25rem;
-                    border-bottom: <?= ($index === count($completedOrders)-1) ? 'none' : '1px solid #f1f5f9' ?>;
-                    display:flex;
-                    justify-content:space-between;
-                    align-items:center;
-                ">
-                    <div style="display:flex;gap:1rem;align-items:center;">
-                        <div style="
-                            width:48px;
-                            height:48px;
-                            border-radius:14px;
-                            display:flex;
-                            align-items:center;
-                            justify-content:center;
-                            background:#f0fdf4;
-                            color:#15803d;
-                        ">
-                            <i class="ri-money-rupee-circle-fill" style="font-size:1.4rem;"></i>
-                        </div>
-
-                        <div>
-                            <div style="
-                                font-weight:700;
-                                font-size:1rem;
-                                color:#1e293b;
-                            ">
-                                <?= htmlspecialchars($order['order_code']) ?>
-                            </div>
-
-                            <div style="
-                                font-size:.75rem;
-                                color:#64748b;
-                                font-weight:500;
-                            ">
-                                Completed:
-                                <?= date('d M Y', strtotime($order['updated_at'])) ?>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="text-align:right;">
-                        <div style="
-                            font-weight:800;
-                            font-size:1.1rem;
-                            color:#22c55e;
-                        ">
-                            + ₹<?= number_format($order['outsource_credit'], 0) ?>
-                        </div>
-
-                        <div style="
-                            font-size:.65rem;
-                            font-weight:700;
-                            color:#10b981;
-                            text-transform:uppercase;
-                        ">
-                            Earned
-                        </div>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-
+        <div class="card" style="padding:1rem;overflow:auto;">
+            <table id="earningsTable" class="display">
+                <thead>
+                    <tr>
+                        <th>S.No</th>
+                        <th>Order Code</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($completedOrders as $index => $order): ?>
+                        <tr>
+                            <td><?= $index + 1 ?></td>
+                            <td><?= htmlspecialchars($order['order_code']) ?></td>
+                            <td><?= date('d-m-Y', strtotime($order['created_at'])) ?></td>
+                            <td>₹<?= number_format($order['outsource_credit'], 0) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
-    <?php endif; ?>
-</div>
 
-<?php include 'includes/outsource-bottom-nav.php'; ?>
+    <?php endif; ?>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('#earningsTable').DataTable({
+                paging: true,
+                searching: true,
+                ordering: true,
+                pageLength: 10
+            });
+        });
+    </script>
+
+    <?php include 'includes/outsource-bottom-nav.php'; ?>

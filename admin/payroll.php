@@ -78,15 +78,51 @@ $employees = $stmt->fetchAll();
 
 // Paid in this period calculation
 
-$statsStmt = $pdo->prepare("SELECT SUM(amount) FROM employee_payments WHERE payment_date BETWEEN ? AND ? AND payment_type = 'Salary'");
-$statsStmt->execute([$from_date, $to_date]);
+$paymentType = ($employee_type == 'outsource') ? 'Outsource Payment' : 'Salary';
+
+$statsStmt = $pdo->prepare("
+    SELECT SUM(amount) 
+    FROM employee_payments 
+    WHERE payment_date BETWEEN ? AND ? 
+    AND payment_type = ?
+");
+$statsStmt->execute([$from_date, $to_date, $paymentType]);
 $paidThisPeriod = $statsStmt->fetchColumn() ?: 0;
 
 $totalDue = 0;
 $pendingCount = 0;
 $totalOT = 0;
+$totalOutsourceEmployees = count($employees);
 
 foreach ($employees as &$row) {
+    if ($employee_type == 'outsource') {
+        $earnStmt = $pdo->prepare("
+    SELECT COALESCE(SUM(outsource_credit),0)
+    FROM outsource_orders
+    WHERE assigned_employee_id = ?
+    AND order_status = 'completed'
+    AND is_deleted = 0
+    AND DATE(updated_at) BETWEEN ? AND ?
+");
+        $earnStmt->execute([$row['id'], $from_date, $to_date]);
+        $row['outsource_earnings'] = $earnStmt->fetchColumn();
+
+        $paidStmt = $pdo->prepare("
+    SELECT COALESCE(SUM(amount),0)
+    FROM employee_payments
+    WHERE employee_id = ?
+    AND payment_type = 'Outsource Payment'
+    AND status = 'Paid'
+    AND payment_date BETWEEN ? AND ?
+");
+        $paidStmt->execute([$row['id'], $from_date, $to_date]);
+        $row['outsource_paid'] = $paidStmt->fetchColumn();
+
+        $row['outsource_balance'] =
+            max($row['outsource_earnings'] - $row['outsource_paid'], 0);
+
+        $row['calculated_total'] = $row['outsource_balance'];
+    }
     $monthly_base = floatval($row['base_salary']);
     $per_day = $monthly_base / 30;
 
@@ -102,15 +138,34 @@ foreach ($employees as &$row) {
     $total = $attendance_salary + $approved_ot_amount - $advances;
 
     // Check if salary has already been paid for this exact period
-    $checkStmt = $pdo->prepare("SELECT SUM(amount) FROM employee_payments WHERE employee_id = ? AND payment_date BETWEEN ? AND ? AND payment_type = 'Salary'");
-    $checkStmt->execute([$row['id'], $from_date, $to_date]);
-    $paidAmount = $checkStmt->fetchColumn();
-    $payment_status = $paidAmount > 0 ? 'Paid' : 'Pending';
+    if ($employee_type == 'outsource') {
+        if ($row['outsource_earnings'] <= 0) {
+            $payment_status = 'No Earnings';
+        } elseif ($row['outsource_balance'] > 0) {
+            $payment_status = 'Pending';
+        } else {
+            $payment_status = 'Paid';
+        }
+        $row['calculated_total'] = $row['outsource_balance'];
+    } else {
+        $checkStmt = $pdo->prepare("
+        SELECT SUM(amount)
+        FROM employee_payments
+        WHERE employee_id = ?
+        AND payment_date BETWEEN ? AND ?
+        AND payment_type = 'Salary'
+    ");
+        $checkStmt->execute([$row['id'], $from_date, $to_date]);
+        $paidAmount = $checkStmt->fetchColumn();
 
-    $row['calculated_total'] = max(0, $total); // Salary cannot be negative
+        $payment_status = $paidAmount > 0 ? 'Paid' : 'Pending';
+
+        $row['calculated_total'] = max(0, $total);
+    }
+
     $row['payment_status'] = $payment_status;
 
-    if ($payment_status == 'Pending') {
+    if ($payment_status == 'Pending' && $row['calculated_total'] > 0) {
         $totalDue += $row['calculated_total'];
         $pendingCount++;
     }
@@ -224,12 +279,23 @@ include 'includes/header.php';
                 <div>
                     <div class="label"
                         style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
-                        Total OT Hours</div>
+
+                        <?= $employee_type == 'outsource' ? 'Total Employees' : 'Total OT Hours' ?>
+
+                    </div>
+
                     <div class="value"
                         style="font-size: 1.5rem; font-weight: 800; color: var(--text-dark); margin-top: 0.25rem;">
-                        <?= number_format($totalOT, 1) ?>h
+
+                        <?php if ($employee_type == 'outsource'): ?>
+                            <?= $totalOutsourceEmployees ?>
+                        <?php else: ?>
+                            <?= number_format($totalOT, 1) ?>h
+                        <?php endif; ?>
+
                     </div>
                 </div>
+
                 <div class="icon-box"
                     style="width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0; background: #f3e8ff; color: #7e22ce;">
                     <i class="ri-history-line"></i>
@@ -241,7 +307,8 @@ include 'includes/header.php';
                 <div>
                     <div class="label"
                         style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
-                        Processed / Paid</div>
+                        <?= $employee_type == 'outsource' ? 'Processed Payouts' : 'Processed / Paid' ?>
+                    </div>
                     <div class="value"
                         style="font-size: 1.5rem; font-weight: 800; color: var(--text-dark); margin-top: 0.25rem;">₹
                         <?= number_format($paidThisPeriod, 2) ?>
@@ -316,10 +383,16 @@ include 'includes/header.php';
                     <thead>
                         <tr>
                             <th>Staff Member</th>
-                            <th><?= $employee_type == 'outsource' ? 'Completed Order Earnings' : 'Base Earnings' ?></th>
-                            <th><?= $employee_type == 'outsource' ? 'Orders Info' : 'Overtime (OT)' ?></th>
-                            <th>Deductions</th>
-                            <th>Net Payable</th>
+                            <?php if ($employee_type == 'outsource'): ?>
+                                <th>Earnings</th>
+                                <th>Payments</th>
+                                <th>Balance</th>
+                            <?php else: ?>
+                                <th>Base Earnings</th>
+                                <th>Overtime (OT)</th>
+                                <th>Deductions</th>
+                                <th>Net Payable</th>
+                            <?php endif; ?>
                             <th>Payment Status</th>
                             <th style="text-align: right;">Operations</th>
                         </tr>
@@ -343,15 +416,35 @@ include 'includes/header.php';
                                         </div>
                                     </div>
                                 </td>
-                                <td>
-                                    <?php if ($employee_type == 'outsource'): ?>
-                                        <div style="font-weight: 700; color: var(--text-dark);">
-                                            Order Based
+                                <?php if ($employee_type == 'outsource'): ?>
+
+                                    <td>
+                                        <div style="font-weight:700;color:var(--success);">
+                                            ₹<?= number_format($row['outsource_earnings'], 2) ?>
                                         </div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted);">
-                                            Earnings from completed orders
+                                        <div style="font-size:0.75rem;color:var(--text-muted);">
+                                            Completed Orders
                                         </div>
-                                    <?php else: ?>
+                                    </td>
+
+                                    <td>
+                                        <div style="font-weight:700;color:#2563eb;">
+                                            ₹<?= number_format($row['outsource_paid'], 2) ?>
+                                        </div>
+                                        <div style="font-size:0.75rem;color:var(--text-muted);">
+                                            Paid Amount
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div style="font-weight:800;color:var(--primary);font-size:1.1rem;">
+                                            ₹<?= number_format($row['outsource_balance'], 2) ?>
+                                        </div>
+                                    </td>
+
+                                <?php else: ?>
+
+                                    <td>
                                         <div style="font-weight: 700; color: var(--text-dark);">₹
                                             <?= number_format($row['base_salary'] ?: 0, 2) ?>
                                         </div>
@@ -361,39 +454,49 @@ include 'includes/header.php';
                                             <span
                                                 style="color: var(--warning); font-weight: 700;"><?= $row['half_days'] ?>H</span>
                                         </div>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <div style="font-weight: 700; color: var(--success);">
-                                        <?= number_format($row['approved_ot_hours'] ?: 0, 1) ?>h
-                                    </div>
-                                    <div style="font-size: 0.7rem; color: var(--text-muted);">Val:
-                                        ₹<?= number_format($row['approved_ot_amount'] ?: 0, 2) ?></div>
-                                    <?php if ($row['pending_ot_hours'] > 0): ?>
-                                        <div
-                                            style="margin-top: 4px; font-size: 0.65rem; color: var(--danger); font-weight: 700;">
-                                            <i class="ri-error-warning-line"></i> <?= $row['pending_ot_hours'] ?>h Unapproved
+                                    </td>
+
+                                    <td>
+                                        <div style="font-weight: 700; color: var(--success);">
+                                            <?= number_format($row['approved_ot_hours'] ?: 0, 1) ?>h
                                         </div>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <?php if ($row['advance_dues'] > 0): ?>
-                                        <div style="font-weight: 700; color: var(--danger);">₹
-                                            <?= number_format($row['advance_dues'], 2) ?>
+                                        <div style="font-size: 0.7rem; color: var(--text-muted);">
+                                            Val: ₹<?= number_format($row['approved_ot_amount'] ?: 0, 2) ?>
                                         </div>
-                                        <div style="font-size: 0.7rem; color: var(--text-muted);">Advance Recovery</div>
-                                    <?php else: ?>
-                                        <span style="color: var(--text-muted); opacity: 0.5;">-</span>
-                                    <?php endif; ?>
-                                </td>
+                                    </td>
+
+                                    <td>
+                                        <?php if ($row['advance_dues'] > 0): ?>
+                                            <div style="font-weight: 700; color: var(--danger);">
+                                                ₹<?= number_format($row['advance_dues'], 2) ?>
+                                            </div>
+                                        <?php else: ?>
+                                            -
+                                        <?php endif; ?>
+                                    </td>
+
+                                    <td>
+                                        <div style="font-weight: 800; color: var(--primary); font-size: 1.1rem;">
+                                            ₹<?= number_format($row['calculated_total'], 2) ?>
+                                        </div>
+                                    </td>
+
+                                <?php endif; ?>
                                 <td>
-                                    <div style="font-weight: 800; color: var(--primary); font-size: 1.1rem;">₹
-                                        <?= number_format($row['calculated_total'], 2) ?>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span
-                                        class="premium-badge <?= $row['payment_status'] == 'Paid' ? 'badge-active' : 'badge-pending' ?>">
+                                    <?php
+                                    $badgeClass = 'badge-pending';
+
+                                    if ($row['payment_status'] == 'Paid') {
+                                        $badgeClass = 'badge-active';
+                                    } elseif (
+                                        $employee_type == 'outsource' &&
+                                        $row['payment_status'] == 'No Earnings'
+                                    ) {
+                                        $badgeClass = 'badge-neutral';
+                                    }
+                                    ?>
+
+                                    <span class="premium-badge <?= $badgeClass ?>">
                                         <?= $row['payment_status'] ?>
                                     </span>
                                 </td>
@@ -462,6 +565,11 @@ include 'includes/header.php';
         box-shadow: var(--shadow-sm);
         border-color: var(--primary-light);
         color: var(--primary);
+    }
+
+    .badge-neutral {
+        background: #e2e8f0;
+        color: #475569;
     }
 </style>
 

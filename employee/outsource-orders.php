@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
 }
 
 $user_id = $_SESSION['user_id'];
-$success = $_GET['success'] ?? '';
+
 $stmt = $pdo->prepare("
     SELECT id, employee_type
     FROM employees
@@ -59,10 +59,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['order_id'], $_POST['n
                 $order_id,
                 $employee['id']
             ]);
+            if ($new_status === 'in progress') {
+                $_SESSION['success_message'] = "Work started successfully";
+            } elseif ($new_status === 'completed') {
+                $_SESSION['success_message'] = "Order completed successfully";
+            }
         }
     }
 
-    header("Location: outsource-orders.php?success=status_updated");
+    header("Location: outsource-orders.php");
     exit;
 }
 
@@ -155,6 +160,7 @@ $headerTitle = "Outsource Orders";
 $activePage = "orders";
 
 include 'includes/outsource-header.php';
+
 ?>
 
 <div class="container" style="padding-bottom:100px;">
@@ -300,15 +306,15 @@ include 'includes/outsource-header.php';
                             <input type="hidden" name="new_status" value="in progress">
 
                             <button type="submit" style="
-                                    background:#f59e0b;
-                                    color:white;
-                                    border:none;
-                                    padding:10px 18px;
-                                    border-radius:12px;
-                                    font-size:14px;
-                                    font-weight:600;
-                                    cursor:pointer;
-                                ">
+            background:#f59e0b;
+            color:white;
+            border:none;
+            padding:10px 18px;
+            border-radius:12px;
+            font-size:14px;
+            font-weight:600;
+            cursor:pointer;
+        ">
                                 Start Work
                             </button>
                         </form>
@@ -340,18 +346,16 @@ include 'includes/outsource-header.php';
         <?php endforeach; ?>
     <?php endif; ?>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-<?php if ($success === 'status_updated'): ?>
+<?php if (isset($_SESSION['success_message'])): ?>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         Swal.fire({
             icon: 'success',
-            title: 'Order Completed Successfully',
-            text: 'Order status updated successfully.',
+            title: 'Success',
+            text: '<?= $_SESSION['success_message'] ?>',
             confirmButtonColor: '#16a34a'
-        }).then(() => {
-            window.history.replaceState({}, document.title, window.location.pathname);
         });
     </script>
+    <?php unset($_SESSION['success_message']); ?>
 <?php endif; ?>
 <?php include 'includes/outsource-bottom-nav.php'; ?>

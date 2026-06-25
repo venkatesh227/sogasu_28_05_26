@@ -39,7 +39,7 @@ include 'includes/header.php';
             <div
                 style="background: #ecfdf5; color: #047857; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #a7f3d0; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
                 <i class="ri-checkbox-circle-line" style="font-size: 1.2rem;"></i>
-                <span>Success!</span>
+                <span><?= htmlspecialchars($_SESSION['success']) ?></span>
             </div>
             <?php unset($_SESSION['success']); ?>
         <?php endif; ?>
@@ -293,7 +293,7 @@ include 'includes/header.php';
                             </td>
                             <td style="padding: 1rem; text-align: right;">
                                 <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                                    
+
                                     <a href="view-outsource-order.php?id=<?= $o['id'] ?>" class="btn btn-sm"
                                         style="background: #f8fafc; color: #6366f1; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; text-decoration: none;"><i
                                             class="ri-eye-line"></i> View</a>
@@ -329,8 +329,8 @@ include 'includes/header.php';
         initializeDataTable('ordersTable', 'Orders Report');
     });
 
-    
-        let html = `
+
+    let html = `
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-top: 0.5rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                 <span style="font-size: 0.8rem; font-weight: 600; color: #475569;">Active Workload: ${orderCount} Order(s)</span>
@@ -342,8 +342,8 @@ include 'includes/header.php';
         </div>
     `;
 
-        container.innerHTML = html;
-        container.style.display = 'block';
+    container.innerHTML = html;
+    container.style.display = 'block';
     }
 </script>
 <?php include 'includes/footer.php'; ?>
