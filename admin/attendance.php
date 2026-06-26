@@ -39,19 +39,19 @@ $currentYear = (int) date('Y');
 if ($selectedMonth == $currentMonth && $selectedYear == $currentYear) {
     $datesToCheck = [];
 
-            if ($selectedMonth == $currentMonth && $selectedYear == $currentYear) {
-                for ($d = 1; $d <= date('j'); $d++) {
-                    $datesToCheck[] = sprintf('%04d-%02d-%02d', $currentYear, $currentMonth, $d);
-                }
-            } else {
-                for ($d = 1; $d <= $days_in_month; $d++) {
-                    $datesToCheck[] = sprintf('%04d-%02d-%02d', $selectedYear, $selectedMonth, $d);
-                }
-            }
+    if ($selectedMonth == $currentMonth && $selectedYear == $currentYear) {
+        for ($d = 1; $d <= date('j'); $d++) {
+            $datesToCheck[] = sprintf('%04d-%02d-%02d', $currentYear, $currentMonth, $d);
+        }
+    } else {
+        for ($d = 1; $d <= $days_in_month; $d++) {
+            $datesToCheck[] = sprintf('%04d-%02d-%02d', $selectedYear, $selectedMonth, $d);
+        }
+    }
 
     foreach ($employees as $emp) {
         foreach ($datesToCheck as $processDate) {
-            
+
             $employeeId = $emp['id'];
 
             $isSunday = (date('N', strtotime($processDate)) == 7);
@@ -175,11 +175,11 @@ if (isset($_POST['action']) && $_POST['action'] === 'bulk_mark_attendance') {
 
         $check_in = $_POST['check_in'];
         $check_out = $_POST['check_out'];
-        $in_loc = $_POST['check_in_location'];
-        $out_loc = $_POST['check_out_location'];
+        $in_loc = $_POST['check_in_location'] ?? null;
+        $out_loc = $_POST['check_out_location'] ?? null;
         $work_from = $_POST['working_from'];
-        $is_late = $_POST['is_late'] === 'Yes' ? 1 : 0;
-        $is_half_day = $_POST['is_half_day'] === 'Yes' ? 1 : 0;
+        $is_late = ($status === 'Late') ? 1 : 0;
+        $is_half_day = ($status === 'Half Day') ? 1 : 0;
         $status = $_POST['status'] ?? 'Present';
         $overwrite = isset($_POST['overwrite']) ? true : false;
 
@@ -372,6 +372,10 @@ include 'includes/header.php';
                 </div>
                 <div class="legend-item"><i class="ri-error-warning-fill" style="color: var(--warning);"></i>
                     <span>Late</span>
+                </div>
+                <div class="legend-item">
+                    <i class="ri-star-half-fill" style="color: #f59e0b;"></i>
+                    <span>Half Day</span>
                 </div>
                 <div class="legend-item"><i class="ri-plane-fill" style="color: #7c3aed;"></i> <span>Leave</span></div>
             </div>

@@ -1,35 +1,37 @@
 Array
 (
     [order_type] => outsource
-    [customer_id] => 3
-    [mobile_number] => 7898767897
+    [customer_id] => 1
+    [mobile_number] => 7981242293
     [family_member_id] => 
-    [delivery_address] => abcde, Vijayawada
-    [category_id] => 2
-    [sub_category_id] => 4
+    [delivery_address] => Nandulapet, Tenali
+    [category_id] => 4
+    [sub_category_id] => 2
     [fabric_details] => silk
     [due_date] => 2026-06-28
     [measurement_unit] => CMS
     [measurements] => Array
         (
-            [Sholder] => 22
-            [Chest] => 22
-            [Waist] => 22
-            [height] => 22
-            [width] => 22
+            [Sholder] => 44
+            [hand] => 44
+            [Chest] => 44
+            [Front Length] => 44
+            [Waist] => 44
+            [Arm Round] => 44
+            [Arm Hole] => 44
         )
 
-    [design_notes] => Hip Rope
+    [design_notes] => suite
     [selected_services] => Array
         (
             [0] => 1
         )
 
-    [base_price] => 5000.00
-    [extra_charges] => 100
-    [outsource_credit] => 2000
-    [advance_amount] => 500
-    [advance_payment_mode] => Cash
-    [transaction_reference] => 
+    [base_price] => 500.00
+    [extra_charges] => 600
+    [outsource_credit] => 500
+    [advance_amount] => 200
+    [advance_payment_mode] => UPI
+    [transaction_reference] => TR123456
     [submit_order] => 1
 )

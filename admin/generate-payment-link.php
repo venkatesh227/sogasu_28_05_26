@@ -8,6 +8,11 @@ if (!isset($_GET['order_id'])) {
 }
 
 $order_id = (int) $_GET['order_id'];
+$order_type = $_GET['order_type'] ?? 'orders';
+
+$table = ($order_type === 'outsource_orders')
+    ? 'outsource_orders'
+    : 'orders';
 
 /*
 |--------------------------------------------------------------------------
@@ -17,7 +22,7 @@ $order_id = (int) $_GET['order_id'];
 
 $stmt = $pdo->prepare("
     SELECT *
-    FROM orders
+    FROM {$table}
     WHERE id = ?
     LIMIT 1
 ");
@@ -125,7 +130,7 @@ try {
     */
 
     $stmtUpdate = $pdo->prepare("
-        UPDATE orders
+        UPDATE {$table}
         SET
             razorpay_payment_link_id = ?,
             payment_link = ?

@@ -103,15 +103,15 @@ include 'includes/header.php';
                 </div>
             </div>
 
-            <div class="table-container" style="padding: 1.25rem; margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
-                <div>
-                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Avg. Salary</div>
-                    <div style="font-size: 1.75rem; font-weight: 800; color: #8b5cf6; margin-top: 0.5rem;">₹ 24.5k</div>
-                </div>
-                <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                    <i class="ri-money-rupee-circle-line"></i>
-                </div>
-            </div>
+                <!-- <div class="table-container" style="padding: 1.25rem; margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Avg. Salary</div>
+                        <div style="font-size: 1.75rem; font-weight: 800; color: #8b5cf6; margin-top: 0.5rem;">₹ 24.5k</div>
+                    </div>
+                    <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="ri-money-rupee-circle-line"></i>
+                    </div>
+                </div> -->
         </div>
 
         <!-- Employee Table Container -->
@@ -127,7 +127,7 @@ include 'includes/header.php';
                             <th>Employee Details</th>
                             <th>Role & Branch</th>
                             <th>Contact Info</th>
-                            <th>Salary Model</th>
+                            <!-- <th>Salary Model</th> -->
                             <th>Status</th>
                             <th style="text-align: right;">Actions</th>
                         </tr>
@@ -154,10 +154,10 @@ include 'includes/header.php';
                                     <div style="font-weight: 500; color: #1e293b;"><i class="ri-phone-line"></i> <?= htmlspecialchars($row['phone']) ?></div>
                                     <div style="font-size: 0.75rem; color: #64748b;"><?= htmlspecialchars($row['email'] ?: 'No Email') ?></div>
                                 </td>
-                                <td>
+                                <!-- <td>
                                     <div style="font-weight: 700; color: #4f46e5;">₹ <?= number_format($row['base_salary']) ?></div>
                                     <div style="font-size: 0.75rem; color: #64748b;"><?= htmlspecialchars($row['payment_model']) ?></div>
-                                </td>
+                                </td> -->
                                 <td>
                                     <label class="toggle-switch">
                                         <input type="checkbox" <?= $row['status'] == 1 ? 'checked' : '' ?> onchange="toggleEmployeeStatus(this, <?= $row['id']; ?>)">

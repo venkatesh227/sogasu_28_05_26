@@ -63,7 +63,9 @@ $activeOrders = $pdo->query("
             sc.name as garment
         FROM orders o
         LEFT JOIN sub_categories sc ON o.sub_category_id = sc.id
-        LEFT JOIN bills b ON b.order_id = o.id
+        LEFT JOIN bills b 
+        ON b.order_id = o.id
+        AND b.order_type = 'orders'
         WHERE o.is_deleted = 0 
         AND o.supervisor_id IS NOT NULL 
         AND o.order_status NOT IN ('completed', 'delivered', 'cancelled')
@@ -253,7 +255,9 @@ include 'includes/header.php';
                             o.material_image as fabric_img
                         FROM orders o
                         LEFT JOIN customers c ON o.customer_id = c.id
-                        LEFT JOIN bills b ON b.order_id = o.id
+                        LEFT JOIN bills b 
+                        ON b.order_id = o.id
+                        AND b.order_type = 'orders'
                         LEFT JOIN sub_categories sc ON o.sub_category_id = sc.id
                         WHERE $whereClause
 

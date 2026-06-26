@@ -151,40 +151,12 @@ include 'includes/header.php';
                             o.material_image as fabric_img
                         FROM outsource_orders o
                         LEFT JOIN customers c ON o.customer_id = c.id
-                        LEFT JOIN bills b ON b.order_id = o.id
+                        LEFT JOIN bills b 
+                        ON b.order_id = o.id
+                        AND b.order_type = 'outsource_orders'
                         LEFT JOIN sub_categories sc ON o.sub_category_id = sc.id
-                        WHERE $whereClause
-
-                        UNION ALL
-
-                        SELECT 
-                            co.id,
-                            'customer' as order_type,
-                            co.order_code,
-                            co.total_amount,
-                            0 as advance_amount,
-                            0 as paid_amount,
-                            co.appointment_date as due_date,
-                            co.status as order_status,
-                            co.supervisor_id,
-                            NULL as payment_link,
-                            NULL as payment_status,
-                            NULL as bill_id,
-                            cc.first_name,
-                            cc.last_name,
-                            sc.name as garment,
-                            co.material_image as fabric_img
-                        FROM customer_orders co
-                        LEFT JOIN customers cc ON co.user_id = cc.user_id
-                        LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
-                        WHERE co.is_deleted = 0
-                        AND co.slot_status != 'rejected'
-                    ";
-                    if ($tab != 'all' && in_array($tab, $statuses)) {
-                        $query .= " AND co.status = " . $pdo->quote($tab);
-                    }
-
-                    $query .= " ORDER BY id DESC";
+                        WHERE $whereClause";
+                    $query .= " ORDER BY o.id DESC";
                     $orders_list = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
 
                     foreach ($orders_list as $o):
@@ -302,7 +274,7 @@ include 'includes/header.php';
                                         $o['payment_status'] !== 'paid'
                                     ): ?>
 
-                                        <a href="generate-payment-link.php?order_id=<?= $o['id'] ?>" class="btn btn-sm"
+                                        <a href="generate-payment-link.php?order_id=<?= $o['id'] ?>&order_type=outsource_orders" class="btn btn-sm"
                                             style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 5px 10px; border-radius: 6px; text-decoration: none;">
                                             <i class="ri-secure-payment-line"></i> Pay Now
                                         </a>

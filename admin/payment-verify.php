@@ -12,19 +12,47 @@ if (
 
     $paymentLinkId = $_GET['razorpay_payment_link_id'];
     $stmtOrder = $pdo->prepare("
-    SELECT *
-    FROM orders
-    WHERE razorpay_payment_link_id = ?
-    LIMIT 1
-");
+        SELECT
+            id,
+            order_code,
+            total_amount,
+            paid_amount,
+            advance_amount,
+            razorpay_payment_link_id,
+            'orders' AS order_type
+        FROM orders
+        WHERE razorpay_payment_link_id = ?
 
-    $stmtOrder->execute([$paymentLinkId]);
+        UNION ALL
+
+        SELECT
+            id,
+            order_code,
+            total_amount,
+            paid_amount,
+            advance_amount,
+            razorpay_payment_link_id,
+            'outsource_orders' AS order_type
+        FROM outsource_orders
+        WHERE razorpay_payment_link_id = ?
+
+        LIMIT 1
+    ");
+
+    $stmtOrder->execute([
+        $paymentLinkId,
+        $paymentLinkId
+    ]);
 
     $order = $stmtOrder->fetch(PDO::FETCH_ASSOC);
 
     if (!$order) {
         die("Order not found.");
     }
+    $table = $order['order_type'];
+    $redirectPage = ($table === 'outsource_orders')
+        ? 'outsourcing_orders.php'
+        : 'orders.php';
 
     try {
 
@@ -76,7 +104,7 @@ if (
 
             if ($existingPayment) {
 
-                header("Location: orders.php?payment=already_verified");
+                header("Location: {$redirectPage}?payment=already_verified");
                 exit;
             }
             $stmtPayment = $pdo->prepare("
@@ -121,7 +149,7 @@ if (
                 $new_payment_status = 'paid';
             }
             $stmtUpdate = $pdo->prepare("
-                UPDATE orders
+                UPDATE {$table}
                 SET
                     paid_amount = ?,
                     payment_status = ?,
@@ -146,6 +174,7 @@ if (
                     pending_amount = ?,
                     bill_status = ?
                 WHERE order_id = ?
+                AND order_type = ?
             ");
 
             $pending_amount = $total_amount - $new_paid_amount;
@@ -154,9 +183,10 @@ if (
                 $new_paid_amount,
                 $pending_amount,
                 $new_payment_status,
-                $order['id']
+                $order['id'],
+                $table
             ]);
-            header("Location: orders.php?payment=verified");
+            header("Location: {$redirectPage}?payment=verified");
             exit;
 
         } else {

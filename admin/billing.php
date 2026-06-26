@@ -17,29 +17,52 @@ if (
     SELECT
 
         b.*,
+        COALESCE((
+            SELECT SUM(os.service_price)
+            FROM order_services os
+            WHERE os.order_id = b.order_id
+            AND (
+                (b.order_type = 'orders' AND os.order_type = 'inhouse')
+                OR
+                (b.order_type = 'outsource_orders' AND os.order_type = 'outsource')
+            )
+        ), 0) AS additional_services,
 
-        o.order_code,
-        o.advance_amount,
+        COALESCE(o.order_code, co.order_code, oo.order_code) AS order_code,
 
-        CONCAT(
-            c.first_name,
-            ' ',
-            c.last_name
-        ) AS customer_name,
+        CASE
+            WHEN b.order_type = 'orders' THEN COALESCE(o.paid_amount, 0)
+            WHEN b.order_type = 'outsource_orders' THEN COALESCE(oo.paid_amount, 0)
+            ELSE 0
+        END AS advance_paid,
+
+        CASE
+            WHEN b.order_type = 'customer_orders' THEN 'Customer Order'
+            ELSE CONCAT(c.first_name, ' ', c.last_name)
+        END AS customer_name,
 
         c.phone,
         c.email
 
-    FROM bills b
+        FROM bills b
 
-    LEFT JOIN orders o
-    ON o.id = b.order_id
+        LEFT JOIN orders o
+            ON b.order_type = 'orders'
+            AND o.id = b.order_id
 
-    LEFT JOIN customers c
-    ON c.id = o.customer_id
+        LEFT JOIN customer_orders co
+            ON b.order_type = 'customer_orders'
+            AND co.id = b.order_id
 
-    WHERE b.id = ?
-    AND b.is_deleted = 0
+        LEFT JOIN outsource_orders oo
+            ON b.order_type = 'outsource_orders'
+            AND oo.id = b.order_id
+
+        LEFT JOIN customers c
+            ON c.id = COALESCE(o.customer_id, oo.customer_id)
+
+        WHERE b.id = ?
+            AND b.is_deleted = 0
 
 ");
 
@@ -111,6 +134,7 @@ if (
         isset($_POST['order_id'])
         ? (int) $_POST['order_id']
         : 0;
+    $orderType = $_POST['order_type'] ?? 'orders';
 
     $basePrice =
         isset($_POST['base_price'])
@@ -148,7 +172,8 @@ if (
     $gstPercent =
         (float) ($_POST['gst_percent'] ?? 18);
 
-    $subTotal = $basePrice + $extraCharges;
+    $additionalServices = (float) ($_POST['additional_services'] ?? 0);
+    $subTotal = $basePrice + $extraCharges + $additionalServices;
 
     $gstAmount = ($subTotal * $gstPercent) / 100;
 
@@ -177,29 +202,44 @@ if (
     if (!$hasError) {
 
         if (isset($_POST['update_bill'])) {
+            $paidStmt = $pdo->prepare("SELECT paid_amount FROM bills WHERE id = ?");
+            $paidStmt->execute([$billId]);
+            $existingBill = $paidStmt->fetch(PDO::FETCH_ASSOC);
+
+            $paidAmount = (float) ($existingBill['paid_amount'] ?? 0);
+            $pendingAmount = $totalAmount - $paidAmount;
+            if ($paidAmount >= $totalAmount) {
+                $status = 'paid';
+            } elseif ($paidAmount > 0) {
+                $status = 'partially_paid';
+            } else {
+                $status = 'pending';
+            }
 
             $updateStmt = $pdo->prepare("
 
-        UPDATE bills SET
+                UPDATE bills SET
 
-            order_id = ?,
-            base_price = ?,
-            extra_charges = ?,
-            gst_percent = ?,
-            gst_amount = ?,
-            total_amount = ?,
-            paid_amount = ?,
-            pending_amount = ?,
-            bill_status = ?,
-            due_date = ?
+                    order_id = ?,
+                    order_type = ?,
+                    base_price = ?,
+                    extra_charges = ?,
+                    gst_percent = ?,
+                    gst_amount = ?,
+                    total_amount = ?,
+                    paid_amount = ?,
+                    pending_amount = ?,
+                    bill_status = ?,
+                    due_date = ?
 
-        WHERE id = ?
+                WHERE id = ?
 
-    ");
+            ");
 
             $updateStmt->execute([
 
                 $orderId,
+                $orderType,
                 $basePrice,
                 $extraCharges,
                 $gstPercent,
@@ -212,33 +252,67 @@ if (
                 $billId
 
             ]);
-            $orderUpdateStmt = $pdo->prepare("
+            if ($orderType === 'orders') {
 
-    UPDATE orders
+                $orderUpdateStmt = $pdo->prepare("
+        UPDATE orders
+        SET
+            base_price = ?,
+            extra_charges = ?,
+            total_amount = ?,
+            advance_amount = ?,
+            payment_status = 'pending',
+            payment_link = NULL,
+            razorpay_payment_link_id = NULL
+        WHERE id = ?
+    ");
 
-    SET
+                $orderUpdateStmt->execute([
+                    $basePrice,
+                    $extraCharges,
+                    $totalAmount,
+                    $advance,
+                    $orderId
+                ]);
 
-        base_price = ?,
-        extra_charges = ?,
-        total_amount = ?,
-        advance_amount = ?,
-        payment_status = 'pending',
-        payment_link = NULL,
-        razorpay_payment_link_id = NULL
+            } elseif ($orderType === 'customer_orders') {
 
-    WHERE id = ?
+                $orderUpdateStmt = $pdo->prepare("
+                    UPDATE customer_orders
+                    SET
+                        base_price = ?,
+                        extra_charges = ?,
+                        total_amount = ?
+                    WHERE id = ?
+                ");
 
-");
+                $orderUpdateStmt->execute([
+                    $basePrice,
+                    $extraCharges,
+                    $totalAmount,
+                    $orderId
+                ]);
 
-            $orderUpdateStmt->execute([
+            } elseif ($orderType === 'outsource_orders') {
 
-                $basePrice,
-                $extraCharges,
-                $totalAmount,
-                $advance,
-                $orderId
+                $orderUpdateStmt = $pdo->prepare("
+                    UPDATE outsource_orders
+                    SET
+                        base_price = ?,
+                        extra_charges = ?,
+                        total_amount = ?,
+                        advance_amount = ?
+                    WHERE id = ?
+                ");
 
-            ]);
+                $orderUpdateStmt->execute([
+                    $basePrice,
+                    $extraCharges,
+                    $totalAmount,
+                    $advance,
+                    $orderId
+                ]);
+            }
             header("Location: billing.php?updated=1");
 
             exit;
@@ -253,31 +327,33 @@ if (
 
             $insertStmt = $pdo->prepare("
 
-        INSERT INTO bills (
+            INSERT INTO bills (
 
-            order_id,
-            invoice_no,
-            base_price,
-            extra_charges,
-            gst_percent,
-            gst_amount,
-            total_amount,
-            paid_amount,
-            pending_amount,
-            bill_status,
-            due_date
+                order_id,
+                order_type,
+                invoice_no,
+                base_price,
+                extra_charges,
+                gst_percent,
+                gst_amount,
+                total_amount,
+                paid_amount,
+                pending_amount,
+                bill_status,
+                due_date
 
-        ) VALUES (
+            ) VALUES (
 
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?
 
-        )
+            )
 
-    ");
+        ");
 
             $insertStmt->execute([
 
                 $orderId,
+                $orderType,
                 $invoiceNo,
                 $basePrice,
                 $extraCharges,
@@ -290,33 +366,65 @@ if (
                 $dueDate
 
             ]);
-            $orderUpdateStmt = $pdo->prepare("
+            if ($orderType === 'orders') {
 
-    UPDATE orders
+                $orderUpdateStmt = $pdo->prepare("
+                    UPDATE orders
+                SET
+                    base_price = ?,
+                    extra_charges = ?,
+                    total_amount = ?,
+                    advance_amount = ?
+                WHERE id = ?
+                ");
 
-    SET
+                $orderUpdateStmt->execute([
+                    $basePrice,
+                    $extraCharges,
+                    $totalAmount,
+                    $advance,
+                    $orderId
+                ]);
 
-        base_price = ?,
-        extra_charges = ?,
-        total_amount = ?,
-        advance_amount = ?,
-        payment_status = 'pending',
-        payment_link = NULL,
-        razorpay_payment_link_id = NULL
+            } elseif ($orderType === 'customer_orders') {
 
-    WHERE id = ?
+                $orderUpdateStmt = $pdo->prepare("
+        UPDATE customer_orders
+        SET
+            base_price = ?,
+            extra_charges = ?,
+            total_amount = ?
+        WHERE id = ?
+    ");
 
-");
+                $orderUpdateStmt->execute([
+                    $basePrice,
+                    $extraCharges,
+                    $totalAmount,
+                    $orderId
+                ]);
 
-            $orderUpdateStmt->execute([
+            } elseif ($orderType === 'outsource_orders') {
 
-                $basePrice,
-                $extraCharges,
-                $totalAmount,
-                $advance,
-                $orderId
+                $orderUpdateStmt = $pdo->prepare("
+                    UPDATE outsource_orders
+                        SET
+                            base_price = ?,
+                            extra_charges = ?,
+                            total_amount = ?,
+                            advance_amount = ?
+                        WHERE id = ?
+                ");
 
-            ]);
+                $orderUpdateStmt->execute([
+                    $basePrice,
+                    $extraCharges,
+                    $totalAmount,
+                    $advance,
+                    $orderId
+                ]);
+            }
+
             header("Location: billing.php?success=1");
 
             exit;
@@ -330,51 +438,60 @@ $stmt = $pdo->prepare("
     SELECT
 
         b.id AS bill_id,
-
         b.order_id,
-
+        b.order_type,
         b.invoice_no,
-
         b.base_price,
-
         b.extra_charges,
-
         b.gst_percent,
-
         b.gst_amount,
-
         b.total_amount,
-
         b.paid_amount,
-
         b.pending_amount,
-
         b.bill_status,
-
         b.due_date,
-
         b.notes,
+        COALESCE((
+            SELECT SUM(os.service_price)
+                FROM order_services os
+                WHERE os.order_id = b.order_id
+                AND (
+                    (b.order_type = 'orders' AND os.order_type = 'inhouse')
+                    OR
+                    (b.order_type = 'outsource_orders' AND os.order_type = 'outsource')
+                )
+        ), 0) AS additional_services,
+        COALESCE(o.order_code, co.order_code, oo.order_code) AS order_code,
 
-        o.order_code,
-        o.advance_amount,
+        CASE
+            WHEN b.order_type = 'orders' THEN COALESCE(o.paid_amount, 0)
+            WHEN b.order_type = 'outsource_orders' THEN COALESCE(oo.paid_amount, 0)
+            ELSE 0
+        END AS advance_paid,
 
-        CONCAT(
-            c.first_name,
-            ' ',
-            c.last_name
-        ) AS customer_name
+        CASE
+            WHEN b.order_type = 'customer_orders' THEN 'Customer Order'
+            ELSE CONCAT(c.first_name, ' ', c.last_name)
+        END AS customer_name
 
     FROM bills b
 
     LEFT JOIN orders o
-    ON o.id = b.order_id
+        ON b.order_type = 'orders'
+        AND o.id = b.order_id
+
+    LEFT JOIN customer_orders co
+        ON b.order_type = 'customer_orders'
+        AND co.id = b.order_id
+
+    LEFT JOIN outsource_orders oo
+        ON b.order_type = 'outsource_orders'
+        AND oo.id = b.order_id
 
     LEFT JOIN customers c
-    ON c.id = o.customer_id
-
+        ON c.id = COALESCE(o.customer_id, oo.customer_id)
     WHERE b.is_deleted = 0
-
-    ORDER BY b.id DESC
+        ORDER BY b.id DESC
 
 ");
 
@@ -388,36 +505,64 @@ $stmt->execute();
 $billings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $orderStmt = $pdo->prepare("
+    SELECT * FROM (
 
-    SELECT
+        SELECT
+            o.id,
+            o.order_code,
+            o.base_price,
+            o.extra_charges,
+            o.advance_amount,
+            o.total_amount,
+            COALESCE((
+                SELECT SUM(os.service_price)
+                FROM order_services os
+                WHERE os.order_id = o.id
+                AND os.order_type = 'inhouse'
+            ), 0) AS additional_services,
+            CONCAT(c.first_name,' ',c.last_name) AS customer_name,
+            'orders' AS order_type
+        FROM orders o
+        LEFT JOIN customers c ON c.id = o.customer_id
+        WHERE o.is_deleted = 0
 
-        o.id,
+        UNION ALL
 
-        o.order_code,
+        SELECT
+            co.id,
+            co.order_code,
+            co.base_price,
+            co.extra_charges,
+            0 AS advance_amount,
+            co.total_amount,
+            0 AS additional_services,
+            'Customer Order' AS customer_name,
+            'customer_orders' AS order_type
+        FROM customer_orders co
+        WHERE co.is_deleted = 0
 
-        o.base_price,
+        UNION ALL
 
-        o.extra_charges,
+        SELECT
+            oo.id,
+            oo.order_code,
+            oo.base_price,
+            oo.extra_charges,
+            oo.advance_amount,
+            oo.total_amount,
+            COALESCE((
+                SELECT SUM(os.service_price)
+                FROM order_services os
+                WHERE os.order_id = oo.id
+                AND os.order_type = 'outsource'
+            ), 0) AS additional_services,
+            'Outsource Order' AS customer_name,
+            'outsource_orders' AS order_type
+        FROM outsource_orders oo
+        WHERE oo.is_deleted = 0
 
-        o.advance_amount,
-
-        o.total_amount,
-
-        CONCAT(
-            c.first_name,
-            ' ',
-            c.last_name
-        ) AS customer_name
-
-    FROM orders o
-
-    LEFT JOIN customers c
-    ON c.id = o.customer_id
-
-    WHERE o.is_deleted = 0
-
-    ORDER BY o.id DESC
-
+    ) x
+    ORDER BY id DESC
 ");
 $orderStmt->execute();
 
@@ -544,7 +689,7 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
                                 </td>
 
                                 <td style="padding: 1rem; font-size: 0.9rem; color: #16a34a;">
-                                    ₹ <?= number_format((float) ($billing['paid_amount'] ?? 0), 2) ?>
+                                    ₹ <?= number_format((float) ($billing['advance_paid'] ?? 0), 2) ?>
                                 </td>
 
                                 <td style="padding: 1rem; font-size: 0.9rem; color: #dc2626; font-weight: 600;">
@@ -594,11 +739,13 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
                                         <!-- EDIT BILL -->
 
                                         <button type="button" class="btn-icon editBillBtn" data-id="<?= $billing['bill_id'] ?>"
-                                            data-order="<?= $billing['order_id'] ?>"
+                                            data-order="<?= $billing['order_id'] ?>" data-type="<?= $billing['order_type'] ?>"
                                             data-orderno="<?= $billing['order_code'] ?>"
                                             data-base="<?= $billing['base_price'] ?>"
                                             data-extra="<?= $billing['extra_charges'] ?>"
-                                            data-gst="<?= $billing['gst_percent'] ?>" data-paid="<?= $billing['paid_amount'] ?>"
+                                            data-gst="<?= $billing['gst_percent'] ?>"
+                                            data-advance="<?= $billing['advance_paid'] ?>"
+                                            data-services="<?= $billing['additional_services'] ?? 0 ?>"
                                             data-due="<?= $billing['due_date'] ?>">
 
                                             <i class="ri-pencil-line"></i>
@@ -752,9 +899,11 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
             .getElementById('bill_id')
             .value = '';
 
-        document
-            .getElementById('billForm')
-            .reset();
+        document.getElementById('billForm').reset();
+        document.getElementById('additional_services').value = 0;
+        document.getElementById('additional_services_display').value = 0;
+        document.getElementById('order_type').value = 'orders';
+        document.getElementById('total_amount').value = '';
 
     }
 
@@ -821,6 +970,8 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
 
             <div style="margin-bottom:1rem;">
                 <input type="hidden" name="bill_id" id="bill_id">
+                <input type="hidden" name="order_type" id="order_type">
+                <input type="hidden" name="additional_services" id="additional_services" value="0">
 
                 <label style="
                         display:block;
@@ -847,7 +998,10 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
 
                             foreach ($billings as $b) {
 
-                                if ($b['order_id'] == $order['id']) {
+                                if (
+                                    $b['order_id'] == $order['id'] &&
+                                    $b['order_type'] == $order['order_type']
+                                ) {
 
                                     $isAlreadyBilled = true;
                                     break;
@@ -858,14 +1012,13 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
 
                             ?>
 
-                            <option value="<?= $order['id'] ?>" data-base="<?= $order['base_price'] ?>"
-                                data-extra="<?= $order['extra_charges'] ?>" data-advance="<?= $order['advance_amount'] ?>"
-                                <?= $isAlreadyBilled ? 'disabled' : '' ?>>
+                            <option value="<?= $order['id'] ?>" data-order-id="<?= $order['id'] ?>"
+                                data-type="<?= $order['order_type'] ?>" data-base="<?= $order['base_price'] ?>"
+                                data-extra="<?= $order['extra_charges'] ?>" data-services="<?= $order['additional_services'] ?>"
+                                data-advance="<?= $order['advance_amount'] ?>" <?= $isAlreadyBilled ? 'disabled' : '' ?>>
 
                                 <?= htmlspecialchars($order['order_code']) ?>
-
                                 -
-
                                 <?= htmlspecialchars($order['customer_name']) ?>
 
                             </option>
@@ -927,10 +1080,24 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
             <div style="margin-bottom:1rem;">
 
                 <label style="
-        display:block;
-        margin-bottom:0.5rem;
-        font-weight:600;
-    ">
+                    display:block;
+                    margin-bottom:0.5rem;
+                    font-weight:600;
+                    color:#1e293b;
+                ">
+                    Additional Services
+                </label>
+
+                <input type="number" id="additional_services_display" class="form-control" readonly value="0">
+
+            </div>
+            <div style="margin-bottom:1rem;">
+
+                <label style="
+                        display:block;
+                        margin-bottom:0.5rem;
+                        font-weight:600;
+                    ">
                     GST %
                 </label>
 
@@ -963,10 +1130,10 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
                 <div style="margin-top:1rem;">
 
                     <label style="
-            display:block;
-            margin-bottom:0.5rem;
-            font-weight:600;
-        ">
+                        display:block;
+                        margin-bottom:0.5rem;
+                        font-weight:600;
+                    ">
 
                         Total Amount
 
@@ -1015,225 +1182,7 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
 </div>
 <script>
-
-    async function openViewBillModal(id) {
-
-        const modal = document.getElementById('viewBillModal');
-
-        const container = document.getElementById('billDetailsContainer');
-
-        modal.style.display = 'flex';
-
-        container.innerHTML = `
-        <div style="text-align:center; padding:2rem;">
-            Loading...
-        </div>
-    `;
-
-        try {
-
-            const response = await fetch(
-                `billing.php?action=get_bill_details&id=${id}`
-            );
-
-            const data = await response.json();
-
-            if (!data.success) {
-
-                container.innerHTML = `
-                <div style="text-align:center; color:red;">
-                    Failed to load bill details.
-                </div>
-            `;
-
-                return;
-            }
-
-            const bill = data.bill;
-
-            container.innerHTML = `
-
-            <div
-                style="
-                    display:grid;
-                    grid-template-columns:1fr 1fr;
-                    gap:1rem;
-                "
-            >
-
-                <div>
-
-                    <div style="margin-bottom:1rem;">
-
-                        <div
-                            style="
-                                font-size:0.8rem;
-                                color:#64748b;
-                                margin-bottom:0.3rem;
-                            "
-                        >
-                            Order No
-                        </div>
-
-                        <div
-                            style="
-                                font-weight:600;
-                                color:#1e293b;
-                            "
-                        >
-                            ${bill.order_code}
-                        </div>
-
-                    </div>
-
-                    <div style="margin-bottom:1rem;">
-
-                        <div
-                            style="
-                                font-size:0.8rem;
-                                color:#64748b;
-                                margin-bottom:0.3rem;
-                            "
-                        >
-                            Customer
-                        </div>
-
-                        <div
-                            style="
-                                font-weight:600;
-                                color:#1e293b;
-                            "
-                        >
-                            ${bill.customer_name}
-                        </div>
-
-                    </div>
-
-                    <div style="margin-bottom:1rem;">
-
-                        <div
-                            style="
-                                font-size:0.8rem;
-                                color:#64748b;
-                                margin-bottom:0.3rem;
-                            "
-                        >
-                            Phone
-                        </div>
-
-                        <div
-                            style="
-                                font-weight:600;
-                                color:#1e293b;
-                            "
-                        >
-                            ${bill.phone ?? '-'}
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <div>
-
-                    <div style="margin-bottom:1rem;">
-
-                        <div
-                            style="
-                                font-size:0.8rem;
-                                color:#64748b;
-                                margin-bottom:0.3rem;
-                            "
-                        >
-                            Total Amount
-                        </div>
-
-                        <div
-                            style="
-                                font-weight:700;
-                                color:#1e293b;
-                            "
-                        >
-                            ₹ ${bill.total_amount}
-                        </div>
-
-                    </div>
-
-                    <div style="margin-bottom:1rem;">
-
-                        <div
-                            style="
-                                font-size:0.8rem;
-                                color:#64748b;
-                                margin-bottom:0.3rem;
-                            "
-                        >
-                            Advance Paid
-                        </div>
-
-                        <div
-                            style="
-                                font-weight:600;
-                                color:#16a34a;
-                            "
-                        >
-                            ₹ ${bill.advance_amount}
-                        </div>
-
-                    </div>
-
-                    <div style="margin-bottom:1rem;">
-
-                        <div
-                            style="
-                                font-size:0.8rem;
-                                color:#64748b;
-                                margin-bottom:0.3rem;
-                            "
-                        >
-                            Payment Status
-                        </div>
-
-                        <div
-                            style="
-                                font-weight:600;
-                                color:#4f46e5;
-                            "
-                        >
-                            ${bill.payment_status}
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        `;
-        }
-
-        catch (error) {
-
-            container.innerHTML = `
-            <div style="text-align:center; color:red;">
-                Something went wrong.
-            </div>
-        `;
-        }
-    }
-
-    function closeViewBillModal() {
-
-        document
-            .getElementById('viewBillModal')
-            .style.display = 'none';
-    }
-
-</script>
-<script>
-
     async function printBill(id) {
-
         try {
 
             const response = await fetch(
@@ -1463,6 +1412,14 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
                             </td>
 
                         </tr>
+                        <tr>
+                            <td>
+                                Additional Services
+                            </td>
+                            <td>
+                                ₹ ${bill.additional_services ?? 0}
+                            </td>
+                        </tr>
 
                         <tr>
 
@@ -1471,7 +1428,7 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
                             </td>
 
                             <td>
-                                ₹ ${bill.advance_amount ?? 0}
+                                ₹ ${bill.advance_paid ?? 0}
                             </td>
 
                         </tr>
@@ -1571,9 +1528,8 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
                 <div>
 
                     <p><strong>Total:</strong> ₹ ${bill.total_amount}</p>
-
-                    <p><strong>Advance:</strong> ₹ ${bill.advance_amount}</p>
-
+                    <p><strong>Additional Services:</strong> ₹ ${bill.additional_services ?? 0}</p>
+                    <p><strong>Advance Paid:</strong> ₹ ${bill.advance_paid}</p>
                     <p><strong>Status:</strong> ${bill.bill_status}</p>
 
                 </div>
@@ -1674,6 +1630,8 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
                 .getElementById('advance')
                 .value =
                 selected.dataset.advance || 0;
+            document.getElementById('order_type').value =
+                selected.dataset.type || 'orders';
             const base =
                 parseFloat(
                     selected.dataset.base || 0
@@ -1688,9 +1646,12 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
                 parseFloat(
                     selected.dataset.advance || 0
                 );
+            const services = parseFloat(selected.dataset.services || 0);
 
-            const subTotal =
-                base + extra;
+            document.getElementById('additional_services').value = services;
+            document.getElementById('additional_services_display').value = services;
+
+            const subTotal = base + extra + services;
 
             const gstPercent =
                 parseFloat(
@@ -1702,9 +1663,6 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
 
             const total =
                 subTotal + gstAmount;
-
-            const pending =
-                total;
 
             document
                 .getElementById('base_price')
@@ -1721,12 +1679,6 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
             document
                 .getElementById('total_amount')
                 .value = total;
-
-            document
-                .getElementById('pending_amount')
-                .value = pending;
-
-
         });
 
 </script>
@@ -1739,6 +1691,8 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
             button.addEventListener('click', function () {
                 document.getElementById('order_id').value =
                     this.dataset.order;
+                document.getElementById('order_type').value =
+                    this.dataset.type;
 
                 document.getElementById('order_id').style.display =
                     'none';
@@ -1750,7 +1704,7 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
                     this.dataset.orderno;
                 document.getElementById('base_price').readOnly = false;
                 document.getElementById('extra_charges').readOnly = false;
-                document.getElementById('advance').readOnly = false;
+                document.getElementById('advance').readOnly = true;
 
                 document
                     .getElementById('bill_id')
@@ -1759,10 +1713,9 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
                 document
                     .querySelector('[name="order_id"]')
                     .value = String(this.dataset.order);
-                const currentOption =
-                    document.querySelector(
-                        '#order_id option[value="' + this.dataset.order + '"]'
-                    );
+                const currentOption = document.querySelector(
+                    '#order_id option[data-order-id="' + this.dataset.order + '"][data-type="' + this.dataset.type + '"]'
+                );
 
                 if (currentOption) {
 
@@ -1779,10 +1732,13 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
                 document
                     .getElementById('gst_percent')
                     .value = this.dataset.gst;
+                document.getElementById('additional_services').value =
+                    this.dataset.services || 0;
 
-                document
-                    .querySelector('[name="advance"]')
-                    .value = this.dataset.paid;
+                document.getElementById('additional_services_display').value =
+                    this.dataset.services || 0;
+
+                document.querySelector('[name="advance"]').value = this.dataset.advance;
 
                 calculateTotal();
 
@@ -1910,7 +1866,11 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
                 document.getElementById('advance').value
             ) || 0;
 
-        let subtotal = base + extra;
+        let services = parseFloat(
+            document.getElementById('additional_services')?.value || 0
+        ) || 0;
+
+        let subtotal = base + extra + services;
 
         let gstPercent =
             parseFloat(
@@ -1920,7 +1880,7 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
         let gst =
             subtotal * (gstPercent / 100);
 
-        let total = subtotal + gst - advance;
+        let total = subtotal + gst;
 
         document.getElementById('total_amount').value =
             total.toFixed(2);
@@ -1940,6 +1900,7 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
     document
         .getElementById('gst_percent')
         .addEventListener('input', calculateTotal);
+    calculateTotal();
 
 </script>
 <?php if ($hasError): ?>
