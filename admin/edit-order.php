@@ -63,9 +63,9 @@ if ($type === 'customer') {
             o.supervisor_id,
             o.rack_id,
 
-            NULL as base_price,
-            NULL as extra_charges,
-            NULL as total_amount,
+            o.base_price,
+            o.extra_charges,
+            o.total_amount,
 
             'admin' as order_type,
 
@@ -85,6 +85,13 @@ if ($type === 'customer') {
 
 $stmt->execute([$id]);
 $order = $stmt->fetch();
+$order_type = 'inhouse';
+
+if (($type ?? 'admin') === 'customer') {
+    $order_type = 'customer';
+} else {
+    $order_type = 'inhouse';
+}
 // ===== HANDLE POST UPDATE =====
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -186,14 +193,19 @@ $employees = $pdo->query("
 $racks = $pdo->query("SELECT id, rack_name FROM racks WHERE status='active' ORDER BY rack_name ASC")->fetchAll();
 
 // ===== ADDITIONAL SERVICES =====
-$stmt = $pdo->prepare("
-    SELECT os.service_price, s.service_name 
-    FROM order_services os
-    JOIN services s ON os.service_id = s.id
-    WHERE os.order_id = ?
-");
-$stmt->execute([$id]);
-$order_services = $stmt->fetchAll();
+if ($order_type === 'customer') {
+    $order_services = [];
+} else {
+    $stmt = $pdo->prepare("
+        SELECT os.service_price, s.service_name 
+        FROM order_services os
+        JOIN services s ON os.service_id = s.id
+        WHERE os.order_id = ?
+        AND os.order_type = ?
+    ");
+    $stmt->execute([$id, $order_type]);
+    $order_services = $stmt->fetchAll();
+}
 
 $pageTitle = "Edit Order #" . $order['order_code'] . " - Sogasu";
 $activePage = "orders";

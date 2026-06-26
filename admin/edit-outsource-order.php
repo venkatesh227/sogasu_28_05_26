@@ -84,6 +84,7 @@ if ($type === 'customer') {
 
 $stmt->execute([$id]);
 $order = $stmt->fetch();
+$order_type = 'outsource';
 // ===== HANDLE POST UPDATE =====
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -116,15 +117,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (($order['order_type'] ?? '') === 'customer') {
 
             $stmt = $pdo->prepare("
-        UPDATE customer_orders
-        SET assigned_employee_id = ?, 
-            status = ?, 
-            additional_notes = ?,
-            status_history = ?,
-            rack_id = ?,
-            updated_at = NOW()
-        WHERE id = ?
-    ");
+                UPDATE customer_orders
+                SET assigned_employee_id = ?, 
+                    status = ?, 
+                    additional_notes = ?,
+                    status_history = ?,
+                    rack_id = ?,
+                    updated_at = NOW()
+                WHERE id = ?
+            ");
 
             $stmt->execute([
                 $assigned_id,
@@ -138,13 +139,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
 
             $stmt = $pdo->prepare("
-        UPDATE outsource_orders 
-        SET assigned_employee_id = ?, 
-            order_status = ?, 
-            notes = ?,
-            rack_id = ?
-        WHERE id = ?
-    ");
+                UPDATE outsource_orders 
+                SET assigned_employee_id = ?, 
+                    order_status = ?, 
+                    notes = ?,
+                    rack_id = ?
+                WHERE id = ?
+            ");
 
             $stmt->execute([
                 $assigned_id,
@@ -183,13 +184,16 @@ $employees = $pdo->query("
 $racks = $pdo->query("SELECT id, rack_name FROM racks WHERE status='active' ORDER BY rack_name ASC")->fetchAll();
 
 // ===== ADDITIONAL SERVICES =====
+$order_type = 'outsource';
+
 $stmt = $pdo->prepare("
     SELECT os.service_price, s.service_name 
     FROM order_services os
     JOIN services s ON os.service_id = s.id
     WHERE os.order_id = ?
+    AND os.order_type = ?
 ");
-$stmt->execute([$id]);
+$stmt->execute([$id, $order_type]);
 $order_services = $stmt->fetchAll();
 
 $pageTitle = "Edit Order #" . $order['order_code'] . " - Sogasu";

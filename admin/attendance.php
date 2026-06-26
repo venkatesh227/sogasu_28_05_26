@@ -2,8 +2,8 @@
 session_start();
 include '../includes/db.php';
 
-$month = isset($_GET['month']) ? (int)$_GET['month'] : (int)date('m');
-$year = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
+$month = isset($_GET['month']) ? (int) $_GET['month'] : (int) date('m');
+$year = isset($_GET['year']) ? (int) $_GET['year'] : (int) date('Y');
 $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
 
 // Days in month
@@ -29,50 +29,117 @@ $employees = $stmt->fetchAll();
 
 // ================= AUTO ABSENT LOGIC START =================
 $today = date('Y-m-d');
-$currentTime = date('H:i:s');
+$processDate = $today;
+$currentTime = time();
 
-foreach ($employees as $emp) {
-    $employeeId = $emp['id'];
+$selectedMonth = (int) $month;
+$selectedYear = (int) $year;
+$currentMonth = (int) date('n');
+$currentYear = (int) date('Y');
+if ($selectedMonth == $currentMonth && $selectedYear == $currentYear) {
+    $datesToCheck = [];
 
-    // Get today's shift for employee
-    $shiftStmt = $pdo->prepare("
-        SELECT st.start_time, st.end_time, st.max_checkin
-        FROM shift_roster sr
-        JOIN shift_types st ON sr.shift_type_id = st.id
-        WHERE sr.employee_id = ?
-        AND sr.roster_date = ?
+            if ($selectedMonth == $currentMonth && $selectedYear == $currentYear) {
+                for ($d = 1; $d <= date('j'); $d++) {
+                    $datesToCheck[] = sprintf('%04d-%02d-%02d', $currentYear, $currentMonth, $d);
+                }
+            } else {
+                for ($d = 1; $d <= $days_in_month; $d++) {
+                    $datesToCheck[] = sprintf('%04d-%02d-%02d', $selectedYear, $selectedMonth, $d);
+                }
+            }
+
+    foreach ($employees as $emp) {
+        foreach ($datesToCheck as $processDate) {
+            
+            $employeeId = $emp['id'];
+
+            $isSunday = (date('N', strtotime($processDate)) == 7);
+
+            // Checking whether the sunday is shift assigned or not
+            if ($isSunday) {
+                $checkSundayShift = $pdo->prepare("
+        SELECT id 
+        FROM shift_roster 
+        WHERE employee_id = ? 
+        AND DATE(roster_date) = ?
         LIMIT 1
     ");
-    $shiftStmt->execute([$employeeId, $today]);
-    $shift = $shiftStmt->fetch(PDO::FETCH_ASSOC);
+                $checkSundayShift->execute([$employeeId, $processDate]);
 
-    if (!$shift) {
-        continue; // no shift assigned
-    }
+                // No shift assigned → holiday, skip as before
+                if (!$checkSundayShift->fetch()) {
+                    continue;
+                }
+            }
 
-    // Calculate absent cutoff time
-    $cutoffTime = date(
-        'H:i:s',
-        strtotime($shift['start_time'] . " +{$shift['max_checkin']} hours")
-    );
+            // Get today's shift for employee
+            $shiftStmt = $pdo->prepare("
+    SELECT 
+        st.start_time, 
+        st.end_time, 
+        st.max_checkin,
+        sr.roster_date
+    FROM shift_roster sr
+    JOIN shift_types st ON sr.shift_type_id = st.id
+    WHERE sr.employee_id = ?
+    AND DATE(sr.roster_date) = ?
+    LIMIT 1
+");
+            $shiftStmt->execute([$employeeId, $processDate]);
+            $shift = $shiftStmt->fetch(PDO::FETCH_ASSOC);
 
-    // If current time crossed cutoff
-    if ($currentTime > $shift['end_time']) {
+            // Fallback: use employee default shift if roster not found
+            if (!$shift) {
+                $fallbackStmt = $pdo->prepare("
+        SELECT st.start_time, st.end_time, st.max_checkin
+        FROM employees e
+        JOIN shift_types st ON e.default_shift_id = st.id
+        WHERE e.id = ?
+        LIMIT 1
+    ");
+                $fallbackStmt->execute([$employeeId]);
+                $shift = $fallbackStmt->fetch(PDO::FETCH_ASSOC);
+            }
 
-        // Check if attendance already exists
-        $attendanceCheck = $pdo->prepare("
-            SELECT id
-            FROM attendance
-            WHERE employee_id = ?
-            AND attendance_date = ?
-            LIMIT 1
-        ");
-        $attendanceCheck->execute([$employeeId, $today]);
+            if (!$shift) {
+                error_log("No shift found for employee: " . $employeeId . " on " . $processDate);
+                continue;
+            }
 
-        if (!$attendanceCheck->fetch()) {
+            // Calculate absent cutoff time
+            $cutoffTime = date(
+                'H:i:s',
+                strtotime($shift['start_time'] . " +{$shift['max_checkin']} hours")
+            );
 
-            // Insert absent record
-            $insertAbsent = $pdo->prepare("
+            // If current time crossed cutoff
+            $shiftStartTime = strtotime($processDate . ' ' . $shift['start_time']);
+            $shiftEndTime = strtotime($processDate . ' ' . $shift['end_time']);
+
+            // Night shift handling (example 22:00 to 06:00)
+            if ($shift['end_time'] <= $shift['start_time']) {
+                $shiftEndTime = strtotime($processDate . ' ' . $shift['end_time'] . ' +1 day');
+            }
+
+            if ($currentTime > $shiftEndTime && $currentTime >= $shiftStartTime) {
+
+                // Check if attendance already exists
+                $attendanceCheck = $pdo->prepare("
+                SELECT id, check_in
+                FROM attendance
+                WHERE employee_id = ?
+                AND attendance_date = ?
+                LIMIT 1
+            ");
+                $attendanceCheck->execute([$employeeId, $processDate]);
+
+                $attendance = $attendanceCheck->fetch(PDO::FETCH_ASSOC);
+
+                if (!$attendance) {
+
+                    // Insert absent record
+                    $insertAbsent = $pdo->prepare("
                 INSERT INTO attendance (
                     employee_id,
                     attendance_date,
@@ -80,7 +147,14 @@ foreach ($employees as $emp) {
                 ) VALUES (?, ?, 'Absent')
             ");
 
-            $insertAbsent->execute([$employeeId, $today]);
+                    $result = $insertAbsent->execute([$employeeId, $processDate]);
+
+                    if (!$result) {
+                        print_r($insertAbsent->errorInfo());
+                        exit;
+                    }
+                }
+            }
         }
     }
 }
@@ -98,7 +172,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'bulk_mark_attendance') {
         $year = $_POST['year'];
         $month = $_POST['month'];
         $attendance_date = $_POST['attendance_date'];
-        
+
         $check_in = $_POST['check_in'];
         $check_out = $_POST['check_out'];
         $in_loc = $_POST['check_in_location'];
@@ -137,8 +211,25 @@ if (isset($_POST['action']) && $_POST['action'] === 'bulk_mark_attendance') {
         foreach ($employee_ids as $emp_id) {
             foreach ($dates as $date) {
                 $stmt->execute([
-                    $emp_id, $date, $status, $check_in, $check_out, $in_loc, $out_loc, $work_from, $is_late, $is_half_day,
-                    $overwrite, $status, $overwrite, $overwrite, $overwrite, $overwrite, $overwrite, $overwrite, $overwrite
+                    $emp_id,
+                    $date,
+                    $status,
+                    $check_in,
+                    $check_out,
+                    $in_loc,
+                    $out_loc,
+                    $work_from,
+                    $is_late,
+                    $is_half_day,
+                    $overwrite,
+                    $status,
+                    $overwrite,
+                    $overwrite,
+                    $overwrite,
+                    $overwrite,
+                    $overwrite,
+                    $overwrite,
+                    $overwrite
                 ]);
             }
         }
@@ -160,14 +251,41 @@ include 'includes/header.php';
 ?>
 
 <style>
-    .att-icon { font-size: 0.9rem; }
-    .status-Present { color: #059669; } /* Green Check */
-    .status-Absent { color: #ef4444; }  /* Red X */
-    .status-Late { color: #d97706; }    /* Yellow ! */
-    .status-HalfDay { color: #f59e0b; } /* Orange Star */
-    .status-OnLeave { color: #7c3aed; } /* Purple Plane */
-    .status-Holiday { color: #3b82f6; } /* Blue Star */
-    
+    .att-icon {
+        font-size: 0.9rem;
+    }
+
+    .status-Present {
+        color: #059669;
+    }
+
+    /* Green Check */
+    .status-Absent {
+        color: #ef4444;
+    }
+
+    /* Red X */
+    .status-Late {
+        color: #d97706;
+    }
+
+    /* Yellow ! */
+    .status-HalfDay {
+        color: #f59e0b;
+    }
+
+    /* Orange Star */
+    .status-OnLeave {
+        color: #7c3aed;
+    }
+
+    /* Purple Plane */
+    .status-Holiday {
+        color: #3b82f6;
+    }
+
+    /* Blue Star */
+
     .grid-cell {
         width: 30px;
         height: 40px;
@@ -178,8 +296,15 @@ include 'includes/header.php';
         font-size: 0.75rem;
     }
 
-    .emp-row-link:hover .emp-row-avatar { transform: scale(1.08); background: #4f46e5 !important; color: white !important; }
-    .emp-row-link:hover i { opacity: 1 !important; }
+    .emp-row-link:hover .emp-row-avatar {
+        transform: scale(1.08);
+        background: #4f46e5 !important;
+        color: white !important;
+    }
+
+    .emp-row-link:hover i {
+        opacity: 1 !important;
+    }
 </style>
 
 <main class="main-content">
@@ -187,22 +312,25 @@ include 'includes/header.php';
 
     <!-- Standard Header Area -->
     <div style="display: flex; flex-direction: column; gap: 1.5rem; width: 100%; max-width: 100%; overflow: hidden;">
-        
+
         <!-- Standard Header -->
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
                 <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;">Attendance Analytics</h2>
-                <p style="color: #64748b; margin-top: 0.25rem;">Monitor staff presence, late arrivals, and leave patterns in real-time.</p>
+                <p style="color: #64748b; margin-top: 0.25rem;">Monitor staff presence, late arrivals, and leave
+                    patterns in real-time.</p>
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <button onclick="showMarkAttendanceModal()" class="btn btn-primary" style="background: #4f46e5; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; color: white; display: inline-flex; align-items: center; gap: 0.5rem;">
+                <button onclick="showMarkAttendanceModal()" class="btn btn-primary"
+                    style="background: #4f46e5; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; color: white; display: inline-flex; align-items: center; gap: 0.5rem;">
                     <i class="ri-add-line"></i> Mark Attendance
                 </button>
             </div>
         </div>
 
         <!-- Filter Bar -->
-        <div class="table-container" style="padding: 1.25rem; margin-top: 0; display: flex; gap: 2rem; align-items: center; flex-wrap: wrap;">
+        <div class="table-container"
+            style="padding: 1.25rem; margin-top: 0; display: flex; gap: 2rem; align-items: center; flex-wrap: wrap;">
             <div class="filter-item">
                 <span class="label">Department</span>
                 <select onchange="window.location.href='?month=<?= $month ?>&year=<?= $year ?>&role='+this.value">
@@ -215,57 +343,107 @@ include 'includes/header.php';
             <div class="filter-item">
                 <span class="label">Timeline</span>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <select onchange="window.location.href='?month='+this.value+'&year=<?= $year ?>&role=<?= $role_filter ?>'">
-                        <?php for($m=1; $m<=12; $m++): ?>
-                            <option value="<?= $m ?>" <?= $month == $m ? 'selected' : '' ?>><?= date('F', mktime(0, 0, 0, $m, 1)) ?></option>
+                    <select
+                        onchange="window.location.href='?month='+this.value+'&year=<?= $year ?>&role=<?= $role_filter ?>'">
+                        <?php for ($m = 1; $m <= 12; $m++): ?>
+                            <option value="<?= $m ?>" <?= $month == $m ? 'selected' : '' ?>>
+                                <?= date('F', mktime(0, 0, 0, $m, 1)) ?>
+                            </option>
                         <?php endfor; ?>
                     </select>
-                    <select onchange="window.location.href='?month=<?= $month ?>&year='+this.value+'&role=<?= $role_filter ?>'">
-                        <?php for($y=2024; $y<=2030; $y++): ?>
+                    <select
+                        onchange="window.location.href='?month=<?= $month ?>&year='+this.value+'&role=<?= $role_filter ?>'">
+                        <?php for ($y = 2024; $y <= 2030; $y++): ?>
                             <option value="<?= $y ?>" <?= $year == $y ? 'selected' : '' ?>><?= $y ?></option>
                         <?php endfor; ?>
                     </select>
                 </div>
             </div>
-            
+
             <div style="flex: 1;"></div>
 
             <!-- Legend -->
             <div class="attendance-legend">
-                <div class="legend-item"><i class="ri-checkbox-circle-fill" style="color: var(--success);"></i> <span>Present</span></div>
-                <div class="legend-item"><i class="ri-close-circle-fill" style="color: var(--danger);"></i> <span>Absent</span></div>
-                <div class="legend-item"><i class="ri-error-warning-fill" style="color: var(--warning);"></i> <span>Late</span></div>
+                <div class="legend-item"><i class="ri-checkbox-circle-fill" style="color: var(--success);"></i>
+                    <span>Present</span>
+                </div>
+                <div class="legend-item"><i class="ri-close-circle-fill" style="color: var(--danger);"></i>
+                    <span>Absent</span>
+                </div>
+                <div class="legend-item"><i class="ri-error-warning-fill" style="color: var(--warning);"></i>
+                    <span>Late</span>
+                </div>
                 <div class="legend-item"><i class="ri-plane-fill" style="color: #7c3aed;"></i> <span>Leave</span></div>
             </div>
         </div>
 
         <style>
-            .filter-item { display: flex; flex-direction: column; gap: 0.25rem; }
-            .filter-item .label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
-            .filter-item select { border: none; background: transparent; font-weight: 700; color: var(--text-dark); outline: none; cursor: pointer; font-size: 1rem; }
-            
-            .attendance-legend { display: flex; gap: 1rem; background: #f8fafc; padding: 0.5rem 1rem; border-radius: 12px; }
-            .legend-item { display: flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); }
-            
+            .filter-item {
+                display: flex;
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+
+            .filter-item .label {
+                font-size: 0.75rem;
+                font-weight: 700;
+                color: var(--text-muted);
+                text-transform: uppercase;
+            }
+
+            .filter-item select {
+                border: none;
+                background: transparent;
+                font-weight: 700;
+                color: var(--text-dark);
+                outline: none;
+                cursor: pointer;
+                font-size: 1rem;
+            }
+
+            .attendance-legend {
+                display: flex;
+                gap: 1rem;
+                background: #f8fafc;
+                padding: 0.5rem 1rem;
+                border-radius: 12px;
+            }
+
+            .legend-item {
+                display: flex;
+                align-items: center;
+                gap: 0.25rem;
+                font-size: 0.75rem;
+                font-weight: 700;
+                color: var(--text-muted);
+            }
+
             .att-grid-table {
                 width: max-content !important;
                 min-width: 100% !important;
                 table-layout: fixed !important;
             }
-            .att-grid-table th, .att-grid-table td {
+
+            .att-grid-table th,
+            .att-grid-table td {
                 padding: 6px 4px !important;
                 font-size: 0.75rem !important;
                 text-align: center !important;
                 height: 48px;
                 vertical-align: middle;
             }
-            .att-grid-table th:not(.sticky-col):not(.score-col), .att-grid-table td:not(.sticky-col):not(.score-col) {
+
+            .att-grid-table th:not(.sticky-col):not(.score-col),
+            .att-grid-table td:not(.sticky-col):not(.score-col) {
                 width: 38px !important;
                 min-width: 38px !important;
                 max-width: 38px !important;
             }
-            .att-icon { font-size: 1rem; }
-            
+
+            .att-icon {
+                font-size: 1rem;
+            }
+
             .sticky-col {
                 position: sticky;
                 left: 0;
@@ -277,7 +455,13 @@ include 'includes/header.php';
                 max-width: 200px !important;
                 text-align: left !important;
             }
-            .sticky-header { position: sticky; top: 0; z-index: 10; }
+
+            .sticky-header {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+            }
+
             .score-col {
                 width: 70px !important;
                 min-width: 70px !important;
@@ -292,11 +476,11 @@ include 'includes/header.php';
                     <thead class="sticky-header">
                         <tr>
                             <th class="sticky-col">Employee</th>
-                            <?php for($d=1; $d<=$days_in_month; $d++): 
+                            <?php for ($d = 1; $d <= $days_in_month; $d++):
                                 $date_obj = mktime(0, 0, 0, $month, $d, $year);
                                 $day_name = date('D', $date_obj);
                                 $is_weekend = ($day_name == 'Sun');
-                            ?>
+                                ?>
                                 <th style="background: <?= $is_weekend ? '#fff1f2' : '#f8fafc' ?>;">
                                     <div style="font-size: 0.8rem; font-weight: 700;"><?= $d ?></div>
                                     <div style="font-size: 0.65rem; opacity: 0.6;"><?= $day_name ?></div>
@@ -306,41 +490,64 @@ include 'includes/header.php';
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($employees as $emp): 
+                        <?php foreach ($employees as $emp):
                             $present_count = 0;
-                        ?>
+                            ?>
                             <tr>
                                 <td class="sticky-col" style="text-align: left !important; padding: 0 !important;">
-                                    <a href="employee-attendance.php?id=<?= $emp['id'] ?>&month=<?= $month ?>&year=<?= $year ?>" class="emp-row-link" style="text-decoration: none; display: flex; align-items: center; gap: 0.75rem; padding: 6px 15px; color: inherit; width: 100%; height: 100%;" title="View Individual Calendar">
-                                        <div class="emp-row-avatar" style="width: 36px; height: 36px; border-radius: 50%; font-size: 0.8rem; background: #e0e7ff; color: #4f46e5; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s;">
+                                    <a href="employee-attendance.php?id=<?= $emp['id'] ?>&month=<?= $month ?>&year=<?= $year ?>"
+                                        class="emp-row-link"
+                                        style="text-decoration: none; display: flex; align-items: center; gap: 0.75rem; padding: 6px 15px; color: inherit; width: 100%; height: 100%;"
+                                        title="View Individual Calendar">
+                                        <div class="emp-row-avatar"
+                                            style="width: 36px; height: 36px; border-radius: 50%; font-size: 0.8rem; background: #e0e7ff; color: #4f46e5; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s;">
                                             <?= strtoupper(substr($emp['first_name'], 0, 1) . substr($emp['last_name'], 0, 1)) ?>
                                         </div>
                                         <div>
-                                            <div style="font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 0.25rem;">
+                                            <div
+                                                style="font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 0.25rem;">
                                                 <?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name']) ?>
-                                                <i class="ri-calendar-2-line" style="font-size: 0.85rem; color: #4f46e5; opacity: 0; transition: opacity 0.2s;" class="emp-cal-icon"></i>
+                                                <i class="ri-calendar-2-line"
+                                                    style="font-size: 0.85rem; color: #4f46e5; opacity: 0; transition: opacity 0.2s;"
+                                                    class="emp-cal-icon"></i>
                                             </div>
-                                            <div style="font-size: 0.7rem; color: #64748b;"><?= htmlspecialchars($emp['job_role']) ?></div>
+                                            <div style="font-size: 0.7rem; color: #64748b;">
+                                                <?= htmlspecialchars($emp['job_role']) ?>
+                                            </div>
                                         </div>
                                     </a>
                                 </td>
-                                <?php for($d=1; $d<=$days_in_month; $d++): 
+                                <?php for ($d = 1; $d <= $days_in_month; $d++):
                                     $status = $attendance[$emp['id']][$d] ?? null;
-                                    if ($status == 'Present') $present_count++;
-                                    $is_sun = date('N', mktime(0,0,0,$month,$d,$year)) == 7;
-                                ?>
+                                    if ($status == 'Present')
+                                        $present_count++;
+                                    $is_sun = date('N', mktime(0, 0, 0, $month, $d, $year)) == 7;
+                                    ?>
                                     <td>
                                         <?php if ($status): ?>
-                                            <?php if ($status == 'Present'): ?><i class="ri-checkbox-circle-fill att-icon" style="color: var(--success);"></i>
-                                            <?php elseif ($status == 'Absent'): ?><i class="ri-close-circle-fill att-icon" style="color: var(--danger);"></i>
-                                            <?php elseif ($status == 'Late'): ?><i class="ri-error-warning-fill att-icon" style="color: var(--warning);"></i>
-                                            <?php elseif ($status == 'Half Day'): ?><i class="ri-star-half-fill att-icon" style="color: #f59e0b;"></i>
-                                            <?php elseif ($status == 'On Leave'): ?><i class="ri-plane-fill att-icon" style="color: #7c3aed;"></i>
+                                            <?php if ($status == 'Present'): ?>
+                                                <i class="ri-checkbox-circle-fill att-icon" style="color: var(--success);"></i>
+
+                                            <?php elseif ($status == 'Absent'): ?>
+                                                <i class="ri-close-circle-fill att-icon" style="color: var(--danger);"></i>
+
+                                            <?php elseif ($status == 'Late'): ?>
+                                                <i class="ri-error-warning-fill att-icon" style="color: var(--warning);"></i>
+
+                                            <?php elseif ($status == 'Half Day'): ?>
+                                                <i class="ri-star-half-fill att-icon" style="color: #f59e0b;"></i>
+
+                                            <?php elseif ($status == 'On Leave'): ?>
+                                                <i class="ri-plane-fill att-icon" style="color: #7c3aed;"></i>
                                             <?php endif; ?>
-                                        <?php elseif ($is_sun): ?>
-                                            <i class="ri-calendar-event-line att-icon" style="color: var(--danger); opacity: 0.2;"></i>
+
                                         <?php else: ?>
-                                            <span style="color: #e2e8f0;">-</span>
+                                            <?php if ($is_sun): ?>
+                                                <i class="ri-calendar-event-line att-icon" style="color: var(--danger); opacity: 0.2;"
+                                                    title="Holiday"></i>
+                                            <?php else: ?>
+                                                <span style="color: #e2e8f0;">-</span>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     </td>
                                 <?php endfor; ?>
@@ -357,23 +564,31 @@ include 'includes/header.php';
 </main>
 
 <!-- Mark Attendance Modal -->
-<div id="markAttendanceModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1001; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
-    <div class="table-container animate-fade-in" style="width: 850px; padding: 0 !important; background: white !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important; overflow: hidden;">
-        <div style="padding: 1.5rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.5);">
-            <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--text-dark);">Mark Staff Attendance</h3>
-            <button onclick="closeMarkAttendanceModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.5rem;"><i class="ri-close-line"></i></button>
+<div id="markAttendanceModal"
+    style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1001; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
+    <div class="table-container animate-fade-in"
+        style="width: 850px; padding: 0 !important; background: white !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important; overflow: hidden;">
+        <div
+            style="padding: 1.5rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.5);">
+            <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--text-dark);">Mark Staff Attendance
+            </h3>
+            <button onclick="closeMarkAttendanceModal()"
+                style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.5rem;"><i
+                    class="ri-close-line"></i></button>
         </div>
 
         <div style="padding: 2.5rem; max-height: 85vh; overflow-y: auto;">
             <form id="markAttendanceForm" onsubmit="event.preventDefault(); submitMarkAttendance()">
-                
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
                     <div class="form-group-p">
                         <label>Department / Role</label>
                         <select onchange="filterEmployeesByRole(this.value)" class="premium-input">
                             <option value="">All Departments</option>
                             <?php foreach ($roles as $role): ?>
-                                <option value="<?= htmlspecialchars($role['role_name']) ?>"><?= htmlspecialchars($role['role_name']) ?></option>
+                                <option value="<?= htmlspecialchars($role['role_name']) ?>">
+                                    <?= htmlspecialchars($role['role_name']) ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -382,7 +597,8 @@ include 'includes/header.php';
                         <select name="employee_id" id="employee-dropdown" class="premium-input">
                             <option value="all">All Visible Employees</option>
                             <?php foreach ($employees as $e): ?>
-                                <option class="emp-option" value="<?= $e['id'] ?>" data-role="<?= htmlspecialchars($e['job_role']) ?>">
+                                <option class="emp-option" value="<?= $e['id'] ?>"
+                                    data-role="<?= htmlspecialchars($e['job_role']) ?>">
                                     <?= htmlspecialchars($e['first_name'] . ' ' . $e['last_name']) ?>
                                 </option>
                             <?php endforeach; ?>
@@ -390,19 +606,22 @@ include 'includes/header.php';
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 2rem; margin-bottom: 2rem; align-items: center;">
+                <div
+                    style="display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 2rem; margin-bottom: 2rem; align-items: center;">
                     <div class="form-group-p">
                         <label>Range Type</label>
                         <div class="radio-group-p">
-                            <label><input type="radio" name="mark_by" value="Month" checked onchange="toggleMarkBy(this.value)"> <span>Month</span></label>
-                            <label><input type="radio" name="mark_by" value="Date" onchange="toggleMarkBy(this.value)"> <span>Date</span></label>
+                            <label><input type="radio" name="mark_by" value="Month" checked
+                                    onchange="toggleMarkBy(this.value)"> <span>Month</span></label>
+                            <label><input type="radio" name="mark_by" value="Date" onchange="toggleMarkBy(this.value)">
+                                <span>Date</span></label>
                         </div>
                     </div>
                     <div id="mark-by-month-group" style="display: flex; gap: 1rem;">
                         <div style="flex: 1;">
                             <label class="label-p">Year</label>
                             <select name="year" class="premium-input">
-                                <?php for($y=2024; $y<=2030; $y++): ?>
+                                <?php for ($y = 2024; $y <= 2030; $y++): ?>
                                     <option value="<?= $y ?>" <?= $year == $y ? 'selected' : '' ?>><?= $y ?></option>
                                 <?php endfor; ?>
                             </select>
@@ -410,8 +629,10 @@ include 'includes/header.php';
                         <div style="flex: 1.5;">
                             <label class="label-p">Month</label>
                             <select name="month" class="premium-input">
-                                <?php for($m=1; $m<=12; $m++): ?>
-                                    <option value="<?= $m ?>" <?= $month == $m ? 'selected' : '' ?>><?= date('F', mktime(0, 0, 0, $m, 1)) ?></option>
+                                <?php for ($m = 1; $m <= 12; $m++): ?>
+                                    <option value="<?= $m ?>" <?= $month == $m ? 'selected' : '' ?>>
+                                        <?= date('F', mktime(0, 0, 0, $m, 1)) ?>
+                                    </option>
                                 <?php endfor; ?>
                             </select>
                         </div>
@@ -432,13 +653,16 @@ include 'includes/header.php';
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-bottom: 2.5rem; background: #f8fafc; padding: 1.5rem; border-radius: 16px;">
+                <div
+                    style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-bottom: 2.5rem; background: #f8fafc; padding: 1.5rem; border-radius: 16px;">
                     <div class="form-group-p">
                         <label>Shift Timing</label>
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="time" name="check_in" value="09:00" class="premium-input" style="padding: 0.5rem;">
+                            <input type="time" name="check_in" value="09:00" class="premium-input"
+                                style="padding: 0.5rem;">
                             <span>to</span>
-                            <input type="time" name="check_out" value="18:00" class="premium-input" style="padding: 0.5rem;">
+                            <input type="time" name="check_out" value="18:00" class="premium-input"
+                                style="padding: 0.5rem;">
                         </div>
                     </div>
                     <div class="form-group-p">
@@ -449,17 +673,24 @@ include 'includes/header.php';
                             <option value="On-Site">On-Site Client</option>
                         </select>
                     </div>
-                    <div class="form-group-p" style="display: flex; align-items: center; justify-content: center; padding-top: 1.5rem;">
-                        <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-weight: 700;">
-                            <input type="checkbox" name="overwrite" value="1" style="width: 20px; height: 20px; accent-color: var(--primary);">
+                    <div class="form-group-p"
+                        style="display: flex; align-items: center; justify-content: center; padding-top: 1.5rem;">
+                        <label
+                            style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-weight: 700;">
+                            <input type="checkbox" name="overwrite" value="1"
+                                style="width: 20px; height: 20px; accent-color: var(--primary);">
                             <span>Overwrite Existing</span>
                         </label>
                     </div>
                 </div>
 
-                <div style="display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid #f1f5f9; padding-top: 2rem;">
-                    <button type="button" onclick="closeMarkAttendanceModal()" class="btn btn-light" style="padding: 10px 20px; font-weight: 600; border-radius: 8px; background: white; border: 1px solid #e2e8f0; color: #475569;">Cancel</button>
-                    <button type="submit" class="btn btn-primary" style="background: #4f46e5; border: none; padding: 10px 30px; border-radius: 8px; font-weight: 600; color: white;">Submit Attendance</button>
+                <div
+                    style="display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid #f1f5f9; padding-top: 2rem;">
+                    <button type="button" onclick="closeMarkAttendanceModal()" class="btn btn-light"
+                        style="padding: 10px 20px; font-weight: 600; border-radius: 8px; background: white; border: 1px solid #e2e8f0; color: #475569;">Cancel</button>
+                    <button type="submit" class="btn btn-primary"
+                        style="background: #4f46e5; border: none; padding: 10px 30px; border-radius: 8px; font-weight: 600; color: white;">Submit
+                        Attendance</button>
                 </div>
             </form>
         </div>
@@ -467,66 +698,111 @@ include 'includes/header.php';
 </div>
 
 <style>
-    .form-group-p { display: flex; flex-direction: column; gap: 0.5rem; }
-    .form-group-p label, .label-p { font-size: 0.75rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-    .premium-input { width: 100%; padding: 0.8rem 1rem; border: 1px solid #e2e8f0; border-radius: 12px; outline: none; transition: all 0.2s; background: white; font-size: 0.95rem; font-weight: 600; }
-    .premium-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
-    
-    .radio-group-p { display: flex; gap: 1.5rem; padding: 0.5rem 0; }
-    .radio-group-p label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; text-transform: none; color: var(--text-dark); font-size: 0.9rem; }
-    .radio-group-p input { width: 18px; height: 18px; accent-color: var(--primary); }
+    .form-group-p {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .form-group-p label,
+    .label-p {
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .premium-input {
+        width: 100%;
+        padding: 0.8rem 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        outline: none;
+        transition: all 0.2s;
+        background: white;
+        font-size: 0.95rem;
+        font-weight: 600;
+    }
+
+    .premium-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+    }
+
+    .radio-group-p {
+        display: flex;
+        gap: 1.5rem;
+        padding: 0.5rem 0;
+    }
+
+    .radio-group-p label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        text-transform: none;
+        color: var(--text-dark);
+        font-size: 0.9rem;
+    }
+
+    .radio-group-p input {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--primary);
+    }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-function showMarkAttendanceModal() { document.getElementById('markAttendanceModal').style.display = 'flex'; }
-function closeMarkAttendanceModal() { document.getElementById('markAttendanceModal').style.display = 'none'; }
+    function showMarkAttendanceModal() { document.getElementById('markAttendanceModal').style.display = 'flex'; }
+    function closeMarkAttendanceModal() { document.getElementById('markAttendanceModal').style.display = 'none'; }
 
-function filterEmployeesByRole(role) {
-    const dropdown = document.getElementById('employee-dropdown');
-    const options = dropdown.querySelectorAll('.emp-option');
-    dropdown.value = 'all';
-    options.forEach(opt => opt.style.display = (!role || opt.dataset.role === role) ? 'block' : 'none');
-}
-
-function toggleMarkBy(val) {
-    document.getElementById('mark-by-month-group').style.display = (val === 'Month' ? 'flex' : 'none');
-    document.getElementById('mark-by-date-group').style.display = (val === 'Date' ? 'block' : 'none');
-}
-
-function submitMarkAttendance() {
-    const form = document.getElementById('markAttendanceForm');
-    const formData = new FormData(form);
-    const employee_id = document.getElementById('employee-dropdown').value;
-    const params = new URLSearchParams(formData);
-    params.set('action', 'bulk_mark_attendance');
-    
-    if (employee_id === 'all') {
-        const visibleIds = Array.from(document.querySelectorAll('.emp-option'))
-            .filter(opt => opt.style.display !== 'none')
-            .map(opt => opt.value);
-        params.set('employee_ids', visibleIds.join(','));
-    } else {
-        params.set('employee_ids', employee_id);
+    function filterEmployeesByRole(role) {
+        const dropdown = document.getElementById('employee-dropdown');
+        const options = dropdown.querySelectorAll('.emp-option');
+        dropdown.value = 'all';
+        options.forEach(opt => opt.style.display = (!role || opt.dataset.role === role) ? 'block' : 'none');
     }
 
-    fetch('attendance.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString()
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            Swal.fire({ icon: 'success', title: 'Attendance Marked', text: 'Entries processed successfully', timer: 1500, showConfirmButton: false })
-            .then(() => location.reload());
-        } else {
-            Swal.fire('Error', data.error || 'Submission failed', 'error');
-        }
-    });
-}
+    function toggleMarkBy(val) {
+        document.getElementById('mark-by-month-group').style.display = (val === 'Month' ? 'flex' : 'none');
+        document.getElementById('mark-by-date-group').style.display = (val === 'Date' ? 'block' : 'none');
+    }
 
-window.onclick = e => { if (e.target == document.getElementById('markAttendanceModal')) closeMarkAttendanceModal(); }
+    function submitMarkAttendance() {
+        const form = document.getElementById('markAttendanceForm');
+        const formData = new FormData(form);
+        const employee_id = document.getElementById('employee-dropdown').value;
+        const params = new URLSearchParams(formData);
+        params.set('action', 'bulk_mark_attendance');
+
+        if (employee_id === 'all') {
+            const visibleIds = Array.from(document.querySelectorAll('.emp-option'))
+                .filter(opt => opt.style.display !== 'none')
+                .map(opt => opt.value);
+            params.set('employee_ids', visibleIds.join(','));
+        } else {
+            params.set('employee_ids', employee_id);
+        }
+
+        fetch('attendance.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({ icon: 'success', title: 'Attendance Marked', text: 'Entries processed successfully', timer: 1500, showConfirmButton: false })
+                        .then(() => location.reload());
+                } else {
+                    Swal.fire('Error', data.error || 'Submission failed', 'error');
+                }
+            });
+    }
+
+    window.onclick = e => { if (e.target == document.getElementById('markAttendanceModal')) closeMarkAttendanceModal(); }
 </script>
 
 <?php include 'includes/footer.php'; ?>

@@ -62,12 +62,30 @@ $shiftStmt = $pdo->prepare("
 $shiftStmt->execute([$employee_id, $today]);
 $today_shift = $shiftStmt->fetch();
 
+/*
+Priority:
+1. Manual roster / approved request
+2. Default employee shift fallback
+*/
+if (!$today_shift) {
+    $defaultShiftStmt = $pdo->prepare("
+        SELECT st.*
+        FROM employees e
+        JOIN shift_types st ON e.default_shift_id = st.id
+        WHERE e.id = ?
+          AND e.is_deleted = 0
+    ");
+    $defaultShiftStmt->execute([$employee_id]);
+    $today_shift = $defaultShiftStmt->fetch();
+}
+
 // Handle Punch In/Out 
 if (isset($_POST['action'])) {
     header('Content-Type: application/json');
     $action = $_POST['action'];
     $time = date('H:i:s');
     $log_type = ($action === 'punch_in') ? 'In' : 'Out';
+    $status = 'Present';
 
     // Check shift if punching in  
     if ($action === 'punch_in') {
@@ -84,6 +102,23 @@ if (isset($_POST['action'])) {
         // NEW: Block punch-in after shift end time
         $currentDateTime = new DateTime();
         $shiftEndDateTime = new DateTime($today . ' ' . $today_shift['end_time']);
+
+        $shiftStartDateTime = new DateTime($today . ' ' . $today_shift['start_time']);
+
+        // For night shift (example 22:00 to 06:00), don't block wrongly
+        if ($today_shift['end_time'] <= $today_shift['start_time']) {
+            $shiftEndDateTime->modify('+1 day');
+        }
+
+        // Block if current time is before shift start
+        if ($currentDateTime < $shiftStartDateTime) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Punch-in not allowed before shift start time (' .
+                    date('h:i A', strtotime($today_shift['start_time'])) . ').'
+            ]);
+            exit;
+        }
 
         /*
           Handle overnight shifts
@@ -103,6 +138,35 @@ if (isset($_POST['action'])) {
             ]);
             exit;
         }
+        $status = 'Present';
+
+        $shiftStart = new DateTime($today . ' ' . $today_shift['start_time']);
+        $graceEnd = clone $shiftStart;
+        $graceEnd->modify('+15 minutes');
+
+        $currentDateTime = new DateTime();
+        $isLate = ($currentDateTime > $graceEnd);
+        $lateCount = 0;
+
+        if ($isLate) {
+            $lateStmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM attendance
+        WHERE employee_id = ?
+          AND MONTH(attendance_date) = MONTH(CURDATE())
+          AND YEAR(attendance_date) = YEAR(CURDATE())
+          AND status IN ('Late', 'Half Day')
+    ");
+            $lateStmt->execute([$employee_id]);
+            $lateCount = $lateStmt->fetchColumn();
+        }
+        if ($isLate) {
+            if ($lateCount < 2) {
+                $status = 'Late';
+            } else {
+                $status = 'Half Day';
+            }
+        }
     }
 
     try {
@@ -114,10 +178,14 @@ if (isset($_POST['action'])) {
 
         // 2. Update/Insert Summary in attendance table   
         if ($action === 'punch_in') {
-            $stmt = $pdo->prepare("INSERT INTO attendance (employee_id, attendance_date, status, check_in, working_from) 
-                                 VALUES (?, ?, 'Present', ?, 'Office') 
-                                 ON DUPLICATE KEY UPDATE status = 'Present'");
-            $stmt->execute([$employee_id, $today, $time]);
+            $stmt = $pdo->prepare("
+                INSERT INTO attendance (employee_id, attendance_date, status, check_in, working_from) 
+                VALUES (?, ?, ?, ?, 'Office') 
+                ON DUPLICATE KEY UPDATE
+                status = VALUES(status),
+                check_in = VALUES(check_in)
+            ");
+            $stmt->execute([$employee_id, $today, $status, $time]);
         } else {
             $stmt = $pdo->prepare("UPDATE attendance SET check_out = ? WHERE employee_id = ? AND attendance_date = ?");
             $stmt->execute([$time, $employee_id, $today]);
@@ -210,15 +278,18 @@ include 'includes/header.php';
                 style="padding: 1rem; display: flex; justify-content: space-between; align-items: center; <?= $index < count($history) - 1 ? 'border-bottom: 1px solid #f1f5f9;' : '' ?>">
                 <div>
                     <div style="font-weight: 600; color: #1e293b; font-size: 0.9rem;">
-                        <?= date('d M, Y', strtotime($log['attendance_date'])) ?></div>
+                        <?= date('d M, Y', strtotime($log['attendance_date'])) ?>
+                    </div>
                     <div style="font-size: 0.75rem; color: #94a3b8;">Status: <span
                             style="color: #059669; font-weight: 600;"><?= $log['status'] ?></span></div>
                 </div>
                 <div style="text-align: right;">
                     <div style="font-size: 0.8rem; font-weight: 700; color: #475569;">
-                        <?= $log['check_in'] ? date('h:i A', strtotime($log['check_in'])) : '-' ?></div>
+                        <?= $log['check_in'] ? date('h:i A', strtotime($log['check_in'])) : '-' ?>
+                    </div>
                     <div style="font-size: 0.8rem; font-weight: 700; color: #94a3b8;">
-                        <?= $log['check_out'] ? date('h:i A', strtotime($log['check_out'])) : '-' ?></div>
+                        <?= $log['check_out'] ? date('h:i A', strtotime($log['check_out'])) : '-' ?>
+                    </div>
                 </div>
             </div>
         <?php endforeach; ?>

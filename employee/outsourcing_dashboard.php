@@ -274,6 +274,62 @@ include 'includes/outsource-header.php';
         </div>
 
     </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:14px;">
+
+        <div onclick="location.href='outsource-earnings.php'" style="
+        background:white;
+        padding:18px 12px;
+        border-radius:18px;
+        box-shadow:0 8px 25px rgba(0,0,0,.06);
+        text-align:center;
+        cursor:pointer;
+        border:1px solid #fce7f3;
+    ">
+            <i class="ri-coins-line" style="font-size:24px;color:#22c55e;"></i>
+            <div style="margin-top:8px;font-size:13px;font-weight:600;">Earnings</div>
+        </div>
+
+        <div onclick="location.href='outsource-payments.php'" style="
+        background:white;
+        padding:18px 12px;
+        border-radius:18px;
+        box-shadow:0 8px 25px rgba(0,0,0,.06);
+        text-align:center;
+        cursor:pointer;
+        border:1px solid #fce7f3;
+    ">
+            <i class="ri-bank-card-line" style="font-size:24px;color:#3b82f6;"></i>
+            <div style="margin-top:8px;font-size:13px;font-weight:600;">Payments</div>
+        </div>
+
+        <div onclick="location.href='outsource-ledger.php'" style="
+            background:white;
+            padding:18px 12px;
+            border-radius:18px;
+            box-shadow:0 8px 25px rgba(0,0,0,.06);
+            text-align:center;
+            cursor:pointer;
+            border:1px solid #fce7f3;
+        ">
+            <i class="ri-book-2-line" style="font-size:24px;color:#a855f7;"></i>
+            <div style="margin-top:8px;font-size:13px;font-weight:600;">Ledger</div>
+        </div>
+        <div onclick="location.href='outsource-advance-history.php'" style="
+            background:white;
+            padding:18px 12px;
+            border-radius:18px;
+            box-shadow:0 8px 25px rgba(0,0,0,.06);
+            text-align:center;
+            cursor:pointer;
+            border:1px solid #fce7f3;
+        ">
+            <i class="ri-exchange-funds-line" style="font-size:24px;color:#f97316;"></i>
+            <div style="margin-top:8px;font-size:13px;font-weight:600;">
+                Advance
+            </div>
+        </div>
+
+    </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
@@ -342,6 +398,8 @@ include 'includes/outsource-header.php';
             title: 'Interest Submitted Successfully',
             text: 'Your interest in this order has been recorded. Admin will review and assign the order accordingly.',
             confirmButtonColor: '#db2777'
+        }).then(() => {
+            window.history.replaceState({}, document.title, window.location.pathname);
         });
     </script>
 <?php endif; ?>

@@ -27,6 +27,7 @@ $query = "
         al.*,
         e.first_name, e.last_name, e.job_role,
         s.start_time as shift_start,
+        s.end_time as shift_end,
         s.late_mark_after
     FROM attendance_logs al
     JOIN employees e ON al.employee_id = e.id
@@ -72,7 +73,9 @@ foreach ($all_logs as $log) {
 // Flatten sessions into records for display
 
 $records = [];
+$lateCounts = [];
 foreach ($daily_sessions as $emp_id => $dates) {
+    ksort($dates);
     foreach ($dates as $date => $sessions) {
         if (empty($sessions)) continue;
         
@@ -90,16 +93,41 @@ foreach ($daily_sessions as $emp_id => $dates) {
 
         $meta = $sessions[0]['meta'];
         $is_late = false;
-        if ($meta['shift_start'] && $sessions[0]['in']) {
-            $check_in_time = strtotime($sessions[0]['in']);
-            $shift_start_time = strtotime($meta['shift_start']);
-            $grace_sec = ($meta['late_mark_after'] ?: 0) * 60;
-            if ($check_in_time > ($shift_start_time + $grace_sec)) {
-                $is_late = true;
-            }
+        $is_half_day = false;
+
+if ($meta['shift_start'] && $sessions[0]['in']) {
+    $check_in_time = strtotime($sessions[0]['in']);
+    $shift_start_time = strtotime($meta['shift_start']);
+    $grace_sec = ($meta['late_mark_after'] ?: 15) * 60;
+
+    if ($check_in_time > ($shift_start_time + $grace_sec)) {
+
+        if (!isset($lateCounts[$emp_id])) {
+            $lateCounts[$emp_id] = 0;
         }
 
-        $is_half_day = ($decimal > 0 && $decimal < 4) ? true : false;
+        $lateCounts[$emp_id]++;
+
+        if ($lateCounts[$emp_id] <= 2) {
+            $is_late = true;
+        } else {
+            $is_late = false;   // IMPORTANT
+            $is_half_day = true;
+        }
+    }
+}
+if ($meta['shift_start'] && $meta['shift_end']) {
+    $shift_start = strtotime($meta['shift_start']);
+    $shift_end = strtotime($meta['shift_end']);
+
+    $total_shift_seconds = $shift_end - $shift_start;
+    $half_day_limit = $total_shift_seconds / 2;
+
+    if ($total_sec < $half_day_limit) {
+        $is_half_day = true;
+        $is_late = false;
+    }
+}
 
         $records[] = [
             'attendance_date' => $date,

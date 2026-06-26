@@ -59,6 +59,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['order_id'], $_POST['n
                 $order_id,
                 $employee['id']
             ]);
+            if ($new_status === 'in progress') {
+                $_SESSION['success_message'] = "Work started successfully";
+            } elseif ($new_status === 'completed') {
+                $_SESSION['success_message'] = "Order completed successfully";
+            }
         }
     }
 
@@ -155,6 +160,7 @@ $headerTitle = "Outsource Orders";
 $activePage = "orders";
 
 include 'includes/outsource-header.php';
+
 ?>
 
 <div class="container" style="padding-bottom:100px;">
@@ -278,6 +284,22 @@ include 'includes/outsource-header.php';
                         <b>Created:</b>
                         <?= date('d M Y', strtotime($order['created_at'])) ?>
                     </div>
+                    <div style="margin-top:15px;">
+                        <a href="view-outsource-order.php?id=<?= $order['id'] ?>" style="
+                            display:inline-flex;
+                            align-items:center;
+                            gap:5px;
+                            background:#2563eb;
+                            color:white;
+                            text-decoration:none;
+                            padding:10px 18px;
+                            border-radius:12px;
+                            font-size:14px;
+                            font-weight:600;
+                        ">
+                            View
+                        </a>
+                    </div>
                     <?php if ($order['order_status'] === 'approved'): ?>
                         <form method="POST" style="margin-top:16px;">
                             <input type="hidden" name="order_id" value="<?= $order['id'] ?>">
@@ -303,22 +325,6 @@ include 'includes/outsource-header.php';
                             <input type="hidden" name="new_status" value="completed">
 
                             <div style="display:flex; gap:10px; margin-top:15px; align-items:center;">
-
-                                <a href="view-outsource-order.php?id=<?= $order['id'] ?>" style="
-                                    display:inline-flex;
-                                    align-items:center;
-                                    gap:5px;
-                                    background:#2563eb;
-                                    color:white;
-                                    text-decoration:none;
-                                    padding:10px 18px;
-                                    border-radius:12px;
-                                    font-size:14px;
-                                    font-weight:600;
-                                ">
-                                    View
-                                </a>
-
                                 <button type="submit" style="
                                     background:#16a34a;
                                     color:white;
@@ -340,4 +346,16 @@ include 'includes/outsource-header.php';
         <?php endforeach; ?>
     <?php endif; ?>
 </div>
+<?php if (isset($_SESSION['success_message'])): ?>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: 'Success',
+            text: '<?= $_SESSION['success_message'] ?>',
+            confirmButtonColor: '#16a34a'
+        });
+    </script>
+    <?php unset($_SESSION['success_message']); ?>
+<?php endif; ?>
 <?php include 'includes/outsource-bottom-nav.php'; ?>

@@ -35,6 +35,7 @@ $measureStmt = $pdo->prepare("
     SELECT key_name, measurement_value
     FROM order_measurements
     WHERE order_id = ?
+    AND order_type = 'outsource'
 ");
 $measureStmt->execute([$id]);
 $measurements = $measureStmt->fetchAll(PDO::FETCH_ASSOC);
