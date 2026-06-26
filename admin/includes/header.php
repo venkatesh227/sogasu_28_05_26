@@ -495,6 +495,7 @@ if ($required_permission && !has_permission($required_permission)) {
         $pendingLeaveCount = $pdo->query("SELECT COUNT(*) FROM leave_requests WHERE status = 'Pending'")->fetchColumn();
         $pendingOTCount = $pdo->query("SELECT COUNT(*) FROM employee_overtime WHERE status = 'Pending'")->fetchColumn();
         $newOrdersCount = $pdo->query("SELECT COUNT(*) FROM orders WHERE is_viewed = 0 AND is_deleted = 0")->fetchColumn();
+        $pendingShiftCount = $pdo->query("SELECT COUNT(*) FROM shift_requests WHERE status = 'Pending'")->fetchColumn();
         $newAppointmentCount = 0; // Appointments table missing
         ?>
         <div class="logo-area" style="text-align: center; padding: 0.25rem 0; margin: 0; margin-bottom: 0.75rem;">
@@ -647,10 +648,14 @@ if ($required_permission && !has_permission($required_permission)) {
                         class="sub-nav-item <?php echo ($activePage == 'attendance') ? 'active' : ''; ?>">
                         <i class="ri-checkbox-circle-line"></i> Attendance
                     </a>
-                    <a href="shift-roster.php"
-                        class="sub-nav-item <?php echo ($activePage == 'shift-roster') ? 'active' : ''; ?>">
-                        <i class="ri-calendar-todo-line"></i> Shift Roster
-                    </a>
+<a href="shift-roster.php"
+    class="sub-nav-item <?php echo ($activePage == 'shift-roster') ? 'active' : ''; ?>">
+    <i class="ri-calendar-todo-line"></i> Shift Roster
+
+    <?php if ($pendingShiftCount > 0): ?>
+        <span class="sidebar-badge"><?= $pendingShiftCount ?></span>
+    <?php endif; ?>
+</a>
                     <a href="payroll.php" class="sub-nav-item <?php echo ($activePage == 'payroll') ? 'active' : ''; ?>">
                         <i class="ri-money-dollar-circle-line"></i> Payroll
                     </a>

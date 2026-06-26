@@ -5,11 +5,53 @@ include '../includes/db.php';
 
 // Handle Process
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'process') {
-    $ot_id = $_POST['ot_id'];
+
+    $ot_id  = (int)$_POST['ot_id'];
     $status = $_POST['status'];
-    
-    $stmt = $pdo->prepare("UPDATE employee_overtime SET status = ? WHERE id = ?");
-    if ($stmt->execute([$status, $ot_id])) {
+
+    // Get OT Request Details
+    $stmt = $pdo->prepare("SELECT * FROM employee_overtime WHERE id = ?");
+    $stmt->execute([$ot_id]);
+    $ot = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($ot) {
+
+        // Update Status
+        $update = $pdo->prepare("UPDATE employee_overtime SET status = ? WHERE id = ?");
+        $update->execute([$status, $ot_id]);
+
+        // Notification Title & Message
+        if ($status == 'Approved') {
+
+            $title = 'Overtime Request Approved';
+            $message = "Your overtime request for "
+                . date('d M Y', strtotime($ot['ot_date']))
+                . " (" . $ot['hours'] . " Hours)"
+                . " has been approved.";
+
+        } else {
+
+            $title = 'Overtime Request Rejected';
+            $message = "Your overtime request for "
+                . date('d M Y', strtotime($ot['ot_date']))
+                . " (" . $ot['hours'] . " Hours)"
+                . " has been rejected.";
+
+        }
+
+        // Insert Notification
+        $notify = $pdo->prepare("
+            INSERT INTO notifications
+            (employee_id, title, message)
+            VALUES (?, ?, ?)
+        ");
+
+        $notify->execute([
+            $ot['employee_id'],
+            $title,
+            $message
+        ]);
+
         header("Location: ot-requests.php?success=1");
         exit;
     }

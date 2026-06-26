@@ -19,13 +19,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $req = $stmt->fetch();
         
         if ($req && $req['status'] === 'Pending') {
-            // 2. Update Request
-            $uStmt = $pdo->prepare("UPDATE leave_requests SET status = ?, admin_note = ?, processed_at = CURRENT_TIMESTAMP, processed_by = ? WHERE id = ?");
-            $uStmt->execute([$status, $admin_note, $processed_by, $req_id]);
-            
-            // 3. Update Balance and Attendance if Approved
-            if ($status === 'Approved') {
-                $year = date('Y', strtotime($req['start_date']));
+// 2. Update Request
+$uStmt = $pdo->prepare("UPDATE leave_requests
+    SET status = ?, admin_note = ?, processed_at = CURRENT_TIMESTAMP, processed_by = ?
+    WHERE id = ?");
+$uStmt->execute([$status, $admin_note, $processed_by, $req_id]);
+
+// Send Notification
+if ($status == 'Approved') {
+
+    $title = 'Leave Request Approved';
+    $message = "Your leave request from "
+        . date('d M Y', strtotime($req['start_date']))
+        . " to "
+        . date('d M Y', strtotime($req['end_date']))
+        . " has been approved.";
+
+} else {
+
+    $title = 'Leave Request Rejected';
+    $message = "Your leave request from "
+        . date('d M Y', strtotime($req['start_date']))
+        . " to "
+        . date('d M Y', strtotime($req['end_date']))
+        . " has been rejected.";
+
+}
+
+$notify = $pdo->prepare("
+    INSERT INTO notifications
+    (employee_id, title, message)
+    VALUES (?, ?, ?)
+");
+
+$notify->execute([
+    $req['employee_id'],
+    $title,
+    $message
+]);
+
+// 3. Update Balance and Attendance if Approved
+$year = date('Y', strtotime($req['start_date']));
+if ($status === 'Approved') {
                 
                 // Deduct Balance
                 $dStmt = $pdo->prepare("UPDATE employee_leave_balances SET balance = balance - ? WHERE employee_id = ? AND leave_type_id = ? AND year = ?");
@@ -45,9 +80,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
         }
         
-        $pdo->commit();
-        header("Location: leaves.php?success=1");
-        exit;
+$pdo->commit();
+
+$_SESSION['success'] = "Request processed successfully.";
+
+header("Location: leaves.php");
+exit;
     } catch (Exception $e) {
         $pdo->rollBack();
         header("Location: leaves.php?error=" . urlencode($e->getMessage()));
@@ -291,8 +329,17 @@ include 'includes/header.php';
     }
 </script>
 
-<?php if (isset($_GET['success'])): ?>
-<script>Swal.fire({ icon: 'success', title: 'Success', text: 'Request processed successfully.', timer: 1500, showConfirmButton: false });</script>
+<?php if (isset($_SESSION['success'])): ?>
+<script>
+Swal.fire({
+    icon: 'success',
+    title: 'Success',
+    text: '<?= $_SESSION['success']; ?>',
+    timer: 1500,
+    showConfirmButton: false
+});
+</script>
+<?php unset($_SESSION['success']); ?>
 <?php endif; ?>
 
 <?php include 'includes/footer.php'; ?>

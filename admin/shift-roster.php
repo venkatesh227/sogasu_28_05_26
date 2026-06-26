@@ -210,7 +210,7 @@ include 'includes/header.php';
                     style="height: 38px;">Today</button>
 
                 <?php if (count($pending_requests) > 0): ?>
-                    <button onclick="showRequestsModal()" class="btn"
+                    <button onclick="window.location.href='shift-requests.php'" class="btn"
                         style="background: #fffbeb; border: 1px solid #fcd34d; color: #b45309; height: 38px; position: relative; font-weight: 600;">
                         <i class="ri-notification-3-line"></i> Requests
                         <span
@@ -655,22 +655,7 @@ include 'includes/header.php';
             });
     }
 
-    function showRequestsModal() {
-
-        fetch('shift-requests.php')
-            .then(response => response.text())
-            .then(html => {
-
-                Swal.fire({
-                    title: 'Shift Requests',
-                    html: html,
-                    width: '1000px',
-                    showConfirmButton: false
-                });
-
-            });
-
-    }
+    // Requests open the dedicated requests page now.
     function updateShift(shiftTypeId) {
         const loader = Swal.fire({
             title: 'Updating Schedule...',
