@@ -40,7 +40,7 @@ if (!isset($_SESSION['language'])) {
     $t = $translations[$language] ?? $translations['en'];
 }
 
-// 1. Fetch Payments (Salary, Advance Deductions, etc.)
+// 1. Fetch Payments (Salary, Advance Deductions, etc.)                   
 $stmt = $pdo->prepare("SELECT id, payment_date as date, description, payment_type as type, amount, status, 'payment' as source FROM employee_payments WHERE employee_id = ? ORDER BY payment_date DESC LIMIT 20");
 $stmt->execute([$employee_id]);
 $payments = $stmt->fetchAll();
@@ -50,13 +50,13 @@ $stmt = $pdo->prepare("SELECT id, ot_date as date, description, 'OT' as type, am
 $stmt->execute([$employee_id]);
 $overtimes = $stmt->fetchAll();
 
-// Merge and sort by date
+// Merge and sort by date                      
 $history = $payments;
 usort($history, function($a, $b) {
     return strtotime($b['date']) - strtotime($a['date']);
 });
 
-// Show only current month activity
+// Show only current month activity                               
 $currentMonth = date('Y-m');
 $history = array_filter($history, function ($item) use ($currentMonth) {
     return strpos($item['date'], $currentMonth) === 0;
@@ -64,7 +64,6 @@ $history = array_filter($history, function ($item) use ($currentMonth) {
 
 $history = array_values($history);
 
-// 3. Calculate Stats for Current Month
 // 3. Calculate Total Net Earnings (All Time)
 $totalEarned = 0;
 $pendingAmount = 0;
@@ -119,7 +118,7 @@ foreach ($allPayments as $row) {
             $totalEarned += $row['amount'];
         }
 
-        // Subtract Advance Given
+        // Subtract Advance Given                                      
         if ($row['payment_type'] == 'Advance') {
             $totalEarned -= $row['amount'];
         }
@@ -165,7 +164,7 @@ include 'includes/header.php';
         </div>
     </div>
 
-    <!-- History List -->
+    <!-- History List -->                    
     <div class="section-title" style="margin-top: 2rem; display: flex; justify-content: space-between; align-items: center;">
         <span>Recent Activity</span>
         <i class="ri-filter-3-line" style="color: #64748b;"></i>

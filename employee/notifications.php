@@ -21,24 +21,24 @@ $employee_id = $stmt->fetchColumn();
 
 if (!$employee_id) {
     header("Location: outsourcing_dashboard.php");
-    exit();
+    exit();                        
 }
 
-// Fetch notifications FIRST to keep their unread state for the UI render
+// Fetch notifications FIRST to keep their unread state for the UI render                
 $stmt = $pdo->prepare("SELECT * FROM notifications WHERE employee_id = ? ORDER BY created_at DESC LIMIT 50");
 $stmt->execute([$employee_id]);
 $notifications = $stmt->fetchAll();
 
-// Mark all as read
+// Mark all as read               
 $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE employee_id = ? AND is_read = 0")->execute([$employee_id]);
 
 $pageTitle = "Notifications - Sogasu";
 $headerTitle = "Notifications";
 $activePage = "dashboard";
-include 'includes/header.php';
+include 'includes/header.php';                      
 ?>
 <div class="container" style="padding-bottom: 100px;">
-    <?php if (empty($notifications)): ?>
+    <?php if (empty($notifications)): ?>                       
         <div class="card" style="text-align: center; padding: 3rem 1.5rem; border-style: dashed; border-radius: 20px;">
             <div style="width: 60px; height: 60px; background: #fdf2f8; color: #db2777; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
                 <i class="ri-notification-off-line" style="font-size: 2rem;"></i>
@@ -46,7 +46,7 @@ include 'includes/header.php';
             <div style="font-weight: 700; color: #1e293b; margin-bottom: 0.25rem;">No Notifications</div>
             <div style="font-size: 0.85rem; color: #64748b;">You're all caught up!</div>
         </div>
-    <?php else: ?>
+    <?php else: ?>                                                   
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
             <?php foreach ($notifications as $n): ?>
                 <div class="card" style="padding: 1.25rem; display: flex; gap: 1rem; border-radius: 16px; <?= !$n['is_read'] ? 'background: #fdf2f8; border-color: #fbcfe8;' : '' ?>">

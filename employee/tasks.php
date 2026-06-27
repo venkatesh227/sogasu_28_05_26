@@ -8,8 +8,8 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
     exit();
 }
 
-$user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("
+$user_id = $_SESSION['user_id'];                               
+$stmt = $pdo->prepare("                 
     SELECT job_role
     FROM employees
     WHERE user_id = ?
@@ -23,14 +23,14 @@ $stmt = $pdo->prepare("
     FROM role_permissions
     WHERE role_name = ?
 ");
-$stmt->execute([$role_name]);
+$stmt->execute([$role_name]);                                
 
 $permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
 if (!in_array('employees_tasks_view', $permissions)) {
     header("Location: dashboard.php");
     exit();
-}
+}                                    
 
 // ================= GET EMPLOYEE =================
 $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
@@ -56,8 +56,8 @@ $all_status = [
 $current_status = $_GET['status'] ?? 'all';
 $from_date = $_GET['from_date'] ?? '';
 $to_date = $_GET['to_date'] ?? '';
-
-// ================= FETCH TASKS =================
+                                    
+// ================= FETCH TASKS =================             
 $stmt = $pdo->prepare("
 
     SELECT 
@@ -179,7 +179,7 @@ $headerTitle = "My Tasks";
 $activePage = "tasks";
 include 'includes/header.php';
 ?>
-
+                                
 <style>
     .filter-tab {
         text-decoration: none;

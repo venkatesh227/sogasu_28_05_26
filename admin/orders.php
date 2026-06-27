@@ -434,7 +434,6 @@ include 'includes/header.php';
         </div>
     </div>
 </main>
-
 <!-- Supervisor Assignment Modal -->
 <div id="supervisorModal"
     style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center; transition: all 0.3s;">

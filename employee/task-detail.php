@@ -19,7 +19,8 @@ $order_id = $_GET['id'] ?? null;
 if (!$order_id) {
     header("Location: dashboard.php");
     exit();
-}
+} 
+                                               
 // Fetch order details
 $stmt = $pdo->prepare(" 
         SELECT 
@@ -143,6 +144,7 @@ $stmt->execute([
     $order_id
 ]);
 $order = $stmt->fetch();
+
 // Fetch measurements dynamically
 $stmt = $pdo->prepare("
     SELECT key_name, measurement_value
@@ -322,6 +324,7 @@ include 'includes/header.php';
 
         </div>
     </div>
+
     <!-- Work Status Update -->
     <div class="card">
         <div class="section-title">Update Work Status</div>
@@ -388,7 +391,7 @@ include 'includes/header.php';
 
 </div>
 
-<!-- Report Issue Modal -->
+<!-- Report Issue Modal -->                   
 <div id="issueModal"
     style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; align-items:flex-end;">
     <div
@@ -453,7 +456,7 @@ include 'includes/header.php';
 
         paths.forEach(path => {
             const img = document.createElement('img');
-            // Correct path: DB stores 'uploads/orders/...'
+
             // From 'employee/', we need '../'
             img.src = '../' + path;
             img.style.width = '100%';
@@ -472,7 +475,7 @@ include 'includes/header.php';
         document.body.style.overflow = 'auto';
     }
 
-    // Report Issue AJAX
+    // Report Issue AJAX                                    
     document.getElementById('reportIssueForm').addEventListener('submit', function (e) {
 
         e.preventDefault();
@@ -530,7 +533,7 @@ include 'includes/header.php';
 
     });
 
-    // Update Task Status
+    // Update Task Status                               
     function updateTaskStatus(orderId) {
         const status = document.getElementById('taskStatus').value;
 

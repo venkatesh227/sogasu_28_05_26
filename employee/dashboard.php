@@ -56,11 +56,10 @@ if (!empty($role_name)) {
 
     $permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
- 
 
     if (strcasecmp($role_name, 'Supervisor') === 0) {
         include 'supervisor-dashboard.php';
-        exit();
+        exit();              
     }
 }
 }
@@ -89,7 +88,7 @@ $periodLabel = getCurrentPeriodLabel($payCycle);
 
 // Fetch pending tasks count
 $stmt = $pdo->prepare("SELECT COUNT(*) as pending_count FROM orders WHERE assigned_employee_id = ? AND order_status IN ('pending', 'processing', 'ready', 'pattern_making', 'cutting', 'embroidery', 'stitching', 'finishing', 'completed') AND is_deleted = 0");
-$stmt->execute([$employee_id]);
+$stmt->execute([$employee_id]);               
 $pending = $stmt->fetch();
 $pending_tasks = $pending['pending_count'] ?? 0;
 
@@ -114,7 +113,7 @@ $stmt = $pdo->prepare("
 $stmt->execute([$employee_id]);
 $active_tasks = $stmt->fetchAll();
 
-// Fetch stats for the dashboard
+// Fetch stats for the dashboard       
 $currentMonth = date('Y-m');
 $totalEarned = 0;
 
@@ -127,6 +126,7 @@ $dateClause = getCurrentPayCycleCondition('payment_date', $payCycle);
 $stmt = $pdo->prepare("SELECT SUM(amount) FROM employee_payments WHERE employee_id = ? AND status IN ('Paid', 'Approved') AND payment_type = 'Advance Deduction' AND $dateClause");
 $stmt->execute([$emp['id']]);
 $totalEarned -= $stmt->fetchColumn() ?: 0;
+
 // Get Active Tasks Count
 $stmt = $pdo->prepare("
     SELECT (
@@ -153,7 +153,6 @@ $stmt->execute([
 
 $activeTasksCount = $stmt->fetchColumn();
 
-
 // Check for today's holiday
 $stmt = $pdo->prepare("SELECT * FROM holidays WHERE holiday_date = CURRENT_DATE()");
 $stmt->execute();
@@ -179,6 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $rate = $stmt->fetchColumn();
     
     if (!$rate) {
+
         // Fallback to Global OT Rate
         $rate = $pdo->query("SELECT setting_value FROM global_settings WHERE setting_key = 'global_ot_rate'")->fetchColumn() ?: 100;
     }
@@ -411,6 +411,7 @@ include 'includes/header.php';
 <?php if (isset($_GET['ot_success'])): ?>
 <script>
     Swal.fire({ icon: 'success', title: 'Submitted!', text: 'Your OT request has been sent for approval.', timer: 2000, showConfirmButton: false });
+    
     // Clean URL to prevent repeat on refresh
     if (window.history.replaceState) {
         const url = new URL(window.location);
