@@ -580,3 +580,42 @@ Attempting to save: Front Length = 44
 Attempting to save: Waist = 44
 Attempting to save: Arm Round = 44
 Attempting to save: Arm Hole = 44
+Found measurements array for order 3
+Attempting to save: Sholder = 11
+Attempting to save: hand = 11
+Attempting to save: Chest = 11
+Attempting to save: Front Length = 11
+Attempting to save: Waist = 11
+Attempting to save: Arm Round = 11
+Attempting to save: Arm Hole = 11
+Found measurements array for order 3
+Attempting to save: Sholder = 22
+Attempting to save: hand = 22
+Attempting to save: Chest = 22
+Attempting to save: Waist = 22
+Found measurements array for order 4
+Attempting to save: Sholder = 11
+Attempting to save: hand = 11
+Attempting to save: Chest = 11
+Attempting to save: Front Length = 11
+Attempting to save: Waist = 11
+Attempting to save: Arm Round = 11
+Attempting to save: Arm Hole = 11
+Found measurements array for order 5
+Attempting to save: Sholder = 22
+Attempting to save: hand = 22
+Attempting to save: Chest = 22
+Attempting to save: Waist = 22
+Found measurements array for order 6
+Attempting to save: Sholder = 11
+Attempting to save: hand = 11
+Attempting to save: Chest = 11
+Attempting to save: Front Length = 11
+Attempting to save: Waist = 11
+Attempting to save: Arm Round = 11
+Attempting to save: Arm Hole = 11
+Found measurements array for order 4
+Attempting to save: Sholder = 22
+Attempting to save: hand = 22
+Attempting to save: Chest = 22
+Attempting to save: Waist = 22

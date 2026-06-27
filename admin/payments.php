@@ -1,7 +1,123 @@
 <?php
+session_start();
+include '../includes/db.php';
 $pageTitle = "Payments - Sogasu";
 $activePage = "payments";
 include 'includes/header.php';
+$from_date = $_GET['from_date'] ?? date('Y-m-01'); // current month 1st day
+$to_date = $_GET['to_date'] ?? date('Y-m-d');    // today
+
+$dateConditionExpenses = "";
+
+if (!empty($from_date) && !empty($to_date)) {
+    $dateConditionOrders = " AND DATE(o.created_at) BETWEEN '$from_date' AND '$to_date' ";
+    $dateConditionBills =
+        " AND DATE(created_at) BETWEEN '$from_date' AND '$to_date' ";
+    $dateConditionExpenses = " AND DATE(expense_date) BETWEEN '$from_date' AND '$to_date' ";
+}
+$dateConditionBillPayments = "";
+
+if (!empty($from_date) && !empty($to_date)) {
+    $dateConditionBillPayments =
+        " AND DATE(bp.payment_date) BETWEEN '$from_date' AND '$to_date' ";
+}
+
+$incomeStmt = $pdo->query("
+    SELECT COALESCE(SUM(bp.payment_amount),0)
+    FROM bill_payments bp
+    WHERE bp.is_deleted = 0
+    $dateConditionBillPayments
+");
+$totalIncome = $incomeStmt->fetchColumn();
+
+$pendingStmt = $pdo->query("
+    SELECT COALESCE(SUM(pending_amount),0)
+    FROM bills
+    WHERE pending_amount > 0
+    AND is_deleted = 0
+");
+$pendingReceivables = $pendingStmt->fetchColumn();
+
+$invoiceStmt = $pdo->query("
+    SELECT COUNT(*)
+    FROM bills
+    WHERE pending_amount > 0
+    AND is_deleted = 0
+");
+$pendingInvoices = $invoiceStmt->fetchColumn();
+
+// Monthly Expenses
+$expenseStmt = $pdo->query("
+    SELECT COALESCE(SUM(amount),0)
+    FROM expenses
+    WHERE 1=1
+    $dateConditionExpenses
+");
+$monthlyExpenses = $expenseStmt->fetchColumn();
+$transactions = [];
+
+// Income from orders
+$stmt1 = $pdo->query("
+    SELECT
+        bp.payment_date as txn_date,
+        COALESCE(o.order_code, co.order_code, oo.order_code) as reference,
+
+        CASE
+            WHEN bp.order_type = 'customer_orders' THEN 'Customer Order'
+            ELSE CONCAT(c.first_name, ' ', c.last_name)
+        END as description,
+
+        'Income' as type,
+
+        bp.payment_method,
+
+        'success' as status,
+
+        bp.payment_amount as amount
+
+    FROM bill_payments bp
+
+    LEFT JOIN orders o
+        ON bp.order_type='orders'
+        AND o.id=bp.order_id
+
+    LEFT JOIN customer_orders co
+        ON bp.order_type='customer_orders'
+        AND co.id=bp.order_id
+
+    LEFT JOIN outsource_orders oo
+        ON bp.order_type='outsource_orders'
+        AND oo.id=bp.order_id
+
+    LEFT JOIN customers c
+        ON c.id = COALESCE(o.customer_id, oo.customer_id)
+
+    WHERE bp.is_deleted = 0
+    $dateConditionBillPayments
+");
+
+// Expenses
+$stmt2 = $pdo->query("
+    SELECT created_at as txn_date,
+           CONCAT('EXP-', id) as reference,
+           expense_category as description,
+           'Expense' as type,
+           payment_method,
+           status,
+           amount
+    FROM expenses
+    WHERE 1=1
+    $dateConditionExpenses
+");
+
+$transactions = array_merge(
+    $stmt1->fetchAll(PDO::FETCH_ASSOC),
+    $stmt2->fetchAll(PDO::FETCH_ASSOC)
+);
+
+usort($transactions, function ($a, $b) {
+    return strtotime($b['txn_date']) - strtotime($a['txn_date']);
+});
 ?>
 
 <main class="main-content">
@@ -41,7 +157,7 @@ include 'includes/header.php';
                         </div>
 
                         <div style="font-size:2rem; font-weight:800; color:#0f172a; margin:0.75rem 0 0.35rem;">
-                            ₹ 1,24,500
+                            ₹ <?= number_format($totalIncome, 2) ?>
                         </div>
 
                         <div style="font-size:0.85rem; color:#64748b;">
@@ -77,11 +193,11 @@ include 'includes/header.php';
                         </div>
 
                         <div style="font-size:2rem; font-weight:800; color:#0f172a; margin:0.75rem 0 0.35rem;">
-                            ₹ 12,450
+                            ₹ <?= number_format($pendingReceivables, 2) ?>
                         </div>
 
                         <div style="font-size:0.85rem; color:#64748b;">
-                            5 outstanding invoices
+                            <?= $pendingInvoices ?> outstanding invoices
                         </div>
                     </div>
 
@@ -113,7 +229,7 @@ include 'includes/header.php';
                         </div>
 
                         <div style="font-size:2rem; font-weight:800; color:#0f172a; margin:0.75rem 0 0.35rem;">
-                            ₹ 35,200
+                            ₹ <?= number_format($monthlyExpenses, 2) ?>
                         </div>
 
                         <div style="font-size:0.85rem; color:#64748b;">
@@ -140,6 +256,20 @@ include 'includes/header.php';
             </div>
 
         </div>
+        <form method="GET" style="display:flex; gap:10px; align-items:end; margin-bottom:20px;">
+            <div>
+                <label>From Date</label><br>
+                <input type="date" name="from_date" value="<?= htmlspecialchars($from_date) ?>" class="form-control">
+            </div>
+            <div>
+                <label>To Date</label><br>
+                <input type="date" name="to_date" value="<?= htmlspecialchars($to_date) ?>" class="form-control">
+            </div>
+            <button type="submit" class="btn-premium">
+                Filter
+            </button>
+            <a href="payments.php" class="btn btn-secondary">Reset</a>
+        </form>
 
     </div>
 
@@ -182,102 +312,26 @@ include 'includes/header.php';
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td style="font-weight: 500; color: var(--text-muted);">24 Feb, 10:30 AM</td>
-                        <td
-                            style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--primary); font-weight: 700;">
-                            TXN-8842</td>
-                        <td>
-                            <div style="font-weight: 700; color: var(--text-dark);">Rashmi K</div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Order
-                                #ORD-2458</div>
-                        </td>
-                        <td><span class="status-badge"
-                                style="background: #f0fdf4; color: #16a34a; border-color: #dcfce7;">Income</span>
-                        </td>
-                        <td style="font-weight: 600; color: var(--text-muted);">UPI (PhonePe)</td>
-                        <td>
-                            <span
-                                style="display: flex; align-items: center; gap: 0.4rem; color: #16a34a; font-weight: 800; font-size: 0.8rem; text-transform: uppercase;">
-                                <span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>
-                                Success
-                            </span>
-                        </td>
-                        <td style="text-align: right; font-weight: 900; color: #16a34a; font-size: 1.1rem;">+ ₹
-                            1,200</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: 500; color: var(--text-muted);">23 Feb, 04:15 PM</td>
-                        <td
-                            style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--primary); font-weight: 700;">
-                            TXN-8841</td>
-                        <td>
-                            <div style="font-weight: 700; color: var(--text-dark);">Gold Threads Purchase</div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Inventory
-                                Restock</div>
-                        </td>
-                        <td><span class="status-badge"
-                                style="background: #fff1f2; color: #e11d48; border-color: #ffe4e6;">Expense</span>
-                        </td>
-                        <td style="font-weight: 600; color: var(--text-muted);">Cash</td>
-                        <td>
-                            <span
-                                style="display: flex; align-items: center; gap: 0.4rem; color: #16a34a; font-weight: 800; font-size: 0.8rem; text-transform: uppercase;">
-                                <span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>
-                                Success
-                            </span>
-                        </td>
-                        <td style="text-align: right; font-weight: 900; color: #e11d48; font-size: 1.1rem;">- ₹ 450
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: 500; color: var(--text-muted);">23 Feb, 02:00 PM</td>
-                        <td
-                            style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--primary); font-weight: 700;">
-                            TXN-8840</td>
-                        <td>
-                            <div style="font-weight: 700; color: var(--text-dark);">Sneha J</div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Order
-                                #ORD-2457</div>
-                        </td>
-                        <td><span class="status-badge"
-                                style="background: #f0fdf4; color: #16a34a; border-color: #dcfce7;">Income</span>
-                        </td>
-                        <td style="font-weight: 600; color: var(--text-muted);">Card (HDFC)</td>
-                        <td>
-                            <span
-                                style="display: flex; align-items: center; gap: 0.4rem; color: #16a34a; font-weight: 800; font-size: 0.8rem; text-transform: uppercase;">
-                                <span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>
-                                Success
-                            </span>
-                        </td>
-                        <td style="text-align: right; font-weight: 900; color: #16a34a; font-size: 1.1rem;">+ ₹
-                            4,500</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: 500; color: var(--text-muted);">22 Feb, 11:00 AM</td>
-                        <td
-                            style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--primary); font-weight: 700;">
-                            TXN-PENDING</td>
-                        <td>
-                            <div style="font-weight: 700; color: var(--text-dark);">Mrs. Shanti</div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Order
-                                #ORD-2440</div>
-                        </td>
-                        <td><span class="status-badge"
-                                style="background: #fffbeb; color: #d97706; border-color: #fef3c7;">Receivable</span>
-                        </td>
-                        <td style="font-weight: 600; color: var(--text-muted);">-</td>
-                        <td>
-                            <span
-                                style="display: flex; align-items: center; gap: 0.4rem; color: #d97706; font-weight: 800; font-size: 0.8rem; text-transform: uppercase;">
-                                <span style="width: 6px; height: 6px; border-radius: 50%; background: #d97706;"></span>
-                                Pending
-                            </span>
-                        </td>
-                        <td style="text-align: right; font-weight: 900; color: #d97706; font-size: 1.1rem;">₹ 2,800
-                        </td>
-                    </tr>
+                    <?php foreach ($transactions as $txn): ?>
+                        <tr>
+                            <td><?= date('d M, h:i A', strtotime($txn['txn_date'])) ?></td>
+
+                            <td><?= htmlspecialchars($txn['reference']) ?></td>
+
+                            <td><?= htmlspecialchars($txn['description']) ?></td>
+
+                            <td><?= $txn['type'] ?></td>
+
+                            <td><?= $txn['payment_method'] ?: '-' ?></td>
+
+                            <td><?= ucfirst($txn['status']) ?></td>
+
+                            <td style="text-align:right;">
+                                <?= $txn['type'] === 'Expense' ? '- ₹ ' : '+ ₹ ' ?>
+                                <?= number_format($txn['amount'], 2) ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>

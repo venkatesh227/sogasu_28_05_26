@@ -86,6 +86,81 @@ if (
 
     exit;
 }
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['receive_payment'])) {
+
+    $billId = (int) ($_POST['bill_id'] ?? 0);
+    $paymentAmount = (float) ($_POST['payment_amount'] ?? 0);
+    $paymentMethod = trim($_POST['payment_method'] ?? '');
+
+    if ($billId > 0 && $paymentAmount > 0) {
+
+        $billStmt = $pdo->prepare("
+            SELECT id, order_id, order_type, paid_amount, total_amount
+            FROM bills
+            WHERE id = ? AND is_deleted = 0
+        ");
+        $billStmt->execute([$billId]);
+        $bill = $billStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($bill) {
+            $newPaid = $bill['paid_amount'] + $paymentAmount;
+
+            if ($newPaid > $bill['total_amount']) {
+                $newPaid = $bill['total_amount'];
+                $paymentAmount = $bill['total_amount'] - $bill['paid_amount'];
+            }
+
+            $newPending = $bill['total_amount'] - $newPaid;
+
+            $status = 'pending';
+            if ($newPaid >= $bill['total_amount']) {
+                $status = 'paid';
+            } elseif ($newPaid > 0) {
+                $status = 'partially_paid';
+            }
+
+            $insertPayment = $pdo->prepare("
+                INSERT INTO bill_payments
+                (bill_id, order_id, order_type, payment_amount, payment_method)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+
+            try {
+                $pdo->beginTransaction();
+
+                $insertPayment->execute([
+                    $bill['id'],
+                    $bill['order_id'],
+                    $bill['order_type'],
+                    $paymentAmount,
+                    $paymentMethod
+                ]);
+
+                $updateBill = $pdo->prepare("
+        UPDATE bills
+        SET paid_amount = ?, pending_amount = ?, bill_status = ?, updated_at = NOW()
+        WHERE id = ?
+    ");
+
+                $updateBill->execute([
+                    $newPaid,
+                    $newPending,
+                    $status,
+                    $bill['id']
+                ]);
+
+                $pdo->commit();
+
+                header("Location: billing.php?payment_success=1");
+                exit;
+
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                die("Payment save failed: " . $e->getMessage());
+            }
+        }
+    }
+}
 $orderError = '';
 
 $dueDateError = '';
@@ -763,7 +838,10 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
 
                                         <?php if ($pending > 0): ?>
 
-                                            <button class="btn-icon" title="Receive Payment">
+                                            <button class="btn-icon" title="Receive Payment" onclick="openPaymentModal(
+                                                    <?= $billing['bill_id'] ?>,
+                                                    <?= $pending ?>
+                                                )">
                                                 <i class="ri-money-rupee-circle-line"></i>
                                             </button>
 

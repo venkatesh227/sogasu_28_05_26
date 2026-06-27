@@ -61,6 +61,7 @@ if (
 
         // Verify payment status
         if ($payment->status === 'captured') {
+            $pdo->beginTransaction();
             $total_amount = (float) $order['total_amount'];
 
             $already_paid = (float) $order['paid_amount'];
@@ -104,27 +105,33 @@ if (
 
             if ($existingPayment) {
 
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+
                 header("Location: {$redirectPage}?payment=already_verified");
                 exit;
             }
             $stmtPayment = $pdo->prepare("
-            INSERT INTO order_payments (
-                order_id,
-                razorpay_payment_id,
-                transaction_id,
-                payment_mode,
-                payment_type,
-                amount,
-                payment_status,
-                payment_response,
-                paid_at,
-                created_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ");
+                INSERT INTO order_payments (
+                    order_id,
+                    order_type,
+                    razorpay_payment_id,
+                    transaction_id,
+                    payment_mode,
+                    payment_type,
+                    amount,
+                    payment_status,
+                    payment_response,
+                    paid_at,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
 
             $stmtPayment->execute([
                 $order['id'],
+                $table,
                 $paymentId,
                 $paymentId,
                 $payment->method,
@@ -167,6 +174,47 @@ if (
                 json_encode($payment->toArray()),
                 $order['id']
             ]);
+            $stmtBill = $pdo->prepare("
+    SELECT id
+    FROM bills
+    WHERE order_id = ?
+    AND order_type = ?
+    AND is_deleted = 0
+    LIMIT 1
+");
+
+            $stmtBill->execute([
+                $order['id'],
+                $table
+            ]);
+
+            $bill = $stmtBill->fetch(PDO::FETCH_ASSOC);
+
+            if ($bill) {
+
+                $stmtLedger = $pdo->prepare("
+                INSERT INTO bill_payments (
+                    bill_id,
+                    order_id,
+                    order_type,
+                    payment_amount,
+                    payment_method,
+                    payment_reference,
+                    notes
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+
+                $stmtLedger->execute([
+                    $bill['id'],
+                    $order['id'],
+                    $table,
+                    $current_payment_amount,
+                    $payment->method ?? null,
+                    $paymentId,
+                    'Razorpay payment'
+                ]);
+            }
             $stmtBillUpdate = $pdo->prepare("
                 UPDATE bills
                 SET
@@ -186,6 +234,7 @@ if (
                 $order['id'],
                 $table
             ]);
+            $pdo->commit();
             header("Location: {$redirectPage}?payment=verified");
             exit;
 
@@ -194,6 +243,7 @@ if (
             $stmtFailed = $pdo->prepare("
             INSERT INTO order_payments (
                 order_id,
+                order_type,
                 razorpay_payment_id,
                 transaction_id,
                 payment_mode,
@@ -201,13 +251,15 @@ if (
                 amount,
                 payment_status,
                 payment_response,
+                paid_at,
                 created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
             $stmtFailed->execute([
                 $order['id'],
+                $table,
                 $paymentId,
                 $paymentId,
                 $payment->method,
@@ -224,6 +276,9 @@ if (
 
     } catch (Exception $e) {
 
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         die("Verification Error: " . $e->getMessage());
     }
 }
