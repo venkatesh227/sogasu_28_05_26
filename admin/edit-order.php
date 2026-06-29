@@ -190,8 +190,11 @@ $employees = $pdo->query("
 ")->fetchAll();
 
 // ===== FETCH RACKS =====
-$racks = $pdo->query("SELECT id, rack_name FROM racks WHERE status='active' ORDER BY rack_name ASC")->fetchAll();
-
+$racks = $pdo->query("
+    SELECT id, rack_name, status
+    FROM racks
+    ORDER BY rack_name ASC
+")->fetchAll();
 // ===== ADDITIONAL SERVICES =====
 if ($order_type === 'customer') {
     $order_services = [];
@@ -369,15 +372,22 @@ include 'includes/header.php';
                 </div>
 
                 <div class="form-group" style="margin-bottom: 1.25rem;">
-                    <label class="form-label">Rack Assignment</label>
-                    <select name="rack_id" class="form-select">
-                        <option value="">-- No Rack --</option>
-                        <?php foreach ($racks as $rack): ?>
-                            <option value="<?= $rack['id'] ?>" <?= ($order['rack_id'] == $rack['id']) ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($rack['rack_name']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+<label class="form-label">Rack Assignment</label>
+
+<select name="rack_id" class="form-select">
+    <option value="">-- Select Rack --</option>
+
+    <?php foreach ($racks as $rack): ?>
+        <option
+            value="<?= $rack['id'] ?>"
+            <?= ($order['rack_id'] == $rack['id']) ? 'selected' : '' ?>
+            <?= ($rack['status'] == 'Occupied' && $order['rack_id'] != $rack['id']) ? 'disabled' : '' ?>
+        >
+            <?= htmlspecialchars($rack['rack_name']) ?>
+            (<?= $rack['status'] ?>)
+        </option>
+    <?php endforeach; ?>
+</select>
                 </div>
 
                 <div style="border-top: 1px solid #f1f5f9; margin: 1.5rem 0;"></div>
