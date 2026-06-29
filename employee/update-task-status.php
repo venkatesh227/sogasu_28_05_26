@@ -16,7 +16,7 @@ if (!$order_id || !$status) {
 try {
     $pdo->beginTransaction();
 
-    // 1. Fetch current rack_id of the order before we update status
+    // 1. Fetch current rack_id of the order before we update status        
     $stmt_fetch = $pdo->prepare("
     SELECT rack_id, status_history
     FROM orders
@@ -61,7 +61,7 @@ try {
 
     $newHistory = implode(',', $historyArray);
 
-    // 2. Update order status
+    // 2. Update order status                      
     if (!$is_customer_order) {
 
         $stmt = $pdo->prepare("
@@ -89,6 +89,7 @@ try {
 
     // 3. If order has an assigned rack and status is updated to anything other than 'pending' (started)
     if ($current_rack_id && $status !== 'pending') {
+        
         // Free the rack in the racks table
         $stmt_rack = $pdo->prepare("UPDATE racks SET status = 'Available' WHERE id = ?");
         $stmt_rack->execute([$current_rack_id]);
@@ -114,7 +115,7 @@ try {
         $stmt_clear_order->execute([$order_id]);
     }
 
-    // Auto-resolve any open issues for this order when an update is made
+    // Auto-resolve any open issues for this order when an update is  made to its status
     $stmt = $pdo->prepare("UPDATE order_issues SET status = 'resolved' WHERE order_id = ? AND status = 'open'");
     $stmt->execute([$order_id]);
 

@@ -25,11 +25,13 @@ $employee = $stmt->fetch();
 if (!$employee) {
     die("Employee not found");
 }
+
 // Set language from DB if not in session
 if (!isset($_SESSION['language'])) {
     $_SESSION['language'] = $employee['preferred_language'] ?? 'en';
     $language = $_SESSION['language'];
 }
+
 // Get notification count
 $notifStmt = $pdo->prepare("SELECT COUNT(*) as count FROM notifications 
     WHERE employee_id = ? AND is_read = 0");
@@ -150,6 +152,7 @@ include 'includes/header.php';
 ?>
 
 <div class="container">
+
     <!--- Notifications Banner --->
     <?php if ($notifCount > 0): ?>
     <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
@@ -237,7 +240,7 @@ style="background: transparent; border: none; color: var(--primary); font-size: 
     </div>
     </div>
 
-    <!-- App Settings -->
+    <!-- App Settings -->       
     <div class="section-title"><?php echo $t['app_settings']; ?></div>
     <div class="card" style="padding: 0;">
         <div style="padding: 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
@@ -273,7 +276,7 @@ style="background: transparent; border: none; color: var(--primary); font-size: 
         </div>
     </div>
 
-    <!-- Logout -->
+    <!-- Logout -->              
     <a href="../includes/logout.php" style="text-decoration: none;">
         <button style="width: 100%; background: #fff1f2; color: var(--danger); border: none; padding: 1rem; border-radius: 12px; font-weight: 600; font-size: 1rem; margin-top: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer;">
             <i class="ri-logout-box-line"></i> <?php echo $t['logout']; ?>
@@ -457,6 +460,7 @@ style="background: transparent; border: none; color: var(--primary); font-size: 
     }
     
     function changeLanguage(langCode) {
+
         // Send AJAX request to change language
         fetch(window.location.href, {
             method: 'POST',
@@ -466,6 +470,7 @@ style="background: transparent; border: none; color: var(--primary); font-size: 
             body: 'action=change_language&language=' + langCode
         }).then(response => {
             if (response.ok) {
+
                 // Show success message
                 document.getElementById('languageMessage').style.display = 'block';
                 document.getElementById('languageOptions').style.display = 'none';
@@ -489,25 +494,25 @@ style="background: transparent; border: none; color: var(--primary); font-size: 
                 return;
             }
             
-            // Check file size (max 5MB)
+            // Check file size (max 5MB)                           
             if (file.size > 5 * 1024 * 1024) {
                 alert('<?php echo addslashes($t['file_size_exceed']); ?>');
                 return;
             }
             
-            // Create FormData and submit
+            // Create FormData and submit                 
             const formData = new FormData();
             formData.append('profile_photo', file);
             formData.append('action', 'upload_photo');
             
-            // Show preview
+            // Show preview          
             const reader = new FileReader();
             reader.onload = function(e) {
                 document.getElementById('profileImg').src = e.target.result;
             };
             reader.readAsDataURL(file);
             
-            // Submit form
+            // Submit form            
             fetch(window.location.href, {
                 method: 'POST',
                 body: formData

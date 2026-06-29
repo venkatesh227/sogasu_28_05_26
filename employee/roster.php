@@ -125,10 +125,11 @@ include 'includes/header.php';
             $is_today = ($date === date('Y-m-d'));
             $shift = null;
 
-            // First priority: manually assigned / approved request shift
+            // First priority: manually assigned / approved request shift        
             if (isset($roster[$date])) {
                 $shift = $roster[$date];
             }
+
             // Second priority: employee default shift
             elseif ($default_shift) {
                 $shift = $default_shift;
@@ -169,6 +170,7 @@ include 'includes/header.php';
                                     <?= $shift['short_code'] ?>
                                 </div>
                             </div>
+
                             <!-- Request Change Link -->
                             <div style="margin-top: 0.5rem; text-align: right;">
                                 <?php if (in_array('appointments_create', $permissions)): ?>
@@ -198,6 +200,7 @@ include 'includes/header.php';
     </div>
 </div>
 <?php if (in_array('appointments_create', $permissions)): ?>
+    
     <!-- Request Change Modal -->
     <div id="requestModal"
         style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; align-items: flex-end;">
