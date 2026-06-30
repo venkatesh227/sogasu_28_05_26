@@ -47,7 +47,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_metrics_breakdown' && iss
         ]);
         exit;
     } elseif ($metric === 'low_stock') {
-        $stmt = $pdo->query("SELECT id, item_name, sku, category, quantity, unit, cost FROM inventory WHERE is_deleted = 0 AND quantity < 10 ORDER BY quantity ASC");
+        $stmt = $pdo->query("SELECT id, item_name, sku, category, quantity, unit, cost FROM inventory WHERE is_deleted = 0 AND quantity <= low_stock_alert ORDER BY quantity ASC");
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode([
             'success' => true,
@@ -70,7 +70,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_metrics_breakdown' && iss
         ]);
         exit;
     } elseif ($metric === 'total_items') {
-        $stmt = $pdo->query("SELECT id, item_name, sku, category, quantity, unit, cost FROM inventory WHERE is_deleted = 0 ORDER BY item_name ASC");
+        $stmt = $pdo->query("SELECT id, item_name, sku, category, quantity, unit, cost, low_stock_alert FROM inventory WHERE is_deleted = 0 ORDER BY item_name ASC");
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode([
             'success' => true,
@@ -102,7 +102,7 @@ $items = $stmt->fetchAll();
 
 $inventoryStats = $pdo->query("SELECT
     COALESCE(SUM(cost * quantity), 0) AS total_value,
-    SUM(CASE WHEN quantity < 10 THEN 1 ELSE 0 END) AS low_stock_count,
+    SUM(CASE WHEN quantity <= low_stock_alert THEN 1 ELSE 0 END) AS low_stock_count,
     (SELECT COUNT(*) FROM inventory_categories WHERE is_deleted = 0 AND status = 1) AS active_categories,
     COUNT(*) AS total_items
 FROM inventory WHERE is_deleted = 0")->fetch();
@@ -131,7 +131,7 @@ include 'includes/header.php';
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
                 <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;">Inventory Management</h2>
-                <p style="color: #64748b; margin-top: 0.25rem;">Track stock levels, material procurement, and warehouse assets.</p>
+                <p style="color: #64748b; margin-top: 0.25rem;">Track available stock received via Purchase Orders and issued through Procurement.</p>
             </div>
             <div style="display: flex; gap: 0.5rem;">
                 <a href="add-purchase-order.php" class="btn" 
@@ -141,7 +141,7 @@ include 'includes/header.php';
                     <i class="ri-file-list-3-line" style="color: #4f46e5;"></i> Raise Purchase Order
                 </a>
                 <a href="add-inventory.php" class="btn btn-primary" style="background: #4f46e5; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 0.5rem;">
-                    <i class="ri-add-line"></i> Add New Item
+                    <i class="ri-settings-3-line"></i> Stock Adjustment / Item Master
                 </a>
             </div>
         </div>
@@ -244,10 +244,10 @@ include 'includes/header.php';
                                     </span>
                                 </td>
                                 <td>
-                                    <div style="font-weight: 700; color: <?= $row['quantity'] < 10 ? '#ef4444' : '#1e293b' ?>;">
+                                    <div style="font-weight: 700; color: <?= $row['quantity'] <= $row['low_stock_alert'] ? '#ef4444' : '#1e293b' ?>;">
                                         <?= htmlspecialchars($row['quantity']) ?> <?= htmlspecialchars($row['unit']) ?>
                                     </div>
-                                    <?php if($row['quantity'] < 10): ?>
+                                    <?php if($row['quantity'] <= $row['low_stock_alert']): ?>
                                         <span style="display: inline-block; font-size: 0.65rem; background: rgba(239, 68, 68, 0.1); color: #ef4444; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-top: 2px; text-transform: uppercase;">Low Stock</span>
                                     <?php endif; ?>
                                 </td>
@@ -503,7 +503,7 @@ include 'includes/header.php';
                             const qty = parseFloat(item.quantity) || 0;
                             const cost = parseFloat(item.cost) || 0;
                             const catName = globalCategoryMap[item.category] || item.category || 'N/A';
-                            const isLow = qty < 10;
+                            const isLow = qty <= (parseFloat(item.low_stock_alert) || 0);
                             
                             bodyHtml += `
                                 <tr class="modal-searchable-row" style="border-bottom: 1px solid #f1f5f9;">

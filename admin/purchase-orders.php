@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id'])) {
 if (isset($_GET['action']) && $_GET['action'] === 'get_po_items' && isset($_GET['po_id'])) {
     header('Content-Type: application/json');
     $po_id = intval($_GET['po_id']);
-    
+
     try {
         $stmt = $pdo->prepare("
             SELECT poi.*, c.name AS category_name
@@ -22,7 +22,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_po_items' && isset($_GET[
         ");
         $stmt->execute([$po_id]);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         echo json_encode([
             'success' => true,
             'items' => $items
@@ -40,26 +40,26 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_po_items' && isset($_GET[
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cancel_po' && isset($_POST['po_id'])) {
     header('Content-Type: application/json');
     $po_id = intval($_POST['po_id']);
-    
+
     try {
         // Ensure it is pending before cancelling
         $stmt = $pdo->prepare("SELECT status FROM purchase_orders WHERE id = ? AND is_deleted = 0");
         $stmt->execute([$po_id]);
         $po = $stmt->fetch();
-        
+
         if (!$po) {
             echo json_encode(['success' => false, 'message' => 'Purchase Order not found.']);
             exit;
         }
-        
-        if ($po['status'] !== 'Pending') {
-            echo json_encode(['success' => false, 'message' => 'Only Pending orders can be cancelled.']);
+
+        if (!in_array($po['status'], ['Pending', 'Partially Received'])) {
+            echo json_encode(['success' => false, 'message' => 'Only Pending or Partially Received orders can be cancelled.']);
             exit;
         }
-        
+
         $update = $pdo->prepare("UPDATE purchase_orders SET status = 'Cancelled' WHERE id = ?");
         $update->execute([$po_id]);
-        
+
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -81,7 +81,7 @@ $orders = $stmt->fetchAll();
 $stats = $pdo->query("
     SELECT 
         COUNT(*) AS total_count,
-        SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending_count,
+        SUM(CASE WHEN status IN ('Pending','Partially Received') THEN 1 ELSE 0 END) AS pending_count,
         SUM(CASE WHEN status = 'Received' THEN 1 ELSE 0 END) AS received_count,
         COALESCE(SUM(total_amount), 0) AS total_value
     FROM purchase_orders 
@@ -98,60 +98,83 @@ include 'includes/header.php';
     <?php include 'includes/topbar.php'; ?>
 
     <div style="padding: 1rem;">
-        
+
         <!-- Standard Header -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
             <div>
                 <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;">Purchase Orders</h2>
-                <p style="color: #64748b; margin-top: 0.25rem; margin-bottom: 0;">Raise and manage official purchase orders to suppliers.</p>
+                <p style="color: #64748b; margin-top: 0.25rem; margin-bottom: 0;">Raise and manage official purchase
+                    orders to suppliers.</p>
             </div>
-            <a href="add-purchase-order.php" class="btn btn-primary" style="background: #4f46e5; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.2s;">
+            <a href="add-purchase-order.php" class="btn btn-primary"
+                style="background: #4f46e5; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.2s;">
                 <i class="ri-add-line"></i> Raise Purchase Order
             </a>
         </div>
 
         <!-- Metrics Grid -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
+        <div
+            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
             <!-- Total PO Value -->
-            <div class="table-container metric-card" style="padding: 1.25rem; margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
+            <div class="table-container metric-card"
+                style="padding: 1.25rem; margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
                 <div>
-                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Ordered Value</div>
-                    <div style="font-size: 1.75rem; font-weight: 800; color: #3b82f6; margin-top: 0.5rem;">₹ <?= number_format($stats['total_value'], 2) ?></div>
+                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Total
+                        Ordered Value</div>
+                    <div style="font-size: 1.75rem; font-weight: 800; color: #3b82f6; margin-top: 0.5rem;">₹
+                        <?= number_format($stats['total_value'], 2) ?>
+                    </div>
                 </div>
-                <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                <div
+                    style="width: 48px; height: 48px; border-radius: 12px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
                     <i class="ri-money-rupee-circle-line"></i>
                 </div>
             </div>
 
             <!-- Pending POs -->
-            <div class="table-container metric-card" style="padding: 1.25rem; margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
+            <div class="table-container metric-card"
+                style="padding: 1.25rem; margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
                 <div>
-                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Pending Receipts</div>
-                    <div style="font-size: 1.75rem; font-weight: 800; color: #f59e0b; margin-top: 0.5rem;"><?= intval($stats['pending_count']) ?></div>
+                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">
+                        Pending Receipts</div>
+                    <div style="font-size: 1.75rem; font-weight: 800; color: #f59e0b; margin-top: 0.5rem;">
+                        <?= intval($stats['pending_count']) ?>
+                    </div>
                 </div>
-                <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(245, 158, 11, 0.1); color: #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                <div
+                    style="width: 48px; height: 48px; border-radius: 12px; background: rgba(245, 158, 11, 0.1); color: #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
                     <i class="ri-time-line"></i>
                 </div>
             </div>
 
             <!-- Received POs -->
-            <div class="table-container metric-card" style="padding: 1.25rem; margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
+            <div class="table-container metric-card"
+                style="padding: 1.25rem; margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
                 <div>
-                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Received & Completed</div>
-                    <div style="font-size: 1.75rem; font-weight: 800; color: #10b981; margin-top: 0.5rem;"><?= intval($stats['received_count']) ?></div>
+                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">
+                        Received & Completed</div>
+                    <div style="font-size: 1.75rem; font-weight: 800; color: #10b981; margin-top: 0.5rem;">
+                        <?= intval($stats['received_count']) ?>
+                    </div>
                 </div>
-                <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(16, 185, 129, 0.1); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                <div
+                    style="width: 48px; height: 48px; border-radius: 12px; background: rgba(16, 185, 129, 0.1); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
                     <i class="ri-checkbox-circle-line"></i>
                 </div>
             </div>
 
             <!-- Total PO Count -->
-            <div class="table-container metric-card" style="padding: 1.25rem; margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
+            <div class="table-container metric-card"
+                style="padding: 1.25rem; margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
                 <div>
-                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Total POs Raised</div>
-                    <div style="font-size: 1.75rem; font-weight: 800; color: #8b5cf6; margin-top: 0.5rem;"><?= intval($stats['total_count']) ?></div>
+                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Total
+                        POs Raised</div>
+                    <div style="font-size: 1.75rem; font-weight: 800; color: #8b5cf6; margin-top: 0.5rem;">
+                        <?= intval($stats['total_count']) ?>
+                    </div>
                 </div>
-                <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                <div
+                    style="width: 48px; height: 48px; border-radius: 12px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
                     <i class="ri-file-list-3-line"></i>
                 </div>
             </div>
@@ -159,7 +182,9 @@ include 'includes/header.php';
 
         <!-- Orders Table Container -->
         <div class="table-container" style="padding: 1.5rem;">
-            <h3 style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin-top: 0; margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">PO Registry</h3>
+            <h3
+                style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin-top: 0; margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
+                PO Registry</h3>
 
             <div style="overflow-x: auto;">
                 <table id="poTable" class="table">
@@ -178,13 +203,18 @@ include 'includes/header.php';
                         <?php foreach ($orders as $row): ?>
                             <tr>
                                 <td>
-                                    <div style="font-weight: 700; color: #1e293b;"><?= htmlspecialchars($row['po_number']) ?></div>
+                                    <div style="font-weight: 700; color: #1e293b;">
+                                        <?= htmlspecialchars($row['po_number']) ?>
+                                    </div>
                                     <?php if ($row['status'] === 'Received' && !empty($row['invoice_no'])): ?>
-                                        <div style="margin-top: 4px; display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; background: rgba(16, 185, 129, 0.08); color: #10b981; padding: 2px 6px; border-radius: 4px; font-weight: 600;">
+                                        <div
+                                            style="margin-top: 4px; display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; background: rgba(16, 185, 129, 0.08); color: #10b981; padding: 2px 6px; border-radius: 4px; font-weight: 600;">
                                             <i class="ri-file-text-line"></i>
                                             Inv: <?= htmlspecialchars($row['invoice_no']) ?>
                                             <?php if (!empty($row['invoice_file'])): ?>
-                                                <a href="../uploads/invoices/<?= htmlspecialchars($row['invoice_file']) ?>" target="_blank" title="View Invoice Copy" style="color: #10b981; text-decoration: none; margin-left: 2px; display: inline-flex;">
+                                                <a href="../uploads/invoices/<?= htmlspecialchars($row['invoice_file']) ?>"
+                                                    target="_blank" title="View Invoice Copy"
+                                                    style="color: #10b981; text-decoration: none; margin-left: 2px; display: inline-flex;">
                                                     <i class="ri-external-link-line" style="font-size: 0.75rem;"></i>
                                                 </a>
                                             <?php endif; ?>
@@ -192,17 +222,27 @@ include 'includes/header.php';
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <div style="font-weight: 700; color: #334155;"><?= htmlspecialchars($row['supplier_name']) ?></div>
-                                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 500;"><?= htmlspecialchars($row['firm_name'] ?: 'N/A') ?></div>
+                                    <div style="font-weight: 700; color: #334155;">
+                                        <?= htmlspecialchars($row['supplier_name']) ?>
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 500;">
+                                        <?= htmlspecialchars($row['firm_name'] ?: 'N/A') ?>
+                                    </div>
                                 </td>
                                 <td>
-                                    <div style="font-weight: 600; color: #475569;"><?= date('d M Y', strtotime($row['order_date'])) ?></div>
+                                    <div style="font-weight: 600; color: #475569;">
+                                        <?= date('d M Y', strtotime($row['order_date'])) ?>
+                                    </div>
                                 </td>
                                 <td>
-                                    <div style="font-weight: 500; color: #64748b;"><?= $row['delivery_date'] ? date('d M Y', strtotime($row['delivery_date'])) : '<span style="color:#94a3b8;">Not specified</span>' ?></div>
+                                    <div style="font-weight: 500; color: #64748b;">
+                                        <?= $row['delivery_date'] ? date('d M Y', strtotime($row['delivery_date'])) : '<span style="color:#94a3b8;">Not specified</span>' ?>
+                                    </div>
                                 </td>
                                 <td>
-                                    <div style="font-weight: 700; color: #4f46e5;">₹ <?= number_format($row['total_amount'], 2) ?></div>
+                                    <div style="font-weight: 700; color: #4f46e5;">₹
+                                        <?= number_format($row['total_amount'], 2) ?>
+                                    </div>
                                 </td>
                                 <td>
                                     <?php
@@ -210,27 +250,36 @@ include 'includes/header.php';
                                     $badgeStyle = '';
                                     if ($status === 'Pending') {
                                         $badgeStyle = 'background: rgba(245, 158, 11, 0.1); color: #f59e0b;';
+                                    } elseif ($status === 'Partially Received') {
+                                        $badgeStyle = 'background: rgba(59, 130, 246, 0.1); color: #3b82f6;';
                                     } elseif ($status === 'Received') {
                                         $badgeStyle = 'background: rgba(16, 185, 129, 0.1); color: #10b981;';
                                     } else {
                                         $badgeStyle = 'background: rgba(239, 68, 68, 0.1); color: #ef4444;';
                                     }
                                     ?>
-                                    <span style="font-weight: 700; padding: 4px 10px; border-radius: 20px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.02em; <?= $badgeStyle ?>">
+                                    <span
+                                        style="font-weight: 700; padding: 4px 10px; border-radius: 20px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.02em; <?= $badgeStyle ?>">
                                         <?= htmlspecialchars($status) ?>
                                     </span>
                                 </td>
                                 <td style="text-align: right;">
-                                    <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
-                                        <button class="btn-icon-p" onclick="openDetailsModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['po_number'], ENT_QUOTES) ?>')" title="View Items Details" style="color: #4f46e5;">
+                                    <div
+                                        style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
+                                        <button class="btn-icon-p"
+                                            onclick="openDetailsModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['po_number'], ENT_QUOTES) ?>')"
+                                            title="View Items Details" style="color: #4f46e5;">
                                             <i class="ri-eye-line"></i>
                                         </button>
-                                        
-                                        <?php if ($status === 'Pending'): ?>
-                                            <a href="receive-po.php?id=<?= $row['id'] ?>" class="btn-icon-p" title="Receive Stock" style="color: #10b981;">
+
+                                        <?php if (in_array($status, ['Pending', 'Partially Received'])): ?>
+                                            <a href="receive-po.php?id=<?= $row['id'] ?>" class="btn-icon-p"
+                                                title="Receive Stock" style="color: #10b981;">
                                                 <i class="ri-download-2-line"></i>
                                             </a>
-                                            <button class="btn-icon-p" onclick="confirmCancel(<?= $row['id'] ?>, '<?= htmlspecialchars($row['po_number'], ENT_QUOTES) ?>')" title="Cancel Order" style="color: #ef4444;">
+                                            <button class="btn-icon-p"
+                                                onclick="confirmCancel(<?= $row['id'] ?>, '<?= htmlspecialchars($row['po_number'], ENT_QUOTES) ?>')"
+                                                title="Cancel Order" style="color: #ef4444;">
                                                 <i class="ri-close-circle-line"></i>
                                             </button>
                                         <?php endif; ?>
@@ -290,34 +339,39 @@ include 'includes/header.php';
         text-decoration: none;
         font-size: 1.1rem;
     }
+
     .btn-icon-p:hover {
         background: white;
         transform: translateY(-2px);
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         border-color: #cbd5e1;
     }
+
     .metric-card {
         background: white;
         border: 1px solid #e2e8f0 !important;
         border-radius: 12px;
         transition: all 0.2s;
     }
+
     .metric-card:hover {
         transform: translateY(-4px);
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
         border-color: #cbd5e1 !important;
     }
+
     .custom-modal {
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.5);
+        background: rgba(0, 0, 0, 0.5);
         z-index: 9999;
         justify-content: center;
         align-items: center;
         backdrop-filter: blur(2px);
         transition: all 0.25s;
     }
+
     .custom-modal-card {
         background: #fff;
         border-radius: 14px;
@@ -327,6 +381,7 @@ include 'includes/header.php';
         opacity: 0;
         transition: all 0.2s ease-out;
     }
+
     .custom-modal-header {
         color: #fff;
         padding: 1.25rem 1.5rem;
@@ -342,10 +397,10 @@ include 'includes/header.php';
         const modal = document.getElementById('detailsModal');
         const card = modal.querySelector('.custom-modal-card');
         const tbody = document.getElementById('modalPoItemsBody');
-        
+
         document.getElementById('modalPoTitle').textContent = 'PO Items: ' + poNumber;
         tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;"><i class="ri-loader-4-line ri-spin" style="font-size: 2rem;"></i></td></tr>';
-        
+
         modal.style.display = 'flex';
         setTimeout(() => {
             card.style.transform = 'scale(1)';
@@ -360,13 +415,13 @@ include 'includes/header.php';
                     data.items.forEach(item => {
                         const tr = document.createElement('tr');
                         tr.style.borderBottom = '1px solid #f1f5f9';
-                        
+
                         const qty = parseFloat(item.quantity) || 0;
                         const recQty = parseFloat(item.received_quantity) || 0;
                         const cost = parseFloat(item.cost) || 0;
                         const total = qty * cost;
                         const categoryName = item.category_name || item.category || 'N/A';
-                        
+
                         tr.innerHTML = `
                             <td style="padding: 10px 6px;">
                                 <div style="font-weight: 700; color: #1e293b;">${escapeHtml(item.item_name)}</div>
@@ -390,7 +445,7 @@ include 'includes/header.php';
                         `;
                         tbody.appendChild(tr);
                     });
-                    
+
                     if (data.items.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;">No items in this purchase order.</td></tr>';
                     }
@@ -409,7 +464,7 @@ include 'includes/header.php';
     function closeDetailsModal() {
         const modal = document.getElementById('detailsModal');
         const card = modal.querySelector('.custom-modal-card');
-        
+
         card.style.transform = 'scale(0.95)';
         card.style.opacity = '0';
         setTimeout(() => {
@@ -432,35 +487,35 @@ include 'includes/header.php';
                 const formData = new FormData();
                 formData.append('action', 'cancel_po');
                 formData.append('po_id', poId);
-                
+
                 fetch('purchase-orders.php', {
                     method: 'POST',
                     body: formData
                 })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        Swal.fire({
-                            title: 'Cancelled!',
-                            text: 'Purchase Order status has been updated to Cancelled.',
-                            icon: 'success',
-                            confirmButtonColor: '#4f46e5'
-                        }).then(() => {
-                            window.location.reload();
-                        });
-                    } else {
-                        Swal.fire({
-                            title: 'Error',
-                            text: data.message || 'Failed to cancel the Purchase Order.',
-                            icon: 'error',
-                            confirmButtonColor: '#4f46e5'
-                        });
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to communicate with server.' });
-                });
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire({
+                                title: 'Cancelled!',
+                                text: 'Purchase Order status has been updated to Cancelled.',
+                                icon: 'success',
+                                confirmButtonColor: '#4f46e5'
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                title: 'Error',
+                                text: data.message || 'Failed to cancel the Purchase Order.',
+                                icon: 'error',
+                                confirmButtonColor: '#4f46e5'
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to communicate with server.' });
+                    });
             }
         });
     }
@@ -468,10 +523,10 @@ include 'includes/header.php';
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/&/g, "&amp;")
-                  .replace(/</g, "&lt;")
-                  .replace(/>/g, "&gt;")
-                  .replace(/"/g, "&quot;")
-                  .replace(/'/g, "&#039;");
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 </script>
 

@@ -10,15 +10,15 @@ if ($id) {
     $check->execute([$id]);
 
     if ($check->fetch()) {
-    $stmt = $pdo->prepare("
+        $stmt = $pdo->prepare("
     UPDATE inventory 
-    SET is_deleted = 1, deleted_at = NOW(), deleted_by = ? 
+    SET is_deleted = 1, deleted_at = NOW()
     WHERE id = ? AND is_deleted = 0
 ");
-    $stmt->execute([$_SESSION['user_id'] ?? null, $id]);
+        $stmt->execute([$id]);
 
-    $_SESSION['success'] = "deleted";
-}
+        $_SESSION['success'] = "deleted";
+    }
 }
 header("Location: inventory.php");
 exit;

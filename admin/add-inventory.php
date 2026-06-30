@@ -4,6 +4,7 @@ include '../includes/db.php';
 
 $id = $_GET['id'] ?? null;
 $old = [];
+$image_name = null;
 
 if ($id) {
     $stmt = $pdo->prepare("SELECT * FROM inventory WHERE id = ? AND is_deleted = 0");
@@ -16,11 +17,12 @@ if ($id) {
 
     $old = $item;
 }
+$image_name = $old['item_image'] ?? null;
 
 // Fetch active suppliers from the suppliers master table
-$suppliers_stmt = $pdo->query("SELECT supplier_name, contact AS supplier_contact 
-                               FROM suppliers 
-                               WHERE status = 'active' AND is_deleted = 0 
+$suppliers_stmt = $pdo->query("SELECT supplier_name, phone_no AS supplier_contact
+                               FROM suppliers
+                               WHERE is_deleted = 0
                                ORDER BY supplier_name ASC");
 $unique_suppliers = $suppliers_stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -32,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $description = trim($_POST['description']);
     $unit = $_POST['unit'];
     $cost = $_POST['cost'];
-    $quantity = $_POST['quantity'];
+    $quantity = $id ? $old['quantity'] : 0;
     $low_stock = $_POST['low_stock'];
     $status = $_POST['status'];
     $supplier_name = trim($_POST['supplier_name']);
@@ -73,6 +75,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     // VALIDATIONS
+    if (!empty($_FILES['image']['name'])) {
+        $uploadDir = '../uploads/inventory/';
+
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+        $allowed = ['jpg', 'jpeg', 'png'];
+
+        if (!in_array($ext, $allowed)) {
+            $errors['image'] = "Only JPG, JPEG, PNG allowed";
+        } else {
+            $image_name = time() . '_' . basename($_FILES['image']['name']);
+            move_uploaded_file($_FILES['image']['tmp_name'], $uploadDir . $image_name);
+        }
+    }
 
     if ($item_name == '') {
 
@@ -131,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         $errors['cost'] = "Cost must be numeric";
 
-    } elseif ((float)$cost < 0) {
+    } elseif ((float) $cost < 0) {
 
         $errors['cost'] = "Cost cannot be negative";
     }
@@ -145,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         $errors['quantity'] = "Quantity must be numeric";
 
-    } elseif ((float)$quantity < 0) {
+    } elseif ((float) $quantity < 0) {
 
         $errors['quantity'] = "Quantity cannot be negative";
     }
@@ -159,7 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         $errors['low_stock'] = "Low stock must be numeric";
 
-    } elseif ((float)$low_stock < 0) {
+    } elseif ((float) $low_stock < 0) {
 
         $errors['low_stock'] = "Low stock cannot be negative";
     }
@@ -302,8 +321,8 @@ include 'includes/header.php';
     <div>
         <div style="display: flex; align-items: center; justify-content: space-between;">
             <div>
-                <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b;">Add New Item</h2>
-                <p class="text-muted">Register new stock materials</p>
+                <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b;">Stock Adjustment / Item Master</h2>
+                <p class="text-muted">Create item master or perform admin stock adjustments only.</p>
             </div>
             <button class="btn" onclick="history.back()"
                 style="background: white; border: 1px solid #e2e8f0; color: #64748b;">
@@ -406,7 +425,7 @@ include 'includes/header.php';
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div class="form-group">
                         <label class="form-label" id="quantityLabel">Quantity in Stock</label>
-                        <input type="number" name="quantity" id="quantityInput" class="form-control" 
+                        <input type="number" name="quantity" readonly id="quantityInput" class="form-control"
                             style="background: #f8fafc; font-weight: 700; color: #475569;" placeholder="0.0"
                             value="<?= isset($old['quantity']) ? htmlspecialchars($old['quantity']) : '0.0' ?>">
                         <div

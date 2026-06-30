@@ -37,29 +37,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $order_date = trim($_POST['order_date'] ?? '');
     $delivery_date = trim($_POST['delivery_date'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
-    
+
     // Items arrays
     $item_names = $_POST['item_name'] ?? [];
     $categories_input = $_POST['category'] ?? [];
     $units = $_POST['unit'] ?? [];
     $quantities = $_POST['quantity'] ?? [];
     $costs = $_POST['cost'] ?? [];
-    
+
     $errors = [];
-    
+
     // Header validations
     if ($supplier_id <= 0) {
-$errors['supplier_id'] = "Please select a supplier";
+        $errors['supplier_id'] = "Please select a supplier";
     }
     if (empty($order_date)) {
-$errors['order_date'] = "Order date is required";
+        $errors['order_date'] = "Order date is required";
     }
-    
+    if (!empty($delivery_date) && $delivery_date < $order_date) {
+        $errors['delivery_date'] = "Expected delivery date cannot be before order date";
+    }
+
     $items_count = count($item_names);
     if ($items_count === 0) {
         $errors[] = "Purchase order must contain at least one item.";
     }
-    
+
     // Row level validations
     for ($i = 0; $i < $items_count; $i++) {
         $name = trim($item_names[$i] ?? '');
@@ -67,7 +70,7 @@ $errors['order_date'] = "Order date is required";
         $unit = trim($units[$i] ?? '');
         $qty = $quantities[$i] ?? '';
         $row_num = $i + 1;
-        
+
         if ($name === '') {
             $errors[] = "Row #{$row_num}: Item name is required.";
         }
@@ -81,16 +84,16 @@ $errors['order_date'] = "Order date is required";
             $errors[] = "Row #{$row_num}: Quantity must be a positive number.";
         }
     }
-    
+
     if (empty($errors)) {
         try {
             $pdo->beginTransaction();
-            
+
             // 1. Generate PO Number dynamically: e.g. PO-2026-0001
             $year = date('Y', strtotime($order_date));
-            $seq_stmt = $pdo->query("SELECT COUNT(*) FROM purchase_orders");
+            $seq_stmt = $pdo->query("SELECT MAX(id) FROM purchase_orders");
             $next_seq = intval($seq_stmt->fetchColumn()) + 1;
-            
+
             // Ensure unique PO number
             $po_number = 'PO-' . $year . '-' . str_pad($next_seq, 4, '0', STR_PAD_LEFT);
             $dup_chk = $pdo->prepare("SELECT COUNT(*) FROM purchase_orders WHERE po_number = ?");
@@ -102,17 +105,17 @@ $errors['order_date'] = "Order date is required";
                 $next_seq++;
                 $po_number = 'PO-' . $year . '-' . str_pad($next_seq, 4, '0', STR_PAD_LEFT);
             }
-            
+
             // 2. Set PO Total to 0.00 initially (pricing set during receipt)
             $grand_total = 0.00;
-            
+
             // 3. Insert Purchase Order
             $po_stmt = $pdo->prepare("
                 INSERT INTO purchase_orders 
                 (po_number, supplier_id, order_date, delivery_date, total_amount, notes, status, is_deleted) 
                 VALUES (?, ?, ?, ?, ?, ?, 'Pending', 0)
             ");
-            
+
             $po_stmt->execute([
                 $po_number,
                 $supplier_id,
@@ -121,16 +124,16 @@ $errors['order_date'] = "Order date is required";
                 $grand_total,
                 !empty($notes) ? $notes : null
             ]);
-            
+
             $purchase_order_id = $pdo->lastInsertId();
-            
+
             // 4. Insert PO Items
             $item_stmt = $pdo->prepare("
                 INSERT INTO purchase_order_items 
                 (purchase_order_id, item_name, sku, category, quantity, unit, cost, received_quantity) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, 0.00)
             ");
-            
+
             for ($i = 0; $i < $items_count; $i++) {
                 $name = trim($item_names[$i]);
                 $sku = '';
@@ -138,22 +141,24 @@ $errors['order_date'] = "Order date is required";
                 $unit = trim($units[$i]);
                 $qty = floatval($quantities[$i]);
                 $cost = 0.00;
-                
+
                 // Dynamic SKU generation if left blank
                 if (empty($sku)) {
                     $cat_prefix = strtoupper(substr($cat, 0, 3));
-                    if ($cat === 'access') $cat_prefix = 'ACC';
-                    if (empty($cat_prefix)) $cat_prefix = 'INV';
-                    
+                    if ($cat === 'access')
+                        $cat_prefix = 'ACC';
+                    if (empty($cat_prefix))
+                        $cat_prefix = 'INV';
+
                     $clean_name = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $name));
                     $name_prefix = substr($clean_name, 0, 3);
                     if (strlen($name_prefix) < 3) {
                         $name_prefix = str_pad($name_prefix, 3, 'X');
                     }
-                    
+
                     $suffix = rand(1000, 9999);
                     $sku = $cat_prefix . '-' . $name_prefix . '-' . $suffix;
-                    
+
                     // Check database for duplication
                     $sku_chk = $pdo->prepare("SELECT COUNT(*) FROM inventory WHERE sku = ? AND is_deleted = 0");
                     while (true) {
@@ -165,7 +170,7 @@ $errors['order_date'] = "Order date is required";
                         $sku = $cat_prefix . '-' . $name_prefix . '-' . $suffix;
                     }
                 }
-                
+
                 $item_stmt->execute([
                     $purchase_order_id,
                     $name,
@@ -176,13 +181,13 @@ $errors['order_date'] = "Order date is required";
                     $cost
                 ]);
             }
-            
+
             $pdo->commit();
-            
+
             $_SESSION['success'] = "Purchase Order " . $po_number . " has been successfully raised!";
             header("Location: purchase-orders.php");
             exit;
-            
+
         } catch (Exception $e) {
             $pdo->rollBack();
             $errors[] = "Database error while saving PO: " . $e->getMessage();
@@ -203,7 +208,8 @@ include 'includes/header.php';
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
             <div>
                 <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;">Raise Purchase Order</h2>
-                <p class="text-muted" style="margin: 0.25rem 0 0 0;">Create a new official purchase request to a supplier</p>
+                <p class="text-muted" style="margin: 0.25rem 0 0 0;">Create a new official purchase request to a
+                    supplier</p>
             </div>
             <button class="btn" onclick="history.back()"
                 style="background: white; border: 1px solid #e2e8f0; color: #64748b; font-weight: 600;">
@@ -212,62 +218,76 @@ include 'includes/header.php';
         </div>
     </div>
 
-  
 
-<form method="POST" id="poForm" novalidate>        
+
+    <form method="POST" id="poForm" novalidate>
         <!-- Supplier & PO Info Card -->
-        <div style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
-            <h3 style="font-size: 1.1rem; font-weight: 600; color: #1e293b; margin-top: 0; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+        <div
+            style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <h3
+                style="font-size: 1.1rem; font-weight: 600; color: #1e293b; margin-top: 0; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
                 <i class="ri-truck-line" style="color: #4f46e5;"></i> General PO Details
             </h3>
 
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem;">
                 <div class="form-group">
                     <label class="form-label">Select Supplier <span style="color: red;">*</span></label>
-<select name="supplier_id" id="supplierSelect" class="form-select">
-    <option value="">Choose Supplier</option>
-    <?php foreach ($suppliers as $supp): ?>
-        <option value="<?= $supp['id'] ?>">
-            <?= htmlspecialchars($supp['supplier_name']) ?>
-        </option>
-    <?php endforeach; ?>
-</select>
+                    <select name="supplier_id" id="supplierSelect" class="form-select">
+                        <option value="">Choose Supplier</option>
+                        <?php foreach ($suppliers as $supp): ?>
+                            <option value="<?= $supp['id'] ?>" data-contact="<?= htmlspecialchars($supp['phone_no']) ?>"
+                                data-firm="<?= htmlspecialchars($supp['firm_name']) ?>">
+                                <?= htmlspecialchars($supp['supplier_name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
 
-<?php if(isset($errors['supplier_id'])): ?>
-    <small style="color:red;">
-        <?= $errors['supplier_id']; ?>
-    </small>
-<?php endif; ?>
+                    <?php if (isset($errors['supplier_id'])): ?>
+                        <small style="color:red;">
+                            <?= $errors['supplier_id']; ?>
+                        </small>
+                    <?php endif; ?>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Order Date <span style="color: red;">*</span></label>
-                    <input type="date" name="order_date" class="form-control" value="<?= isset($_POST['order_date']) ? htmlspecialchars($_POST['order_date']) : date('Y-m-d') ?>">
-                    <?php if(isset($errors['order_date'])): ?>
-    <small style="color:red;">
-        <?= $errors['order_date']; ?>
-    </small>
-<?php endif; ?>
+                    <input type="date" name="order_date" class="form-control"
+                        value="<?= isset($_POST['order_date']) ? htmlspecialchars($_POST['order_date']) : date('Y-m-d') ?>">
+                    <?php if (isset($errors['order_date'])): ?>
+                        <small style="color:red;">
+                            <?= $errors['order_date']; ?>
+                        </small>
+                    <?php endif; ?>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Expected Delivery</label>
-                    <input type="date" name="delivery_date" class="form-control" value="<?= isset($_POST['delivery_date']) ? htmlspecialchars($_POST['delivery_date']) : '' ?>">
+                    <input type="date" name="delivery_date" class="form-control"
+                        value="<?= isset($_POST['delivery_date']) ? htmlspecialchars($_POST['delivery_date']) : '' ?>">
+                    <?php if (isset($errors['delivery_date'])): ?>
+                        <small style="color:red;">
+                            <?= $errors['delivery_date']; ?>
+                        </small>
+                    <?php endif; ?>
                 </div>
                 <div class="form-group" style="grid-column: span 1;">
                     <label class="form-label">Supplier Contact Details</label>
-                    <input type="text" id="contactDisplay" class="form-control" readonly style="background: #f8fafc; font-weight: 600;" placeholder="Select a supplier">
+                    <input type="text" id="contactDisplay" class="form-control" readonly
+                        style="background: #f8fafc; font-weight: 600;" placeholder="Select a supplier">
                 </div>
             </div>
-            
+
             <div class="form-group" style="margin-top: 1.25rem;">
                 <label class="form-label">General PO Notes / Special Instructions</label>
-                <textarea name="notes" rows="2" class="form-control" placeholder="Add specific terms, shipping method, or comments..."><?= isset($_POST['notes']) ? htmlspecialchars($_POST['notes']) : '' ?></textarea>
+                <textarea name="notes" rows="2" class="form-control"
+                    placeholder="Add specific terms, shipping method, or comments..."><?= isset($_POST['notes']) ? htmlspecialchars($_POST['notes']) : '' ?></textarea>
             </div>
         </div>
 
         <!-- Ordered Items Card -->
-        <div style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+        <div
+            style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-                <h3 style="font-size: 1.1rem; font-weight: 600; color: #1e293b; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                <h3
+                    style="font-size: 1.1rem; font-weight: 600; color: #1e293b; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
                     <i class="ri-archive-line" style="color: #4f46e5;"></i> Order Line Items
                 </h3>
                 <button type="button" class="btn" onclick="addRow()"
@@ -292,29 +312,42 @@ include 'includes/header.php';
                             <?php for ($i = 0; $i < count($_POST['item_name']); $i++): ?>
                                 <tr class="item-row">
                                     <td>
-                                        <input type="text" name="item_name[]" class="form-control"  placeholder="e.g. Red Silk Fabric" value="<?= htmlspecialchars($_POST['item_name'][$i]) ?>">
+                                        <input type="text" name="item_name[]" class="form-control"
+                                            placeholder="e.g. Red Silk Fabric"
+                                            value="<?= htmlspecialchars($_POST['item_name'][$i]) ?>">
                                     </td>
                                     <td>
-                                        <select name="category[]" class="form-select" >
+                                        <select name="category[]" class="form-select">
                                             <option value="">Select</option>
                                             <?php foreach ($categories as $cat): ?>
-                                                <option value="<?= htmlspecialchars($cat['code']) ?>" <?= ($_POST['category'][$i] == $cat['code']) ? 'selected' : '' ?>><?= htmlspecialchars($cat['name']) ?></option>
+                                                <option value="<?= htmlspecialchars($cat['code']) ?>"
+                                                    <?= ($_POST['category'][$i] == $cat['code']) ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars($cat['name']) ?>
+                                                </option>
                                             <?php endforeach; ?>
                                         </select>
                                     </td>
                                     <td>
-                                        <select name="unit[]" class="form-select unit-select" >
-                                            <option value="meters" <?= ($_POST['unit'][$i] == 'meters') ? 'selected' : '' ?>>Meters</option>
-                                            <option value="pieces" <?= ($_POST['unit'][$i] == 'pieces') ? 'selected' : '' ?>>Pieces</option>
-                                            <option value="rolls" <?= ($_POST['unit'][$i] == 'rolls') ? 'selected' : '' ?>>Rolls</option>
-                                            <option value="boxes" <?= ($_POST['unit'][$i] == 'boxes') ? 'selected' : '' ?>>Boxes</option>
+                                        <select name="unit[]" class="form-select unit-select">
+                                            <option value="meters" <?= ($_POST['unit'][$i] == 'meters') ? 'selected' : '' ?>>Meters
+                                            </option>
+                                            <option value="pieces" <?= ($_POST['unit'][$i] == 'pieces') ? 'selected' : '' ?>>Pieces
+                                            </option>
+                                            <option value="rolls" <?= ($_POST['unit'][$i] == 'rolls') ? 'selected' : '' ?>>Rolls
+                                            </option>
+                                            <option value="boxes" <?= ($_POST['unit'][$i] == 'boxes') ? 'selected' : '' ?>>Boxes
+                                            </option>
                                         </select>
                                     </td>
                                     <td>
-                                        <input type="number" name="quantity[]" class="form-control qty-input" step="0.01" min="0" placeholder="e.g. 10.0" value="<?= htmlspecialchars($_POST['quantity'][$i]) ?>">
+                                        <input type="number" name="quantity[]" class="form-control qty-input" step="0.01"
+                                            min="0" placeholder="e.g. 10.0"
+                                            value="<?= htmlspecialchars($_POST['quantity'][$i]) ?>">
                                     </td>
                                     <td style="text-align: center; vertical-align: middle;">
-                                        <button type="button" class="btn-remove-row" style="background:none; border:none; color:#ef4444; font-size:1.2rem; cursor:pointer;" onclick="removeRow(this)">
+                                        <button type="button" class="btn-remove-row"
+                                            style="background:none; border:none; color:#ef4444; font-size:1.2rem; cursor:pointer;"
+                                            onclick="removeRow(this)">
                                             <i class="ri-delete-bin-line"></i>
                                         </button>
                                     </td>
@@ -323,13 +356,16 @@ include 'includes/header.php';
                         <?php else: ?>
                             <tr class="item-row">
                                 <td>
-                                    <input type="text" name="item_name[]" class="form-control" required placeholder="e.g. Red Silk Fabric">
+                                    <input type="text" name="item_name[]" class="form-control" required
+                                        placeholder="e.g. Red Silk Fabric">
                                 </td>
                                 <td>
                                     <select name="category[]" class="form-select" required>
                                         <option value="">Select</option>
                                         <?php foreach ($categories as $cat): ?>
-                                            <option value="<?= htmlspecialchars($cat['code']) ?>"><?= htmlspecialchars($cat['name']) ?></option>
+                                            <option value="<?= htmlspecialchars($cat['code']) ?>">
+                                                <?= htmlspecialchars($cat['name']) ?>
+                                            </option>
                                         <?php endforeach; ?>
                                     </select>
                                 </td>
@@ -342,10 +378,13 @@ include 'includes/header.php';
                                     </select>
                                 </td>
                                 <td>
-                                    <input type="number" name="quantity[]" class="form-control qty-input" step="0.01" min="0" required placeholder="e.g. 10.0">
+                                    <input type="number" name="quantity[]" class="form-control qty-input" step="0.01"
+                                        min="0" required placeholder="e.g. 10.0">
                                 </td>
                                 <td style="text-align: center; vertical-align: middle;">
-                                    <button type="button" class="btn-remove-row" style="background:none; border:none; color:#ef4444; font-size:1.2rem; cursor:pointer;" onclick="removeRow(this)">
+                                    <button type="button" class="btn-remove-row"
+                                        style="background:none; border:none; color:#ef4444; font-size:1.2rem; cursor:pointer;"
+                                        onclick="removeRow(this)">
                                         <i class="ri-delete-bin-line"></i>
                                     </button>
                                 </td>
@@ -358,7 +397,8 @@ include 'includes/header.php';
         </div>
 
         <!-- Form Submission Actions -->
-        <div style="background: white; border: 1px solid #e2e8f0; padding: 1.25rem 1.5rem; border-radius: 8px; display: flex; justify-content: flex-end; gap: 1rem; align-items: center;">
+        <div
+            style="background: white; border: 1px solid #e2e8f0; padding: 1.25rem 1.5rem; border-radius: 8px; display: flex; justify-content: flex-end; gap: 1rem; align-items: center;">
             <button type="button" class="btn" onclick="history.back()"
                 style="background: #f8fafc; border: 1px solid #cbd5e1; color: #64748b; font-weight: 600; padding: 10px 24px;">
                 Cancel
@@ -402,7 +442,7 @@ include 'includes/header.php';
         border-color: #4f46e5;
         box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
     }
-    
+
     .table th {
         font-size: 0.82rem;
         font-weight: 700;
@@ -413,12 +453,12 @@ include 'includes/header.php';
         border-bottom: 2px solid #e2e8f0;
         padding: 12px 8px;
     }
-    
+
     .table td {
         padding: 8px;
         vertical-align: middle;
     }
-    
+
     .item-row {
         transition: all 0.25s ease-out;
     }
@@ -427,7 +467,7 @@ include 'includes/header.php';
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     const categoryOptions = `<?= $js_category_options ?>`;
-    
+
     function addRow() {
         const tbody = document.querySelector('#poItemsTable tbody');
         const tr = document.createElement('tr');
@@ -435,7 +475,7 @@ include 'includes/header.php';
         tr.style.opacity = '0';
         tr.style.transform = 'translateY(8px)';
         tr.style.transition = 'all 0.2s ease-out';
-        
+
         tr.innerHTML = `
             <td>
                 <input type="text" name="item_name[]" class="form-control" required placeholder="e.g. Red Silk Fabric">
@@ -463,7 +503,7 @@ include 'includes/header.php';
                 </button>
             </td>
         `;
-        
+
         tbody.appendChild(tr);
         setTimeout(() => {
             tr.style.opacity = '1';
@@ -498,7 +538,7 @@ include 'includes/header.php';
     };
 
     // Attach event delegation for placeholders
-    document.querySelector('#poItemsTable').addEventListener('change', function(e) {
+    document.querySelector('#poItemsTable').addEventListener('change', function (e) {
         if (e.target && e.target.classList.contains('unit-select')) {
             const select = e.target;
             const row = select.closest('tr');
@@ -509,7 +549,7 @@ include 'includes/header.php';
     });
 
     // Supplier details display handler
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const supplierSelect = document.getElementById('supplierSelect');
         const contactDisplay = document.getElementById('contactDisplay');
 
