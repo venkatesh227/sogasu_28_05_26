@@ -3,51 +3,11 @@ session_start();
 include '../includes/db.php';
 
 $id = $_GET['id'] ?? null;
-$type = $_GET['type'] ?? 'admin';
 if (!$id) {
     die("Invalid Order ID");
 }
 // ===== FETCH ORDER DATA =====
-if ($type === 'customer') {
-
-    $stmt = $pdo->prepare("
-        SELECT 
-            co.id,
-            co.order_code,
-            co.user_id as customer_id,
-            co.category_id,
-            co.sub_category_id,
-
-            co.status as order_status,
-            co.status_history,
-            co.additional_notes as notes,
-
-            co.assigned_employee_id,
-            co.supervisor_id,
-            co.rack_id,
-
-            co.base_price,
-            co.extra_charges,
-            co.total_amount,
-
-            'customer' as order_type,
-
-            c.first_name,
-            c.last_name,
-
-            cat.category_name,
-            sc.name as sub_category_name
-
-        FROM customer_orders co
-        JOIN customers c ON co.user_id = c.user_id
-        LEFT JOIN categories cat ON co.category_id = cat.id
-        LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
-        WHERE co.id = ?
-    ");
-
-} else {
-
-    $stmt = $pdo->prepare("
+$stmt = $pdo->prepare("
         SELECT 
             o.id,
             o.order_code,
@@ -64,9 +24,10 @@ if ($type === 'customer') {
 
             o.base_price,
             o.extra_charges,
-             o.total_amount,
+            o.total_amount,
+            o.due_date,
 
-            'admin' as order_type,
+            'outsource' as order_type,
 
             c.first_name,
             c.last_name,
@@ -80,7 +41,7 @@ if ($type === 'customer') {
         LEFT JOIN sub_categories sc ON o.sub_category_id = sc.id
         WHERE o.id = ?
     ");
-}
+
 
 $stmt->execute([$id]);
 $order = $stmt->fetch();
@@ -92,69 +53,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ? $_POST['assigned_employee_id']
             : $order['assigned_employee_id'];
         $status = $_POST['order_status'] ?? 'pending';
+        $due_date = !empty($_POST['due_date']) ? $_POST['due_date'] : null;
         $notes = $_POST['notes'] ?? '';
         $rack_id = $_POST['rack_id'] ?: null;
-        $existingHistory = $order['status_history'] ?? '';
+    
+        $stmt = $pdo->prepare("
+            UPDATE outsource_orders 
+            SET assigned_employee_id = ?, 
+                order_status = ?, 
+                notes = ?,
+                rack_id = ?,
+                due_date = ?
+            WHERE id = ?
+        ");
 
-        if (!empty($existingHistory)) {
-
-            $historyArray = explode(',', $existingHistory);
-
-            if (!in_array($status, $historyArray)) {
-                $existingHistory .= ',' . $status;
-            }
-
-        } else {
-
-            $existingHistory = 'pending';
-
-            if ($status !== 'pending') {
-                $existingHistory .= ',' . $status;
-            }
-
-        }
-
-        if (($order['order_type'] ?? '') === 'customer') {
-
-            $stmt = $pdo->prepare("
-                UPDATE customer_orders
-                SET assigned_employee_id = ?, 
-                    status = ?, 
-                    additional_notes = ?,
-                    status_history = ?,
-                    rack_id = ?,
-                    updated_at = NOW()
-                WHERE id = ?
-            ");
-
-            $stmt->execute([
-                $assigned_id,
-                $status,
-                $notes,
-                $existingHistory,
-                $rack_id,
-                $id
-            ]);
-
-        } else {
-
-            $stmt = $pdo->prepare("
-                UPDATE outsource_orders 
-                SET assigned_employee_id = ?, 
-                    order_status = ?, 
-                    notes = ?,
-                    rack_id = ?
-                WHERE id = ?
-            ");
-
-            $stmt->execute([
-                $assigned_id,
-                $status,
-                $notes,
-                $rack_id,
-                $id
-            ]);
-        }
+        $stmt->execute([
+            $assigned_id,
+            $status,
+            $notes,
+            $rack_id,
+            $due_date,
+            $id
+        ]);
 
 
         $_SESSION['success'] = "Order updated successfully!";
@@ -363,6 +283,11 @@ include 'includes/header.php';
                             </option>
                         <?php endforeach; ?>
                     </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 1.25rem;">
+                    <label class="form-label">Due Date</label>
+                    <input type="date" name="due_date" class="form-control"
+                        value="<?= !empty($order['due_date']) ? date('Y-m-d', strtotime($order['due_date'])) : '' ?>">
                 </div>
 
                 <div style="border-top: 1px solid #f1f5f9; margin: 1.5rem 0;"></div>

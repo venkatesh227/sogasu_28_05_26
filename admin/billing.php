@@ -401,9 +401,7 @@ if (
                 rand(1000, 9999);
 
             $insertStmt = $pdo->prepare("
-
             INSERT INTO bills (
-
                 order_id,
                 order_type,
                 invoice_no,
@@ -415,18 +413,14 @@ if (
                 paid_amount,
                 pending_amount,
                 bill_status,
-                due_date
-
+                due_date,
+                created_at
             ) VALUES (
-
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?
-
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
-
         ");
 
             $insertStmt->execute([
-
                 $orderId,
                 $orderType,
                 $invoiceNo,
@@ -438,8 +432,8 @@ if (
                 $paidAmount,
                 $pendingAmount,
                 $status,
-                $dueDate
-
+                $dueDate,
+                date('Y-m-d H:i:s')
             ]);
             if ($orderType === 'orders') {
 

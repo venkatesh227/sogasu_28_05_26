@@ -1,33 +1,34 @@
 Array
 (
     [order_type] => outsource
-    [customer_id] => 2
-    [mobile_number] => 8888888888
+    [customer_id] => 3
+    [mobile_number] => 7898767897
     [family_member_id] => 
-    [delivery_address] => Nandulapet, Tenali
-    [category_id] => 1
-    [sub_category_id] => 3
-    [fabric_details] => cotton
-    [due_date] => 2026-06-29
+    [delivery_address] => abcde, Vijayawada
+    [category_id] => 2
+    [sub_category_id] => 4
+    [fabric_details] => silk
+    [due_date] => 2026-07-06
     [measurement_unit] => CMS
     [measurements] => Array
         (
             [Sholder] => 22
-            [hand] => 22
             [Chest] => 22
             [Waist] => 22
+            [height] => 22
+            [width] => 22
         )
 
-    [design_notes] => Back Rope
+    [design_notes] => Hip Rope
     [selected_services] => Array
         (
             [0] => 2
         )
 
-    [base_price] => 700.00
-    [extra_charges] => 300
-    [outsource_credit] => 700
-    [advance_amount] => 400
+    [base_price] => 5000.00
+    [extra_charges] => 500
+    [outsource_credit] => 2000
+    [advance_amount] => 800
     [advance_payment_mode] => Cash
     [transaction_reference] => 
     [submit_order] => 1

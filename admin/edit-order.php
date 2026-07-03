@@ -29,6 +29,7 @@ if ($type === 'customer') {
             co.base_price,
             co.extra_charges,
             co.total_amount,
+            co.appointment_date as due_date,
 
             'customer' as order_type,
 
@@ -66,6 +67,7 @@ if ($type === 'customer') {
             o.base_price,
             o.extra_charges,
             o.total_amount,
+            o.due_date,
 
             'admin' as order_type,
 
@@ -98,7 +100,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $assigned_id = !empty($_POST['assigned_employee_id'])
     ? $_POST['assigned_employee_id']
     : $order['assigned_employee_id'];
-            $status = $_POST['order_status'] ?? 'pending';
+        $status = $_POST['order_status'] ?? 'pending';
+        $due_date = !empty($_POST['due_date']) ? $_POST['due_date'] : null;
         $notes = $_POST['notes'] ?? '';
         $rack_id = $_POST['rack_id'] ?: null;
         $existingHistory = $order['status_history'] ?? '';
@@ -126,11 +129,12 @@ $assigned_id = !empty($_POST['assigned_employee_id'])
             $stmt = $pdo->prepare("
         UPDATE customer_orders
         SET assigned_employee_id = ?, 
-            status = ?, 
-            additional_notes = ?,
-            status_history = ?,
-            rack_id = ?,
-            updated_at = NOW()
+        status = ?, 
+        additional_notes = ?,
+        status_history = ?,
+        rack_id = ?,
+        appointment_date = ?,
+        updated_at = NOW()
         WHERE id = ?
     ");
 
@@ -140,20 +144,22 @@ $assigned_id = !empty($_POST['assigned_employee_id'])
                 $notes,
                 $existingHistory,
                 $rack_id,
+                $due_date,
                 $id
             ]);
 
         } else {
 
             $stmt = $pdo->prepare("
-        UPDATE orders 
-        SET assigned_employee_id = ?, 
-            order_status = ?, 
-            notes = ?,
-            status_history = ?,
-            rack_id = ?
-        WHERE id = ?
-    ");
+                UPDATE orders 
+                SET assigned_employee_id = ?, 
+                    order_status = ?, 
+                    notes = ?,
+                    status_history = ?,
+                    rack_id = ?,
+                    due_date = ?
+                WHERE id = ?
+            ");
 
             $stmt->execute([
                 $assigned_id,
@@ -161,6 +167,7 @@ $assigned_id = !empty($_POST['assigned_employee_id'])
                 $notes,
                 $existingHistory,
                 $rack_id,
+                $due_date,
                 $id
             ]);
         }
@@ -372,22 +379,30 @@ include 'includes/header.php';
                 </div>
 
                 <div class="form-group" style="margin-bottom: 1.25rem;">
-<label class="form-label">Rack Assignment</label>
+                <label class="form-label">Rack Assignment</label>
 
-<select name="rack_id" class="form-select">
-    <option value="">-- Select Rack --</option>
+                <select name="rack_id" class="form-select">
+                    <option value="">-- Select Rack --</option>
 
-    <?php foreach ($racks as $rack): ?>
-        <option
-            value="<?= $rack['id'] ?>"
-            <?= ($order['rack_id'] == $rack['id']) ? 'selected' : '' ?>
-            <?= ($rack['status'] == 'Occupied' && $order['rack_id'] != $rack['id']) ? 'disabled' : '' ?>
-        >
-            <?= htmlspecialchars($rack['rack_name']) ?>
-            (<?= $rack['status'] ?>)
-        </option>
-    <?php endforeach; ?>
-</select>
+                    <?php foreach ($racks as $rack): ?>
+                        <option
+                            value="<?= $rack['id'] ?>"
+                            <?= ($order['rack_id'] == $rack['id']) ? 'selected' : '' ?>
+                            <?= ($rack['status'] == 'Occupied' && $order['rack_id'] != $rack['id']) ? 'disabled' : '' ?>
+                        >
+                            <?= htmlspecialchars($rack['rack_name']) ?>
+                            (<?= $rack['status'] ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 1.25rem;">
+                    <label class="form-label">Due Date</label>
+                    <input 
+                        type="date"
+                        name="due_date"
+                        class="form-control"
+                        value="<?= !empty($order['due_date']) ? date('Y-m-d', strtotime($order['due_date'])) : '' ?>">
                 </div>
 
                 <div style="border-top: 1px solid #f1f5f9; margin: 1.5rem 0;"></div>
