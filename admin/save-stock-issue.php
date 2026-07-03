@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
        ========================= */
 
     $order_id = !empty($_POST['order_id']) ? intval($_POST['order_id']) : null;
+    $order_type = !empty($_POST['order_type']) ? $_POST['order_type'] : null;
 
     /* =========================
        EMPLOYEE ID
@@ -77,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             (
                 procurement_id,
                 order_id,
+                order_type,
                 employee_id,
                 quantity_issued,
                 issue_date,
@@ -84,13 +86,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?
             )
         ");
 
         $stmt->execute([
             $procurement_id,
             $order_id,
+            $order_type,
             $employee_id,
             $quantity_issued,
             $issue_date,

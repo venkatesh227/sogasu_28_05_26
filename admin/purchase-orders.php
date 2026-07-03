@@ -14,11 +14,24 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_po_items' && isset($_GET[
 
     try {
         $stmt = $pdo->prepare("
-            SELECT poi.*, c.name AS category_name
+            SELECT 
+                poi.id,
+                poi.item_name,
+                poi.sku,
+                poi.category,
+                poi.quantity,
+                poi.unit,
+                c.name AS category_name,
+                por.received_quantity,
+                por.cost,
+                por.received_at
             FROM purchase_order_items poi
-            LEFT JOIN inventory_categories c ON c.code = poi.category AND c.is_deleted = 0
+            LEFT JOIN inventory_categories c 
+                ON c.code = poi.category AND c.is_deleted = 0
+            LEFT JOIN purchase_order_receipts por 
+                ON por.purchase_order_item_id = poi.id
             WHERE poi.purchase_order_id = ?
-            ORDER BY poi.id ASC
+            ORDER BY poi.id ASC, por.received_at ASC
         ");
         $stmt->execute([$po_id]);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -311,7 +324,8 @@ include 'includes/header.php';
                             <th style="padding: 10px 6px; text-align: right;">Ordered Qty</th>
                             <th style="padding: 10px 6px; text-align: right;">Received Qty</th>
                             <th style="padding: 10px 6px; text-align: right;">Unit Price</th>
-                            <th style="padding: 10px 6px; text-align: right;">Total Price</th>
+                            <th style="padding: 10px 6px; text-align: right;">Received Total</th>
+                            <th style="padding: 10px 6px; text-align: right;">Delivered At</th>
                         </tr>
                     </thead>
                     <tbody id="modalPoItemsBody">
@@ -399,7 +413,7 @@ include 'includes/header.php';
         const tbody = document.getElementById('modalPoItemsBody');
 
         document.getElementById('modalPoTitle').textContent = 'PO Items: ' + poNumber;
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;"><i class="ri-loader-4-line ri-spin" style="font-size: 2rem;"></i></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #64748b;"><i class="ri-loader-4-line ri-spin" style="font-size: 2rem;"></i></td></tr>';
 
         modal.style.display = 'flex';
         setTimeout(() => {
@@ -417,9 +431,20 @@ include 'includes/header.php';
                         tr.style.borderBottom = '1px solid #f1f5f9';
 
                         const qty = parseFloat(item.quantity) || 0;
-                        const recQty = parseFloat(item.received_quantity) || 0;
-                        const cost = parseFloat(item.cost) || 0;
-                        const total = qty * cost;
+                        const recQty = parseFloat(item.received_quantity || 0);
+                        const cost = parseFloat(item.cost || 0);
+                        const total = recQty * cost;
+
+                        let deliveredAt = 'N/A';
+                        if (item.received_at) {
+                            const dt = new Date(item.received_at);
+                            deliveredAt =
+                                dt.getDate().toString().padStart(2, '0') + '-' +
+                                (dt.getMonth() + 1).toString().padStart(2, '0') + '-' +
+                                dt.getFullYear() + ' ' +
+                                dt.getHours().toString().padStart(2, '0') + ':' +
+                                dt.getMinutes().toString().padStart(2, '0');
+                        }
                         const categoryName = item.category_name || item.category || 'N/A';
 
                         tr.innerHTML = `
@@ -442,12 +467,15 @@ include 'includes/header.php';
                             <td style="padding: 10px 6px; text-align: right; font-weight: 700; color: #0f172a;">
                                 ₹ ${total.toFixed(2)}
                             </td>
+                            <td style="padding: 10px 6px; font-weight: 600; color: #475569;">
+                                ${deliveredAt}
+                            </td>
                         `;
                         tbody.appendChild(tr);
                     });
 
                     if (data.items.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;">No items in this purchase order.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #64748b;">No items in this purchase order.</td></tr>';
                     }
                 } else {
                     closeDetailsModal();

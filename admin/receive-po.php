@@ -41,6 +41,21 @@ if (!in_array($po['status'], ['Pending', 'Partially Received'])) {
 $items_stmt = $pdo->prepare("SELECT * FROM purchase_order_items WHERE purchase_order_id = ? ORDER BY id ASC");
 $items_stmt->execute([$po_id]);
 $items = $items_stmt->fetchAll();
+foreach ($items as &$item) {
+    $sum_stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(received_quantity), 0)
+        FROM purchase_order_receipts
+        WHERE purchase_order_item_id = ?
+    ");
+    $sum_stmt->execute([$item['id']]);
+    $receipt_received = floatval($sum_stmt->fetchColumn());
+
+    $item['already_received'] =
+        $receipt_received > 0
+        ? $receipt_received
+        : floatval($item['received_quantity']);
+}
+unset($item);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $invoice_no = trim($_POST['invoice_no'] ?? '');
@@ -107,9 +122,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         try {
             $pdo->beginTransaction();
+            $insert_receipt = $pdo->prepare("
+            INSERT INTO purchase_order_receipts
+            (
+                purchase_order_id,
+                purchase_order_item_id,
+                received_quantity,
+                cost,
+                invoice_no,
+                received_at,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
 
             // 2. Loop PO items to update received quantities and inventory
-            $update_po_item = $pdo->prepare("UPDATE purchase_order_items SET received_quantity = ?, cost = ? WHERE id = ?");
+            // $update_po_item = $pdo->prepare("UPDATE purchase_order_items SET received_quantity = ?, cost = ? WHERE id = ?");
 
             // Prepared statements for inventory search & modification
             $find_inv_sku = $pdo->prepare("SELECT id, quantity FROM inventory WHERE sku = ? AND is_deleted = 0 LIMIT 1");
@@ -141,7 +169,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     continue;
 
                 // Update PO item received quantity
-                $new_received_qty = $poi['received_quantity'] + $rec_qty;
+                $sum_stmt = $pdo->prepare("
+                    SELECT COALESCE(SUM(received_quantity), 0)
+                    FROM purchase_order_receipts
+                    WHERE purchase_order_item_id = ?
+                ");
+                $sum_stmt->execute([$item_id]);
+                $already_received = floatval($sum_stmt->fetchColumn());
+
+                $new_received_qty = $already_received + $rec_qty;
 
                 if ($new_received_qty > $poi['quantity']) {
                     throw new Exception(
@@ -149,7 +185,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     );
                 }
 
-                $update_po_item->execute([$new_received_qty, $cost, $item_id]);
+                // $update_po_item->execute([$new_received_qty, $cost, $item_id]);
+                if ($rec_qty > 0) {
+                    $now = date('Y-m-d H:i:s');
+
+                    $insert_receipt->execute([
+                        $po_id,
+                        $item_id,
+                        $rec_qty,
+                        $cost,
+                        $invoice_no,
+                        $now,
+                        $now
+                    ]);
+                }
 
                 // Skip updating inventory stock if nothing was received for this item
                 if ($rec_qty <= 0)
@@ -233,13 +282,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             $status_stmt = $pdo->prepare("
-    SELECT 
-        SUM(quantity) AS total_ordered,
-        SUM(received_quantity) AS total_received
-    FROM purchase_order_items
-    WHERE purchase_order_id = ?
-");
-            $status_stmt->execute([$po_id]);
+                SELECT 
+                    SUM(poi.quantity) AS total_ordered,
+                    (
+                        SELECT COALESCE(SUM(received_quantity), 0)
+                        FROM purchase_order_receipts
+                        WHERE purchase_order_id = ?
+                    ) AS total_received
+                FROM purchase_order_items poi
+                WHERE poi.purchase_order_id = ?
+            ");
+            $status_stmt->execute([$po_id, $po_id]);
             $row = $status_stmt->fetch();
 
             $total_ordered = floatval($row['total_ordered']);
@@ -255,8 +308,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $new_status = 'Received';
             }
             $total_stmt = $pdo->prepare("
-                SELECT SUM(received_quantity * cost) AS po_total
-                FROM purchase_order_items
+                SELECT COALESCE(SUM(received_quantity * cost), 0) AS po_total
+                FROM purchase_order_receipts
                 WHERE purchase_order_id = ?
             ");
             $total_stmt->execute([$po_id]);
@@ -419,7 +472,7 @@ include 'includes/header.php';
                                     <input type="number" name="received_qty[]" class="form-control" step="0.01" min="0"
                                         required style="text-align: right;" value="<?= isset($_POST['received_qty'][$index])
                                             ? htmlspecialchars($_POST['received_qty'][$index])
-                                            : ($item['quantity'] - $item['received_quantity']) ?>">
+                                            : ($item['quantity'] - $item['already_received']) ?>">
                                 </td>
                                 <td>
                                     <input type="number" name="item_cost[]" class="form-control" step="0.01" min="0"
