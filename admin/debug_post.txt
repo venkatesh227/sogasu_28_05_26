@@ -5,30 +5,33 @@ Array
     [mobile_number] => 7898767897
     [family_member_id] => 
     [delivery_address] => abcde, Vijayawada
-    [category_id] => 2
-    [sub_category_id] => 4
-    [fabric_details] => silk
-    [due_date] => 2026-07-06
+    [category_id] => 1
+    [sub_category_id] => 1
+    [fabric_details] => cotton
+    [due_date] => 2026-07-10
     [measurement_unit] => CMS
     [measurements] => Array
         (
+            [Plain Blouse] => 22
             [Sholder] => 22
+            [Shoulder Strap] => 22
             [Chest] => 22
+            [Front Length] => 22
             [Waist] => 22
-            [height] => 22
-            [width] => 22
+            [Arm Round] => 22
+            [Arm Hole] => 22
         )
 
-    [design_notes] => Hip Rope
+    [design_notes] => Back Rope
     [selected_services] => Array
         (
             [0] => 2
         )
 
-    [base_price] => 5000.00
-    [extra_charges] => 500
-    [outsource_credit] => 2000
-    [advance_amount] => 800
+    [base_price] => 800.00
+    [extra_charges] => 400
+    [outsource_credit] => 1000
+    [advance_amount] => 300
     [advance_payment_mode] => Cash
     [transaction_reference] => 
     [submit_order] => 1
