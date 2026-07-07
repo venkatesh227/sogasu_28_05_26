@@ -29,29 +29,67 @@ foreach ($types as $type) {
 
 // Handle Form Submission
 $message = '';
+$errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'apply') {
     $type_id = $_POST['leave_type_id'];
     $start = $_POST['start_date'];
     $end = $_POST['end_date'];
     $reason = $_POST['reason'];
-    
-    // Calculate days (simple diff)
-    $d1 = new DateTime($start);
-    $d2 = new DateTime($end);
-    $total_days = $d1->diff($d2)->days + 1;
-    
-    // Check balance
-    $bStmt = $pdo->prepare("SELECT balance FROM employee_leave_balances WHERE employee_id = ? AND leave_type_id = ? AND year = ?");
-    $bStmt->execute([$employee_id, $type_id, $current_year]);
-    $current_bal = $bStmt->fetchColumn();
-    
-    if ($total_days > $current_bal) {
-        $message = "Insufficient balance. You only have $current_bal days left.";
+
+    $reason = trim($reason);
+
+    if (empty($reason)) {
+        $errors['reason'] = "Reason is required.";
+    }
+
+    $today = date('Y-m-d');
+
+    // From Date Required
+    if (empty($start)) {
+        $errors['start_date'] = "From date is required.";
+    }
+
+    // To Date Required
+    if (empty($end)) {
+        $errors['end_date'] = "To date is required.";
+    }
+
+    // Past Date Validation
+    if (!empty($start) && $start < $today) {
+        $errors['start_date'] = "Past dates are not allowed.";
+    }
+
+    if (!empty($end) && $end < $today) {
+        $errors['end_date'] = "Past dates are not allowed.";
+    }
+
+    // From Date cannot be greater than To Date
+    if (!empty($start) && !empty($end) && $start > $end) {
+        $errors['end_date'] = "To date must be greater than or equal to From date.";
+    }
+    // Stop further processing if validation failed
+    if (!empty($errors)) {
+        // Do nothing. Errors will be displayed below the fields.
     } else {
-        $stmt = $pdo->prepare("INSERT INTO leave_requests (employee_id, leave_type_id, start_date, end_date, total_days, reason) VALUES (?, ?, ?, ?, ?, ?)");
-        if ($stmt->execute([$employee_id, $type_id, $start, $end, $total_days, $reason])) {
-            header("Location: leaves.php?success=1");
-            exit;
+
+        // Calculate days (simple diff)
+        $d1 = new DateTime($start);
+        $d2 = new DateTime($end);
+        $total_days = $d1->diff($d2)->days + 1;
+
+        // Check balance
+        $bStmt = $pdo->prepare("SELECT balance FROM employee_leave_balances WHERE employee_id = ? AND leave_type_id = ? AND year = ?");
+        $bStmt->execute([$employee_id, $type_id, $current_year]);
+        $current_bal = $bStmt->fetchColumn();
+
+        if ($total_days > $current_bal) {
+            $message = "Insufficient balance. You only have $current_bal days left.";
+        } else {
+            $stmt = $pdo->prepare("INSERT INTO leave_requests (employee_id, leave_type_id, start_date, end_date, total_days, reason) VALUES (?, ?, ?, ?, ?, ?)");
+            if ($stmt->execute([$employee_id, $type_id, $start, $end, $total_days, $reason])) {
+                header("Location: leaves.php?success=1");
+                exit;
+            }
         }
     }
 }
@@ -109,25 +147,29 @@ include 'includes/header.php';
 
     <!-- Balances Section -->
     <div class="section-title">Leave Balance (<?= $current_year ?>)</div>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">
+    <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">
         <?php foreach ($balances as $b): ?>
             <div class="card" style="padding: 1rem; text-align: center; border-left: 4px solid <?= $b['color'] ?>;">
-                <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 0.25rem;"><?= $b['name'] ?></div>
-                <div style="font-size: 1.25rem; font-weight: 800; color: #1e293b;"><?= number_format($b['balance'], 1) ?> <span style="font-size: 0.8rem; font-weight: 400;">days</span></div>
+                <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 0.25rem;">
+                    <?= $b['name'] ?>
+                </div>
+                <div style="font-size: 1.25rem; font-weight: 800; color: #1e293b;"><?= number_format($b['balance'], 1) ?>
+                    <span style="font-size: 0.8rem; font-weight: 400;">days</span>
+                </div>
             </div>
         <?php endforeach; ?>
     </div>
 
     <!-- Apply Button -->
-<?php if(in_array('leave_applications_create', $permissions)): ?>
+    <?php if (in_array('leave_applications_create', $permissions)): ?>
 
-<button onclick="document.getElementById('applyModal').style.display='flex'"
-class="punch-btn"
-style="width: 100%; background: #4338ca; color: white; border: none; padding: 1rem; border-radius: 12px; font-weight: 700; margin-bottom: 2rem;">
-    <i class="ri-add-circle-line"></i> Apply New Leave
-</button>
+        <button onclick="document.getElementById('applyModal').style.display='flex'" class="punch-btn"
+            style="width: 100%; background: #4338ca; color: white; border: none; padding: 1rem; border-radius: 12px; font-weight: 700; margin-bottom: 2rem;">
+            <i class="ri-add-circle-line"></i> Apply New Leave
+        </button>
 
-<?php endif; ?>
+    <?php endif; ?>
 
     <!-- Recent Requests -->
     <div class="section-title">History</div>
@@ -135,20 +177,27 @@ style="width: 100%; background: #4338ca; color: white; border: none; padding: 1r
         <div class="card" style="text-align: center; color: #94a3b8; padding: 2rem;">No leave history found.</div>
     <?php else: ?>
         <?php foreach ($requests as $r): ?>
-            <div class="card" style="margin-bottom: 0.75rem; padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
+            <div class="card"
+                style="margin-bottom: 0.75rem; padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-                        <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b;"><?= date('d M', strtotime($r['start_date'])) ?> - <?= date('d M', strtotime($r['end_date'])) ?></span>
-                        <span style="font-size: 0.7rem; background: <?= $r['color'] ?>15; color: <?= $r['color'] ?>; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600;"><?= $r['type_name'] ?></span>
+                        <span
+                            style="font-size: 0.85rem; font-weight: 700; color: #1e293b;"><?= date('d M', strtotime($r['start_date'])) ?>
+                            - <?= date('d M', strtotime($r['end_date'])) ?></span>
+                        <span
+                            style="font-size: 0.7rem; background: <?= $r['color'] ?>15; color: <?= $r['color'] ?>; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600;"><?= $r['type_name'] ?></span>
                     </div>
-                    <div style="font-size: 0.75rem; color: #64748b;"><?= $r['total_days'] ?> day(s) • <?= htmlspecialchars($r['reason']) ?></div>
+                    <div style="font-size: 0.75rem; color: #64748b;"><?= $r['total_days'] ?> day(s) •
+                        <?= htmlspecialchars($r['reason']) ?>
+                    </div>
                 </div>
                 <div>
-                    <?php 
-                        $statusColor = $r['status'] === 'Approved' ? '#059669' : ($r['status'] === 'Rejected' ? '#e11d48' : '#d97706');
-                        $statusBg = $statusColor . '15';
+                    <?php
+                    $statusColor = $r['status'] === 'Approved' ? '#059669' : ($r['status'] === 'Rejected' ? '#e11d48' : '#d97706');
+                    $statusBg = $statusColor . '15';
                     ?>
-                    <span style="font-size: 0.75rem; background: <?= $statusBg ?>; color: <?= $statusColor ?>; padding: 0.25rem 0.6rem; border-radius: 20px; font-weight: 700;">
+                    <span
+                        style="font-size: 0.75rem; background: <?= $statusBg ?>; color: <?= $statusColor ?>; padding: 0.25rem 0.6rem; border-radius: 20px; font-weight: 700;">
                         <?= strtoupper($r['status']) ?>
                     </span>
                 </div>
@@ -157,54 +206,92 @@ style="width: 100%; background: #4338ca; color: white; border: none; padding: 1r
     <?php endif; ?>
 </div>
 
-<?php if(in_array('leave_applications_create', $permissions)): ?>
+<?php if (in_array('leave_applications_create', $permissions)): ?>
 
-<!-- Apply Modal -->
-<div id="applyModal" style="display: <?= isset($_GET['success']) || !empty($message) ? 'none' : 'none' ?>; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px); padding: 1rem;">
-    <div style="background: white; width: 100%; max-width: 400px; border-radius: 16px; overflow: hidden; animation: slideUp 0.3s ease-out;">
-        <div style="padding: 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700;">Apply for Leave</h3>
-            <button onclick="document.getElementById('applyModal').style.display='none'" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem;"><i class="ri-close-line"></i></button>
+    <!-- Apply Modal -->
+    <div id="applyModal"
+        style="display: <?= (!empty($errors) || !empty($message)) ? 'flex' : 'none' ?>; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px); padding: 1rem;">
+        <div
+            style="background: white; width: 100%; max-width: 400px; border-radius: 16px; overflow: hidden; animation: slideUp 0.3s ease-out;">
+            <div
+                style="padding: 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700;">Apply for Leave</h3>
+                <button onclick="document.getElementById('applyModal').style.display='none'"
+                    style="background: none; border: none; color: #94a3b8; font-size: 1.5rem;"><i
+                        class="ri-close-line"></i></button>
+            </div>
+            <form method="POST" style="padding: 1.25rem;">
+                <input type="hidden" name="action" value="apply">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 0.4rem;">Leave
+                        Type</label>
+                    <select name="leave_type_id" required
+                        style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc;">
+                        <?php foreach ($balances as $b): ?>
+                            <option value="<?= $b['leave_type_id'] ?>"><?= $b['name'] ?> (<?= $b['balance'] ?> left)</option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div>
+                        <label
+                            style="display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 0.4rem;">From</label>
+                        <input type="date" name="start_date" value="<?= htmlspecialchars($_POST['start_date'] ?? '') ?>" min="<?= date('Y-m-d') ?>"
+                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px;">
+                        <?php if (isset($errors['start_date'])): ?>
+                            <div style="color:#dc2626;font-size:12px;margin-top:5px;">
+                                <?= $errors['start_date']; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 0.4rem;">To</label>
+                        <input type="date" name="end_date" value="<?= htmlspecialchars($_POST['end_date'] ?? '') ?>" min="<?= date('Y-m-d') ?>"
+                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px;">
+                        <?php if (isset($errors['end_date'])): ?>
+                            <div style="color:#dc2626;font-size:12px;margin-top:5px;">
+                                <?= $errors['end_date']; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 0.4rem;">Reason</label>
+                    <textarea name="reason" rows="3" placeholder="Brief reason for leave..."
+                        style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; font-family: inherit;"><?= htmlspecialchars($_POST['reason'] ?? '') ?></textarea>
+                    <?php if (isset($errors['reason'])): ?>
+                        <div style="color:#dc2626;font-size:12px;margin-top:5px;">
+                            <?= $errors['reason']; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <button type="submit" class="punch-btn"
+                    style="width: 100%; background: #4338ca; color: white; border: none; padding: 1rem; border-radius: 12px; font-weight: 700;">Submit
+                    Application</button>
+            </form>
         </div>
-        <form method="POST" style="padding: 1.25rem;">
-            <input type="hidden" name="action" value="apply">
-            <div style="margin-bottom: 1rem;">
-                <label style="display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 0.4rem;">Leave Type</label>
-                <select name="leave_type_id" required style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc;">
-                    <?php foreach ($balances as $b): ?>
-                        <option value="<?= $b['leave_type_id'] ?>"><?= $b['name'] ?> (<?= $b['balance'] ?> left)</option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                <div>
-                    <label style="display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 0.4rem;">From</label>
-                    <input type="date" name="start_date" required min="<?= date('Y-m-d') ?>" style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px;">
-                </div>
-                <div>
-                    <label style="display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 0.4rem;">To</label>
-                    <input type="date" name="end_date" required min="<?= date('Y-m-d') ?>" style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px;">
-                </div>
-            </div>
-            <div style="margin-bottom: 1.5rem;">
-                <label style="display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 0.4rem;">Reason</label>
-                <textarea name="reason" rows="3" required placeholder="Brief reason for leave..." style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; font-family: inherit;"></textarea>
-            </div>
-            <button type="submit" class="punch-btn" style="width: 100%; background: #4338ca; color: white; border: none; padding: 1rem; border-radius: 12px; font-weight: 700;">Submit Application</button>
-        </form>
     </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<?php if (isset($_GET['success'])): ?>
-<script>Swal.fire({ icon: 'success', title: 'Applied!', text: 'Your leave request has been submitted.', timer: 2000, showConfirmButton: false });</script>
-<?php endif; ?>
-<?php if (!empty($message)): ?>
-<script>Swal.fire({ icon: 'error', title: 'Oops!', text: '<?= $message ?>' });</script>
-<?php endif; ?>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <?php if (isset($_GET['success'])): ?>
+        <script>Swal.fire({ icon: 'success', title: 'Applied!', text: 'Your leave request has been submitted.', timer: 2000, showConfirmButton: false });</script>
+    <?php endif; ?>
+    <?php if (!empty($message)): ?>
+        <script>Swal.fire({ icon: 'error', title: 'Oops!', text: '<?= $message ?>' });</script>
+    <?php endif; ?>
 
-<style>
-@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-</style>
+    <style>
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+    </style>
 <?php endif; ?>
 <?php include 'includes/bottom-nav.php'; ?>

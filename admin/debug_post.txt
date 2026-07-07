@@ -1,25 +1,21 @@
 Array
 (
-    [order_type] => outsource
-    [customer_id] => 3
-    [mobile_number] => 7898767897
+    [order_type] => inhouse
+    [customer_id] => 2
+    [mobile_number] => 8888888888
     [family_member_id] => 
-    [delivery_address] => abcde, Vijayawada
+    [delivery_address] => Nandulapet, Tenali
     [category_id] => 1
-    [sub_category_id] => 1
+    [sub_category_id] => 3
     [fabric_details] => cotton
-    [due_date] => 2026-07-10
+    [due_date] => 2026-07-08
     [measurement_unit] => CMS
     [measurements] => Array
         (
-            [Plain Blouse] => 22
             [Sholder] => 22
-            [Shoulder Strap] => 22
+            [hand] => 22
             [Chest] => 22
-            [Front Length] => 22
             [Waist] => 22
-            [Arm Round] => 22
-            [Arm Hole] => 22
         )
 
     [design_notes] => Back Rope
@@ -28,10 +24,10 @@ Array
             [0] => 2
         )
 
-    [base_price] => 800.00
-    [extra_charges] => 400
-    [outsource_credit] => 1000
-    [advance_amount] => 300
+    [base_price] => 700.00
+    [extra_charges] => 200
+    [outsource_credit] => 
+    [advance_amount] => 100
     [advance_payment_mode] => Cash
     [transaction_reference] => 
     [submit_order] => 1

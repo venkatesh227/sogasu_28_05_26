@@ -97,9 +97,9 @@ if (($type ?? 'admin') === 'customer') {
 // ===== HANDLE POST UPDATE =====
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-$assigned_id = !empty($_POST['assigned_employee_id'])
-    ? $_POST['assigned_employee_id']
-    : $order['assigned_employee_id'];
+        $assigned_id = !empty($_POST['assigned_employee_id'])
+            ? $_POST['assigned_employee_id']
+            : $order['assigned_employee_id'];
         $status = $_POST['order_status'] ?? 'pending';
         $due_date = !empty($_POST['due_date']) ? $_POST['due_date'] : null;
         $notes = $_POST['notes'] ?? '';
@@ -173,7 +173,7 @@ $assigned_id = !empty($_POST['assigned_employee_id'])
         }
 
 
-$_SESSION['success'] = "Order updated successfully!";
+        $_SESSION['success'] = "Order updated successfully!";
         header("Location: orders.php");
         exit;
     } catch (PDOException $e) {
@@ -207,12 +207,16 @@ if ($order_type === 'customer') {
     $order_services = [];
 } else {
     $stmt = $pdo->prepare("
-        SELECT os.service_price, s.service_name 
-        FROM order_services os
-        JOIN services s ON os.service_id = s.id
-        WHERE os.order_id = ?
-        AND os.order_type = ?
-    ");
+    SELECT
+        os.service_id,
+        MAX(os.service_price) AS service_price,
+        s.service_name
+    FROM order_services os
+    JOIN services s ON os.service_id = s.id
+    WHERE os.order_id = ?
+    AND os.order_type = ?
+    GROUP BY os.service_id, s.service_name
+");
     $stmt->execute([$id, $order_type]);
     $order_services = $stmt->fetchAll();
 }
@@ -339,7 +343,7 @@ include 'includes/header.php';
                         style="border-color: #4f46e5; border-width: 2px;">
                         <option value="">-- Select Employee --</option>
                         <?php foreach ($employees as $emp): ?>
-                            <option value="<?= $emp['id'] ?>" <?= ($order['assigned_employee_id'] == $emp['id']) ? 'selected' : '' ?>>
+                            <option value="<?= $emp['id'] ?>" <?= ($order['supervisor_id'] == $emp['id']) ? 'selected' : '' ?>>
                                 <?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name']) ?>
                                 (<?= htmlspecialchars($emp['job_role']) ?>)
                             </option>
@@ -379,29 +383,23 @@ include 'includes/header.php';
                 </div>
 
                 <div class="form-group" style="margin-bottom: 1.25rem;">
-                <label class="form-label">Rack Assignment</label>
+                    <label class="form-label">Rack Assignment</label>
 
-                <select name="rack_id" class="form-select">
-                    <option value="">-- Select Rack --</option>
+                    <select name="rack_id" class="form-select">
+                        <option value="">-- Select Rack --</option>
 
-                    <?php foreach ($racks as $rack): ?>
-                        <option
-                            value="<?= $rack['id'] ?>"
-                            <?= ($order['rack_id'] == $rack['id']) ? 'selected' : '' ?>
-                            <?= ($rack['status'] == 'Occupied' && $order['rack_id'] != $rack['id']) ? 'disabled' : '' ?>
-                        >
-                            <?= htmlspecialchars($rack['rack_name']) ?>
-                            (<?= $rack['status'] ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+                        <?php foreach ($racks as $rack): ?>
+                            <option value="<?= $rack['id'] ?>" <?= ($order['rack_id'] == $rack['id']) ? 'selected' : '' ?>
+                                <?= ($rack['status'] == 'Occupied' && $order['rack_id'] != $rack['id']) ? 'disabled' : '' ?>>
+                                <?= htmlspecialchars($rack['rack_name']) ?>
+                                (<?= $rack['status'] ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div class="form-group" style="margin-bottom: 1.25rem;">
                     <label class="form-label">Due Date</label>
-                    <input 
-                        type="date"
-                        name="due_date"
-                        class="form-control"
+                    <input type="date" name="due_date" class="form-control"
                         value="<?= !empty($order['due_date']) ? date('Y-m-d', strtotime($order['due_date'])) : '' ?>">
                 </div>
 

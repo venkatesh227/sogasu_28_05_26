@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
     exit();
 }
 
-$user_id = $_SESSION['user_id'];                               
+$user_id = $_SESSION['user_id'];
 $stmt = $pdo->prepare("                 
     SELECT job_role
     FROM employees
@@ -23,14 +23,14 @@ $stmt = $pdo->prepare("
     FROM role_permissions
     WHERE role_name = ?
 ");
-$stmt->execute([$role_name]);                                
+$stmt->execute([$role_name]);
 
 $permissions = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
 if (!in_array('employees_tasks_view', $permissions)) {
     header("Location: dashboard.php");
     exit();
-}                                    
+}
 
 // ================= GET EMPLOYEE =================
 $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
@@ -56,7 +56,7 @@ $all_status = [
 $current_status = $_GET['status'] ?? 'all';
 $from_date = $_GET['from_date'] ?? '';
 $to_date = $_GET['to_date'] ?? '';
-                                    
+
 // ================= FETCH TASKS =================             
 $stmt = $pdo->prepare("
 
@@ -76,13 +76,7 @@ $stmt = $pdo->prepare("
         e.first_name AS emp_first,
         e.last_name AS emp_last,
         e.job_role AS emp_role,
-        (
-            SELECT image_path 
-            FROM order_images 
-            WHERE order_id = o.id 
-            AND image_type = 'fabric' 
-            LIMIT 1
-        ) as fabric_img
+        o.material_image AS fabric_img
 
     FROM orders o
 
@@ -179,7 +173,7 @@ $headerTitle = "My Tasks";
 $activePage = "tasks";
 include 'includes/header.php';
 ?>
-                                
+
 <style>
     .filter-tab {
         text-decoration: none;
@@ -214,8 +208,8 @@ include 'includes/header.php';
 <div
     style="background: var(--surface); padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); position: sticky; top: 60px; z-index: 40; box-shadow: var(--shadow-sm);">
 
-    
-    <!-- Date Filters -->     
+
+    <!-- Date Filters -->
     <form method="GET" style="display:flex; gap:0.5rem; align-items:flex-end; margin-bottom: 1rem;">
         <input type="hidden" name="status" value="<?= $current_status ?>">
         <div style="flex:1;">
@@ -275,9 +269,38 @@ include 'includes/header.php';
                         <!-- Image Preview -->
                         <div style="width: 100px; height: 125px; flex-shrink: 0;">
                             <?php
-                            $displayImg = !empty($job['fabric_img']) ? '../' . $job['fabric_img'] : (!empty($job['garment_img']) ? '../admin/uploads/' . $job['garment_img'] : null);
-                            if ($displayImg): ?>
-                                <img src="<?= $displayImg ?>" style="width: 100%; height: 100%; object-fit: cover;">
+
+                            $imageSrc = '';
+
+                            if (!empty($job['fabric_img'])) {
+
+                                $imageName = $job['fabric_img'];
+
+                                $customerPath = "../customer/uploads/" . $imageName;
+
+                                $adminPath = "../" . $imageName;
+
+                                if (file_exists($customerPath)) {
+
+                                    $imageSrc = $customerPath;
+
+                                } elseif (file_exists($adminPath)) {
+
+                                    $imageSrc = $adminPath;
+
+                                }
+
+                            }
+
+                            if (empty($imageSrc) && !empty($job['garment_img'])) {
+
+                                $imageSrc = "../admin/uploads/" . $job['garment_img'];
+
+                            }
+
+                            if (!empty($imageSrc)):
+                                ?>
+                                <img src="<?= htmlspecialchars($imageSrc) ?>" style="width: 100%; height: 100%; object-fit: cover;">
                             <?php else: ?>
                                 <div
                                     style="width: 100%; height: 100%; background: #fdf2f8; display: flex; align-items: center; justify-content: center; color: #fbcfe8;">
