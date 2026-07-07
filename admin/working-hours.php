@@ -145,7 +145,16 @@ foreach ($daily_sessions as $emp_id => $dates) {
             $total_shift_seconds = $shift_end - $shift_start;
             $half_day_limit = $total_shift_seconds / 2;
 
-            if ($total_sec < $half_day_limit) {
+            /*
+             * Apply Half Day only when:
+             * 1. Employee has worked at least half of the shift.
+             * 2. Employee has not completed the full shift.
+             */
+
+            if (
+                $total_sec >= $half_day_limit &&
+                $total_sec < $total_shift_seconds
+            ) {
                 $is_half_day = true;
                 $is_late = false;
             }

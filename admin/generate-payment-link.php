@@ -107,7 +107,7 @@ try {
 
         'reminder_enable' => false,
 
-        'callback_url' => 'http://localhost/sogasu_28_05_26/admin/payment-verify.php',
+        'callback_url' => 'https://aquamarine-mole-250453.hostingersite.com/demo/admin/payment-verify.php',
 
         'callback_method' => 'get'
 

@@ -625,5 +625,26 @@ include 'includes/header.php';
     };
 
 </script>
+<script>
+    function previewImage(input, previewId) {
 
+        if (input.files && input.files[0]) {
+
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+
+                const preview =
+                    document.getElementById(previewId);
+
+                preview.src = e.target.result;
+
+                preview.style.display = 'block';
+            };
+
+            reader.readAsDataURL(input.files[0]);
+
+        }
+    }
+</script>
 <?php include 'includes/bottom-nav.php'; ?>
