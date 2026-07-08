@@ -1,10 +1,6 @@
 <?php
 include '../includes/db.php';
-$conn = mysqli_connect($host, $user, $pass, $dbname);
-
-if(!$conn){
-    die("Connection Failed");
-}
+$conn = $pdo;
 
 /* =========================
    GET FORM VALUES
@@ -12,23 +8,23 @@ if(!$conn){
 
 $id = isset($_POST['id']) ? $_POST['id'] : '';
 
-$customer_name = mysqli_real_escape_string($conn, $_POST['customer_name'] ?? '');
-$product_name = mysqli_real_escape_string($conn, $_POST['product_name'] ?? '');
-$status = mysqli_real_escape_string($conn, $_POST['status'] ?? 'Pending');
+$customer_name = trim($_POST['customer_name'] ?? '');
+$product_name = trim($_POST['product_name'] ?? '');
+$status = trim($_POST['status'] ?? 'Pending');
 
 // Handle arrays carefully
 $source_type = '';
 if (isset($_POST['source_type']) && is_array($_POST['source_type'])) {
-    $source_type = implode(', ', array_map(function($val) use ($conn) { return mysqli_real_escape_string($conn, $val); }, $_POST['source_type']));
+    $source_type = implode(', ', array_map('trim', $_POST['source_type']));
 } elseif (isset($_POST['source_type'])) {
-    $source_type = mysqli_real_escape_string($conn, $_POST['source_type']);
+    $source_type = trim($_POST['source_type']);
 }
 
 $quantity = '';
 if (isset($_POST['quantity']) && is_array($_POST['quantity'])) {
-    $quantity = implode(', ', array_map(function($val) use ($conn) { return mysqli_real_escape_string($conn, $val); }, $_POST['quantity']));
+    $quantity = implode(', ', array_map('trim', $_POST['quantity']));
 } elseif (isset($_POST['quantity'])) {
-    $quantity = mysqli_real_escape_string($conn, $_POST['quantity']);
+    $quantity = trim($_POST['quantity']);
 }
 
 /* =========================
@@ -41,13 +37,13 @@ $total_amounts = '';
 $total_amount = 0;
 
 if (is_array($totalAmounts) && !empty($totalAmounts)) {
-    $total_amounts = implode(',', array_map(function($val) use ($conn) { return mysqli_real_escape_string($conn, $val); }, $totalAmounts));
-    foreach($totalAmounts as $amt){
-        $total_amount += (float)$amt;
+    $total_amounts = implode(',', array_map('trim', $totalAmounts));
+    foreach ($totalAmounts as $amt) {
+        $total_amount += (float) $amt;
     }
 } elseif (!is_array($totalAmounts) && $totalAmounts !== null) {
-    $total_amounts = mysqli_real_escape_string($conn, $totalAmounts);
-    $total_amount = (float)$totalAmounts;
+    $total_amounts = trim($totalAmounts);
+    $total_amount = (float) $totalAmounts;
 }
 
 /* =========================
@@ -62,8 +58,16 @@ if (!is_dir($uploadDir)) {
 $existing_reference = '';
 $existing_attachment = '';
 if ($id != '') {
-    $res = mysqli_query($conn, "SELECT reference_image, attachment_file FROM sourcing WHERE id = '$id'");
-    if ($row = mysqli_fetch_assoc($res)) {
+
+    $stmt = $conn->prepare("
+        SELECT reference_image, attachment_file
+        FROM sourcing
+        WHERE id = ?
+    ");
+
+    $stmt->execute([$id]);
+
+    if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $existing_reference = $row['reference_image'];
         $existing_attachment = $row['attachment_file'];
     }
@@ -87,74 +91,89 @@ if (isset($_FILES['attachment_file']) && $_FILES['attachment_file']['error'] ===
     }
 }
 
-$reference_image = mysqli_real_escape_string($conn, $reference_image);
-$attachment_file = mysqli_real_escape_string($conn, $attachment_file);
-
 /* =========================
    UPDATE
 ========================= */
 
-if($id != ''){
+if ($id != '') {
     $message = '';
     $updateQuery = "
-        UPDATE sourcing
-        SET
-            customer_name = '$customer_name',
-            product_name = '$product_name',
-            source_type = '$source_type',
-            quantity = '$quantity',
-            total_amounts = '$total_amounts',
-            total_amount = '$total_amount',
-            status = '$status',
-            reference_image = '$reference_image',
-            attachment_file = '$attachment_file'
-        WHERE id = '$id'
-    ";
+UPDATE sourcing
+SET
+    customer_name=?,
+    product_name=?,
+    source_type=?,
+    quantity=?,
+    total_amounts=?,
+    total_amount=?,
+    status=?,
+    reference_image=?,
+    attachment_file=?
+WHERE id=?
+";
 
-    mysqli_query($conn, $updateQuery);
+    $stmt = $conn->prepare($updateQuery);
+
+    $stmt->execute([
+        $customer_name,
+        $product_name,
+        $source_type,
+        $quantity,
+        $total_amounts,
+        $total_amount,
+        $status,
+        $reference_image,
+        $attachment_file,
+        $id
+    ]);
+
     $message = "updated";
 }
 
 /* =========================
    INSERT
-========================= */
-else{
+========================= */ else {
     $insertQuery = "
-      INSERT INTO sourcing(
-        customer_name,
-        product_name,
-        source_type,
-        quantity,
-        total_amounts,
-        total_amount,
-        status,
-        reference_image,
-        attachment_file,
-        created_at
-      )
-      VALUES(
-        '$customer_name',
-        '$product_name',
-        '$source_type',
-        '$quantity',
-        '$total_amounts',
-        '$total_amount',
-        '$status',
-        '$reference_image',
-        '$attachment_file',
-        NOW()
-      )
-    ";
+INSERT INTO sourcing(
+    customer_name,
+    product_name,
+    source_type,
+    quantity,
+    total_amounts,
+    total_amount,
+    status,
+    reference_image,
+    attachment_file,
+    created_at
+)
+VALUES(
+    ?,?,?,?,?,?,?,?,?,NOW()
+)
+";
 
-    mysqli_query($conn, $insertQuery);
+    $stmt = $conn->prepare($insertQuery);
+
+    $stmt->execute([
+        $customer_name,
+        $product_name,
+        $source_type,
+        $quantity,
+        $total_amounts,
+        $total_amount,
+        $status,
+        $reference_image,
+        $attachment_file
+    ]);
+
     $message = "created";
+
 }
 
 /* =========================
    REDIRECT
 ========================= */
 
-header("Location: sourcing.php?success=".$message);
+header("Location: sourcing.php?success=" . $message);
 exit;
 
 ?>

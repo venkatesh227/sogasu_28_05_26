@@ -15,20 +15,18 @@ include 'includes/header.php';
    DATABASE CONNECTION
 ========================= */
 
-$conn = mysqli_connect($host, $user, $pass, $dbname);
-
-if (!$conn) {
-    die("Connection Failed: " . mysqli_connect_error());
-}
+// PDO connection is already available through ../includes/db.php
+$conn = $pdo;
 
 /* =========================
    FETCH UNIQUE CATEGORIES FOR FILTER DROPDOWN
 ========================= */
 
-$categoriesQuery = mysqli_query($conn, "
+$categoriesQuery = $conn->query("
     SELECT name, code
     FROM inventory_categories
-    WHERE is_deleted = 0 AND status = 1
+    WHERE is_deleted = 0
+      AND status = 1
     ORDER BY name ASC
 ");
 
@@ -36,31 +34,39 @@ $categoriesQuery = mysqli_query($conn, "
    FETCH STOCK INVENTORY FROM INVENTORY TABLE
 ========================= */
 
-$selectedCategory = isset($_GET['category']) ? mysqli_real_escape_string($conn, $_GET['category']) : '';
+$selectedCategory = $_GET['category'] ?? '';
+
 $whereClause = "WHERE i.is_deleted = 0";
+$params = [];
+
 if ($selectedCategory !== '') {
-    $whereClause .= " AND i.category = '$selectedCategory'";
+    $whereClause .= " AND i.category = :category";
+    $params[':category'] = $selectedCategory;
 }
 
-$procurementQuery = mysqli_query($conn, "
-    SELECT 
-        i.id, 
-        i.item_name, 
-        i.quantity, 
-        i.unit, 
+$procurementQuery = $conn->prepare("
+    SELECT
+        i.id,
+        i.item_name,
+        i.quantity,
+        i.unit,
         i.category AS category_code,
         c.name AS category_name
     FROM inventory i
-    LEFT JOIN inventory_categories c ON c.code = i.category AND c.is_deleted = 0
+    LEFT JOIN inventory_categories c
+        ON c.code = i.category
+       AND c.is_deleted = 0
     $whereClause
     ORDER BY i.id DESC
 ");
+
+$procurementQuery->execute($params);
 
 /* =========================
    FETCH ACTIVE ORDERS FOR SELECT DROPDOWN
 ========================= */
 
-$ordersQuery = mysqli_query($conn, "
+$ordersQuery = $conn->query("
     SELECT id, order_code, 'orders' AS order_type
     FROM orders
     WHERE is_deleted = 0
@@ -83,7 +89,7 @@ $ordersQuery = mysqli_query($conn, "
     ORDER BY id DESC
 ");
 $orders = [];
-while ($order = mysqli_fetch_assoc($ordersQuery)) {
+while ($order = $ordersQuery->fetch(PDO::FETCH_ASSOC)) {
     $orders[] = $order;
 }
 
@@ -91,7 +97,7 @@ while ($order = mysqli_fetch_assoc($ordersQuery)) {
    FETCH ISSUE HISTORY (JOINED WITH INVENTORY & ORDERS)
 ========================= */
 
-$issueQuery = mysqli_query($conn, "
+$issueQuery = $conn->query("
     SELECT
         stock_issuance.*,
         inventory.item_name AS material_name,
@@ -113,10 +119,10 @@ $issueQuery = mysqli_query($conn, "
 
     LEFT JOIN orders o
         ON o.id = stock_issuance.order_id
-        AND (
-                stock_issuance.order_type = 'orders'
-                OR stock_issuance.order_type IS NULL
-        )
+       AND (
+            stock_issuance.order_type = 'orders'
+            OR stock_issuance.order_type IS NULL
+       )
 
     LEFT JOIN customer_orders co
         ON co.id = stock_issuance.order_id
@@ -203,7 +209,7 @@ $issueQuery = mysqli_query($conn, "
                         <option value="">All Categories</option>
                         <?php
                         $selectedCategory = isset($_GET['category']) ? $_GET['category'] : '';
-                        while ($cat = mysqli_fetch_assoc($categoriesQuery)):
+                        while ($cat = $categoriesQuery->fetch(PDO::FETCH_ASSOC)):
                             ?>
                             <option value="<?= htmlspecialchars($cat['code']) ?>" <?= $selectedCategory === $cat['code'] ? 'selected' : '' ?>>
                                 <?= htmlspecialchars($cat['name']) ?>
@@ -231,7 +237,7 @@ $issueQuery = mysqli_query($conn, "
 
                 <tbody>
 
-                    <?php while ($row = mysqli_fetch_assoc($procurementQuery)): ?>
+                    <?php while ($row = $procurementQuery->fetch(PDO::FETCH_ASSOC)): ?>
 
                         <tr>
 
@@ -319,7 +325,7 @@ $issueQuery = mysqli_query($conn, "
 
                 <tbody>
 
-                    <?php while ($issue = mysqli_fetch_assoc($issueQuery)): ?>
+                    <?php while ($issue = $issueQuery->fetch(PDO::FETCH_ASSOC)): ?>
                         <tr>
 
                             <td>
@@ -452,14 +458,14 @@ $issueQuery = mysqli_query($conn, "
 
                         <?php
 
-                        $employeeQuery = mysqli_query($conn, "
+                        $employeeQuery = $conn->query("
                             SELECT *
                             FROM employees
                             WHERE status = 1
                             ORDER BY first_name ASC
                         ");
 
-                        while ($employee = mysqli_fetch_assoc($employeeQuery)):
+                        while ($employee = $employeeQuery->fetch(PDO::FETCH_ASSOC)):
 
                             $employeeName = $employee['first_name'] . ' ' . $employee['last_name'];
 
