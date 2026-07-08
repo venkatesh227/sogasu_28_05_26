@@ -540,21 +540,26 @@ $ticketsQuery = $pdo->query("
 
                         </label>
 
-                        <select class="form-select">
+<select class="form-select" name="assign_to">
 
-                            <option>
-                                Ramesh Kumar
-                            </option>
+    <option value="">-- Select Employee --</option>
 
-                            <option>
-                                Suresh
-                            </option>
+    <?php
+    $stmt = $pdo->query("
+        SELECT id, first_name, last_name
+        FROM employees
+        WHERE status = 1
+        ORDER BY first_name ASC
+    ");
 
-                            <option>
-                                Kavya
-                            </option>
+    while($emp = $stmt->fetch(PDO::FETCH_ASSOC)){
+    ?>
+        <option value="<?= $emp['id']; ?>">
+            <?= htmlspecialchars($emp['first_name'].' '.$emp['last_name']); ?>
+        </option>
+    <?php } ?>
 
-                        </select>
+</select>
 
                     </div>
 
@@ -933,7 +938,7 @@ function viewTicket(
     document.getElementById(
         'view_ticket_status'
     ).innerHTML = status;
-
+document.querySelector('select[name="assign_to"]').value = "";
     document.getElementById(
         'viewModal'
     ).style.display = 'flex';
