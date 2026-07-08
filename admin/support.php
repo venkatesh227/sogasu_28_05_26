@@ -2,23 +2,14 @@
 
 $pageTitle = "Support System - Sogasu";
 $activePage = "support";
-
+include '../includes/db.php';
 include 'includes/header.php';
 
 /* =========================
    DATABASE CONNECTION
 ========================= */
 
-$conn = mysqli_connect(
-    "localhost",
-    "root",
-    "",
-    "sogasu_28"
-);
-
-if(!$conn){
-    die("Connection Failed");
-}
+$conn = mysqli_connect($host, $user, $pass, $dbname);
 
 /* =========================
    FETCH SUPPORT TICKETS
