@@ -1,15 +1,6 @@
 <?php
-
-$conn = mysqli_connect(
-    "localhost",
-    "root",
-    "",
-    "sogasu"
-);
-
-if(!$conn){
-    die("Connection Failed");
-}
+include '../includes/db.php';
+$conn = mysqli_connect($host, $user, $pass, $dbname);
 
 /* =========================
    GET FORM VALUES
@@ -27,7 +18,7 @@ $status = $_POST['status'];
    AUTO TICKET NUMBER
 ========================= */
 
-$ticket_no = 'TIC-' . rand(1000,9999);
+$ticket_no = 'TIC-' . rand(1000, 9999);
 
 /* =========================
    INSERT QUERY
@@ -71,5 +62,3 @@ mysqli_query($conn, $insertQuery);
 header("Location:support.php?success=created");
 
 exit;
-
-?>
