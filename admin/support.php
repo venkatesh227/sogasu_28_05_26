@@ -1110,6 +1110,6 @@ if(window.history.replaceState){
 
 }
 
-</script>
+</script> 
 
 <?php endif; ?>
