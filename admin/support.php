@@ -6,16 +6,10 @@ include '../includes/db.php';
 include 'includes/header.php';
 
 /* =========================
-   DATABASE CONNECTION
-========================= */
-
-$conn = mysqli_connect($host, $user, $pass, $dbname);
-
-/* =========================
    FETCH SUPPORT TICKETS
 ========================= */
 
-$ticketsQuery = mysqli_query($conn, "
+$ticketsQuery = $pdo->query("
 
     SELECT *
 
@@ -132,7 +126,7 @@ $ticketsQuery = mysqli_query($conn, "
 
             <tbody>
 
-            <?php while($row = mysqli_fetch_assoc($ticketsQuery)) : ?>
+            <?php while ($row = $ticketsQuery->fetch(PDO::FETCH_ASSOC)) : ?>
 
                 <tr style="
                     border-bottom:1px solid #f1f5f9;

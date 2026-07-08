@@ -10,9 +10,6 @@ if (!isset($_SESSION['user_id'])) {
 $pageTitle = "Sourcing - Sogasu";
 $activePage = "sourcing";
 
-// DB connection for mysqli parts (keeping compatibility with existing save scripts)
-$conn = mysqli_connect($host, $user, $pass, $dbname);
-
 // Fetch Sourcing Data
 $stmt = $pdo->query("SELECT * FROM sourcing ORDER BY id DESC");
 $sourcingList = $stmt->fetchAll(PDO::FETCH_ASSOC);
