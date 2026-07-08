@@ -243,6 +243,12 @@ if (
 
         $hasError = true;
     }
+    if (!empty($dueDate) && $dueDate > date('Y-m-d')) {
+
+        $dueDateError = 'Future dates are not allowed';
+
+        $hasError = true;
+    }
 
     $gstPercent =
         (float) ($_POST['gst_percent'] ?? 18);
@@ -1226,7 +1232,7 @@ $orders = $orderStmt->fetchAll(PDO::FETCH_ASSOC);
                         Due Date <span style="color:red;">*</span>
                     </label>
 
-                    <input type="date" name="due_date" class="form-control"
+                    <input type="date" name="due_date" class="form-control" max="<?= date('Y-m-d') ?>"
                         value="<?= htmlspecialchars($_POST['due_date'] ?? '') ?>">
                     <?php if (!empty($dueDateError)): ?>
 
