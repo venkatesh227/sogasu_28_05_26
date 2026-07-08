@@ -14,17 +14,18 @@ $customerId = $customerStmt->fetchColumn();
 
 
 $stmt = $pdo->prepare("
-    SELECT 
-        co.id,
-        co.order_code,
-        co.category_id,
-        co.sub_category_id,
-        co.created_at,
-        co.appointment_date,
-        co.status AS final_status,
-        c.category_name,
-        sc.name AS sub_category_name,
-        'customer_order' AS order_type
+    SELECT
+    co.id,
+    co.order_code,
+    co.category_id,
+    co.sub_category_id,
+    co.created_at,
+    co.appointment_date,
+    co.status AS final_status,
+    c.category_name,
+    sc.name AS sub_category_name,
+    co.material_image,
+    'customer_order' AS order_type
     FROM customer_orders co
     LEFT JOIN categories c ON co.category_id = c.id
     LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
@@ -34,7 +35,7 @@ $stmt = $pdo->prepare("
 
     UNION ALL
 
-    SELECT 
+    SELECT
     NULL AS id,
     o.order_code,
     o.category_id,
@@ -44,6 +45,7 @@ $stmt = $pdo->prepare("
     o.order_status AS final_status,
     c.category_name,
     sc.name AS sub_category_name,
+    o.material_image,
     'admin_order' AS order_type
 FROM orders o
 LEFT JOIN categories c ON o.category_id = c.id
@@ -205,8 +207,37 @@ include 'includes/header.php';
                             <div style="display: flex; gap: 1rem;">
 
                                 <div
-                                    style="width: 60px; height: 60px; background: var(--background); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--primary); border: 1px solid var(--border);">
-                                    <i class="ri-t-shirt-line" style="font-size: 1.5rem;"></i>
+                                    style="width:60px;height:60px;border-radius:12px;border:1px solid var(--border);overflow:hidden;background:var(--background);display:flex;align-items:center;justify-content:center;">
+
+                                    <?php if (!empty($order['material_image'])): ?>
+
+                                        <?php
+                                        $imageName = $order['material_image'];
+
+                                        $customerPath = "uploads/" . $imageName;
+                                        $adminPath = "../" . $imageName;
+
+                                        $imageSrc = '';
+
+                                        if (file_exists($customerPath)) {
+                                            $imageSrc = $customerPath;
+                                        } elseif (file_exists($adminPath)) {
+                                            $imageSrc = $adminPath;
+                                        }
+                                        ?>
+
+                                        <?php if (!empty($imageSrc)): ?>
+                                            <img src="<?= htmlspecialchars($imageSrc) ?>" style="width:100%;height:100%;object-fit:cover;">
+                                        <?php else: ?>
+                                            <i class="ri-image-line" style="font-size:1.5rem;color:var(--text-muted);"></i>
+                                        <?php endif; ?>
+
+                                    <?php else: ?>
+
+                                        <i class="ri-image-line" style="font-size:1.5rem;color:var(--text-muted);"></i>
+
+                                    <?php endif; ?>
+
                                 </div>
 
                                 <div>

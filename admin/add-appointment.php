@@ -7,14 +7,44 @@ require 'find-next-slot.php';
 $errors = [];
 $old = [];
 $id = $_GET['id'] ?? null;
+$source = $_GET['source'] ?? 'appointments';
 
 if ($id) {
-    $stmt = $pdo->prepare("SELECT * FROM appointments WHERE id=? AND is_deleted=0");
+
+    if ($source == 'customer_orders') {
+
+        $stmt = $pdo->prepare("
+            SELECT
+                co.*,
+                u.username AS customer_name,
+                u.mobile AS customer_phone,
+                'order_booking' AS type,
+                co.order_code AS order_id
+            FROM customer_orders co
+            LEFT JOIN users u
+                ON u.id = co.user_id
+            WHERE co.id = ?
+            AND co.is_deleted = 0
+        ");
+
+    } else {
+
+        $stmt = $pdo->prepare("
+            SELECT *
+            FROM appointments
+            WHERE id = ?
+            AND is_deleted = 0
+        ");
+
+    }
+
     $stmt->execute([$id]);
+
     $appointment = $stmt->fetch();
 
-    if (!$appointment)
+    if (!$appointment) {
         die("Appointment not found");
+    }
 
     $old = $appointment;
 }
@@ -219,9 +249,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
 
         if ($id) {
+
             $phone = $old['customer_phone'] ?: null;
 
-            $stmt = $pdo->prepare("
+            if ($source == 'customer_orders') {
+
+                $stmt = $pdo->prepare("
+            UPDATE customer_orders
+            SET
+                appointment_date = ?,
+                appointment_time = ?,
+                status = ?,
+                updated_at = NOW(),
+                updated_by = ?
+            WHERE id = ?
+        ");
+
+                $stmt->execute([
+                    $old['appointment_date'],
+                    $old['appointment_time'],
+                    $old['status'],
+                    $current_user_id,
+                    $id
+                ]);
+
+            } else {
+
+                $stmt = $pdo->prepare("
             UPDATE appointments SET
             customer_name=?, customer_phone=?, appointment_date=?, appointment_time=?,
             type=?, notes=?, order_id=?, status=?,
@@ -229,21 +283,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             WHERE id=?
         ");
 
-            $stmt->execute([
-                $old['customer_name'],
-                $phone,
-                $old['appointment_date'],
-                $old['appointment_time'],
-                $old['type'],
-                $old['notes'],
-                $old['order_id'],
-                $old['status'],
-                $current_user_id,
-                $id
-            ]);
+                $stmt->execute([
+                    $old['customer_name'],
+                    $phone,
+                    $old['appointment_date'],
+                    $old['appointment_time'],
+                    $old['type'],
+                    $old['notes'],
+                    $old['order_id'],
+                    $old['status'],
+                    $current_user_id,
+                    $id
+                ]);
+
+            }
 
             $_SESSION['success'] = "updated";
-
         } else {
 
             $phone = $old['customer_phone'] ?: null;
@@ -358,6 +413,9 @@ include 'includes/header.php';
                         <label class="form-label">Date <span style="color:red">*</span></label>
                         <input type="date" name="appointment_date"
                             value="<?= $old['appointment_date'] ?? date('Y-m-d') ?>" class="form-control">
+                        <?php if (isset($errors['appointment_date'])): ?>
+                            <small style="color:red"><?= $errors['appointment_date'] ?></small>
+                        <?php endif; ?>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Time <span style="color:red">*</span></label>
@@ -393,6 +451,9 @@ include 'includes/header.php';
                             <i class="ri-truck-line"></i>
                             <span>Delivery/Pickup</span>
                         </label>
+                        <?php if (isset($errors['type'])): ?>
+                            <small style="color:red"><?= $errors['type'] ?></small>
+                        <?php endif; ?>
                     </div>
                 </div>
 

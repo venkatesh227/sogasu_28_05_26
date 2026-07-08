@@ -8,14 +8,14 @@ Array
     [category_id] => 1
     [sub_category_id] => 3
     [fabric_details] => cotton
-    [due_date] => 2026-07-08
+    [due_date] => 2026-07-10
     [measurement_unit] => CMS
     [measurements] => Array
         (
-            [Sholder] => 22
-            [hand] => 22
-            [Chest] => 22
-            [Waist] => 22
+            [Sholder] => 12
+            [hand] => 12
+            [Chest] => 12
+            [Waist] => 12
         )
 
     [design_notes] => Back Rope
@@ -25,7 +25,7 @@ Array
         )
 
     [base_price] => 700.00
-    [extra_charges] => 200
+    [extra_charges] => 100
     [outsource_credit] => 
     [advance_amount] => 100
     [advance_payment_mode] => Cash

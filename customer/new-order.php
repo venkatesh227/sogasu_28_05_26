@@ -54,8 +54,25 @@ $timings = $timingStmt->fetchAll(PDO::FETCH_ASSOC);
                         value="<?php echo $row['id']; ?>"
                         <?php echo ($row['id'] == $selectedCategoryId) ? 'checked' : ''; ?>>
                     <div class="icon-box">
-                        <i class="<?php echo !empty($row['icon']) ? $row['icon'] : 'ri-folder-line'; ?>"></i>
-                    </div>
+
+<?php
+
+$imagePath = '../' . $row['icon'];
+
+if (!empty($row['icon']) && file_exists($imagePath)) {
+
+?>
+
+    <img src="<?= htmlspecialchars($imagePath) ?>"
+         style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+
+<?php } else { ?>
+
+    <i class="<?= !empty($row['icon']) ? htmlspecialchars($row['icon']) : 'ri-folder-line'; ?>"></i>
+
+<?php } ?>
+
+</div>
                     <span><?php echo $row['category_name']; ?></span>
                 </label>
             <?php } ?>
@@ -100,43 +117,6 @@ $timings = $timingStmt->fetchAll(PDO::FETCH_ASSOC);
                 <div class="error" id="timeError"></div>
             </div>
         </div>
-
-<div class="section-title">Pricing Details</div>
-
-<div class="date-time-row">
-
-    <div class="date-box">
-        <label>Base Price</label>
-        <input type="number"
-            id="base_price"
-            class="form-input"
-            placeholder="Base Price"
-            min="0"
-            step="0.01"
-            readonly>
-    </div>
-
-    <div class="time-box">
-        <label>Extra Charges</label>
-        <input type="number"
-               id="extra_charges"
-               class="form-input"
-               placeholder="Enter Extra Charges"
-               min="0"
-               step="0.01"
-               value="0">
-    </div>
-
-</div>
-
-<div style="margin-bottom: 2rem;">
-    <label>Total Amount</label>
-    <input type="number"
-           id="total_amount"
-           class="form-input"
-           readonly>
-</div>
-
 <button type="button" id="proceedBtn" class="btn-primary" style="width:100%; font-size:1.1rem; padding:1rem;">
     Proceed to Measurements
 </button>
@@ -412,6 +392,28 @@ $timings = $timingStmt->fetchAll(PDO::FETCH_ASSOC);
                         return;
                     }
                     subCategoryDropdown.disabled = false;
+                    // Scroll to Sub Category section
+                        const subCategoryTitle = document.querySelectorAll('.section-title')[1];
+
+                        if (subCategoryTitle) {
+                            subCategoryTitle.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'center'
+                            });
+
+                            // Highlight effect
+                            subCategoryDropdown.style.transition = '0.3s';
+                            subCategoryDropdown.style.border = '2px solid #2563eb';
+                            subCategoryDropdown.style.boxShadow = '0 0 12px rgba(37,99,235,0.4)';
+
+                            setTimeout(() => {
+                                subCategoryDropdown.style.border = '';
+                                subCategoryDropdown.style.boxShadow = '';
+                            }, 1500);
+
+                            // Automatically focus dropdown
+                            subCategoryDropdown.focus();
+                        }
                     data.forEach(item => {
                         subCategoryDropdown.innerHTML += `
                             <option value="${item.id}" data-price="${item.base_price}">
@@ -423,32 +425,6 @@ $timings = $timingStmt->fetchAll(PDO::FETCH_ASSOC);
                 .catch(err => console.error(err));
         });
     });
-    const basePriceInput = document.getElementById('base_price');
-const extraChargesInput = document.getElementById('extra_charges');
-const totalAmountInput = document.getElementById('total_amount');
-
-function calculateTotalAmount() {
-
-    const basePrice = parseFloat(basePriceInput.value) || 0;
-    const extraCharges = parseFloat(extraChargesInput.value) || 0;
-
-    totalAmountInput.value = (basePrice + extraCharges).toFixed(2);
-}
-
-basePriceInput.addEventListener('input', calculateTotalAmount);
-extraChargesInput.addEventListener('input', calculateTotalAmount);
-subCategoryDropdown.addEventListener('change', function () {
-
-    const selectedOption =
-        this.options[this.selectedIndex];
-
-    const basePrice =
-        selectedOption.getAttribute('data-price') || 0;
-
-    document.getElementById('base_price').value = basePrice;
-
-    calculateTotalAmount();
-});
     document.getElementById('proceedBtn')
 .addEventListener('click', function () {
 
@@ -668,12 +644,6 @@ if (
     '&appointment_date=' +
     encodeURIComponent(appointmentDate) +
     '&appointment_time=' +
-    encodeURIComponent(appointmentTime) +
-    '&base_price=' +
-    encodeURIComponent(basePrice) +
-    '&extra_charges=' +
-    encodeURIComponent(extraCharges) +
-    '&total_amount=' +
-    encodeURIComponent(totalAmount);
+    encodeURIComponent(appointmentTime);
     });
 </script>

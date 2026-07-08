@@ -231,7 +231,8 @@ include 'includes/header.php';
                             </div>
                         </div>
 
-                        <button class="btn-icon-only action-btn" data-id="<?= $row['id'] ?>">
+                        <button class="btn-icon-only action-btn" data-id="<?= $row['id'] ?>"
+                            data-source="<?= $row['booking_source'] ?>">
                             <i class="ri-more-2-fill"></i>
                         </button>
                     </div>
@@ -280,7 +281,7 @@ include 'includes/header.php';
                         <div class="day empty"></div>
                     <?php endfor; ?>
 
-                    
+
 
                     <?php for ($d = 1; $d <= $daysInMonth; $d++):
 
@@ -490,6 +491,7 @@ include 'includes/header.php';
             e.stopPropagation(); // IMPORTANT
 
             let id = this.dataset.id;
+            let source = this.dataset.source;
 
             Swal.fire({
                 title: 'Choose Action',
@@ -500,7 +502,8 @@ include 'includes/header.php';
             }).then((result) => {
 
                 if (result.isConfirmed) {
-                    window.location.href = 'add-appointment.php?id=' + id;
+                    window.location.href =
+                        'add-appointment.php?id=' + id + '&source=' + source;
                 }
 
                 if (result.isDenied) {

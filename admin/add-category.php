@@ -17,6 +17,7 @@ if ($id && $_SERVER['REQUEST_METHOD'] != 'POST') {
         $_POST['category_name'] = $category['category_name'];
         $_POST['description'] = $category['description'];
         $_POST['status'] = $category['status'];
+        $_POST['icon'] = $category['icon'];
     }
 }
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -156,7 +157,7 @@ include 'includes/header.php';
 <main class="main-content">
     <?php include 'includes/topbar.php'; ?>
 
-    <div >
+    <div>
         <div style="display: flex; align-items: center; justify-content: space-between;">
             <div>
                 <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b;">Add New Category</h2>
@@ -195,7 +196,7 @@ include 'includes/header.php';
                     <textarea name="description" class="form-control" rows="4" maxlength="300"
                         placeholder="Describe this category..."><?php echo $_POST['description'] ?? ''; ?></textarea>
 
-                    
+
                 </div>
             </div>
 
@@ -226,10 +227,14 @@ include 'includes/header.php';
                     <div onclick="document.getElementById('category_image').click()"
                         style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; position: relative; overflow: hidden; min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
 
-                        <img id="imagePreview" src=""
-                            style="display: none; max-width: 100%; max-height: 120px; border-radius: 4px; object-fit: contain;">
+                        <img id="imagePreview"
+                            src="<?= !empty($_POST['icon']) ? '../' . htmlspecialchars($_POST['icon']) : '' ?>" style="display: <?= !empty($_POST['icon']) ? 'block' : 'none' ?>;
+                                max-width:100%;
+                                max-height:120px;
+                                border-radius:4px;
+                                object-fit:contain;">
 
-                        <div id="uploadPlaceholder">
+                        <div id="uploadPlaceholder" style="<?= !empty($_POST['icon']) ? 'display:none;' : '' ?>">
                             <i class="ri-image-add-line" style="font-size: 2rem; color: #94a3b8;"></i>
                             <div style="font-size: 0.85rem; color: #64748b; margin-top: 0.5rem;">Click to upload image
                             </div>
