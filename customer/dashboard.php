@@ -616,4 +616,22 @@ foreach ($data as $row) {
     <?php unset($_SESSION['success_message']); ?>
 
 <?php endif; ?>
+<?php if (!empty($_SESSION['appointment_success'])): ?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    Swal.fire({
+        icon: 'success',
+        title: 'Success',
+        text: <?= json_encode($_SESSION['appointment_success']) ?>,
+        confirmButtonColor: '#d63384'
+    });
+
+});
+</script>
+
+<?php unset($_SESSION['appointment_success']); ?>
+
+<?php endif; ?>
 <?php include 'includes/bottom-nav.php'; ?>

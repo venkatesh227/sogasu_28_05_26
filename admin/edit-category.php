@@ -30,27 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $status = $_POST['status'];
     $icon = "";
 
-    if (isset($_FILES['category_image']) && $_FILES['category_image']['error'] == 0) {
-        $targetDir = "../uploads/categories/";
-        if (!is_dir($targetDir)) {
-            mkdir($targetDir, 0777, true);
-        }
 
-        $fileName = time() . '_' . basename($_FILES['category_image']['name']);
-        $targetFilePath = $targetDir . $fileName;
-        $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
-
-        $allowTypes = array('jpg', 'png', 'jpeg', 'gif');
-        if (in_array(strtolower($fileType), $allowTypes)) {
-            if (move_uploaded_file($_FILES['category_image']['tmp_name'], $targetFilePath)) {
-                $icon = "uploads/categories/" . $fileName;
-            } else {
-                $errors['icon'] = "Failed to upload image.";
-            }
-        } else {
-            $errors['icon'] = "Only JPG, JPEG, PNG, & GIF files are allowed.";
-        }
-    }
 
     if (empty($name)) {
         $errors['category_name'] = "Category Name is required";
@@ -95,7 +75,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $name = trim($_POST['category_name']);
     $description = trim($_POST['description']);
     $status = $_POST['status'];
-    $icon = $_POST['icon'] ?? $category['icon'];
+    $icon = $category['icon'];
+
+    if (!empty($_POST['icon'])) {
+        $icon = $_POST['icon'];
+    }
 
     if (isset($_FILES['category_image']) && $_FILES['category_image']['error'] == 0) {
         $targetDir = "../uploads/categories/";
@@ -110,6 +94,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $allowTypes = array('jpg', 'png', 'jpeg', 'gif');
         if (in_array(strtolower($fileType), $allowTypes)) {
             if (move_uploaded_file($_FILES['category_image']['tmp_name'], $targetFilePath)) {
+                if (!empty($category['icon']) && strpos($category['icon'], 'uploads/categories/') === 0) {
+                    $oldImage = "../" . $category['icon'];
+                    if (file_exists($oldImage)) {
+                        unlink($oldImage);
+                    }
+                }
                 $icon = "uploads/categories/" . $fileName;
             } else {
                 $message = "Failed to upload image.";

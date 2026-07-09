@@ -55,24 +55,24 @@ $timings = $timingStmt->fetchAll(PDO::FETCH_ASSOC);
                         <?php echo ($row['id'] == $selectedCategoryId) ? 'checked' : ''; ?>>
                     <div class="icon-box">
 
-<?php
+                    <?php
 
-$imagePath = '../' . $row['icon'];
+                    $imagePath = '../' . $row['icon'];
 
-if (!empty($row['icon']) && file_exists($imagePath)) {
+                    if (!empty($row['icon']) && file_exists($imagePath)) {
 
-?>
+                    ?>
 
-    <img src="<?= htmlspecialchars($imagePath) ?>"
-         style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        <img src="<?= htmlspecialchars($imagePath) ?>"
+                            style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
 
-<?php } else { ?>
+                    <?php } else { ?>
 
-    <i class="<?= !empty($row['icon']) ? htmlspecialchars($row['icon']) : 'ri-folder-line'; ?>"></i>
+                        <i class="<?= !empty($row['icon']) ? htmlspecialchars($row['icon']) : 'ri-folder-line'; ?>"></i>
 
-<?php } ?>
+                    <?php } ?>
 
-</div>
+                    </div>
                     <span><?php echo $row['category_name']; ?></span>
                 </label>
             <?php } ?>
@@ -321,6 +321,53 @@ if (!empty($row['icon']) && file_exists($imagePath)) {
     .input-error {
         border-color: red !important;
     }
+    @media (max-width: 480px) {
+
+    .container {
+        padding: 0.75rem;
+        overflow-x: hidden;
+    }
+
+    .card {
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+
+    .date-time-row {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .category-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .service-card {
+        min-width: 0;
+    }
+
+    .form-input,
+    textarea,
+    select,
+    input[type="file"] {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .visit-card {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .visit-price {
+        width: 100%;
+        text-align: right;
+    }
+}
 </style>
 <?php include 'includes/bottom-nav.php'; ?>
 <script>
@@ -481,14 +528,6 @@ if (!selectedCategory) {
 
     const timeError =
         document.getElementById('timeError');
-    const basePrice =
-    document.getElementById('base_price').value;
-
-    const extraCharges =
-    document.getElementById('extra_charges').value;
-
-    const totalAmount =
-    document.getElementById('total_amount').value;
 
     timeError.innerText = '';
 

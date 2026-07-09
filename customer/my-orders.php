@@ -102,26 +102,6 @@ $headerTitle = "My Orders";
 $activePage = "orders";
 include 'includes/header.php';
 ?>
-<?php if (!empty($_SESSION['order_success'])): ?>
-
-    <script>
-
-        document.addEventListener('DOMContentLoaded', function () {
-
-            Swal.fire({
-                icon: 'success',
-                title: 'Success',
-                text: <?= json_encode($_SESSION['order_success']) ?>,
-                confirmButtonColor: '#d63384'
-            });
-
-        });
-
-    </script>
-
-    <?php unset($_SESSION['order_success']); ?>
-
-<?php endif; ?>
 
 <div
     style="background: var(--surface); padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border); position: sticky; top: 58px; z-index: 100; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">

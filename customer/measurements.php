@@ -139,36 +139,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $material_image = uploadImage($_FILES['material_image']);
         $referral_image = uploadImage($_FILES['referral_image']);
 
-        // STEP 1: current year
-        $year = date('Y');
 
-        // STEP 2: last order fetch
-        $stmt = $pdo->prepare("SELECT order_code FROM customer_orders WHERE order_code LIKE ? ORDER BY id DESC LIMIT 1");
-        $stmt->execute(["ORD-$year-%"]);
-        $lastOrder = $stmt->fetch();
-
-        // STEP 3: next number generate
-        if ($lastOrder && !empty($lastOrder['order_code'])) {
-            $lastNumber = (int) substr($lastOrder['order_code'], -3);
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
-        }
-
-        // STEP 4: format (001, 002...)
-        $orderCode = "ORD-$year-" . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
         // ✅ SAVE INTO customer_measurements TABLE
         $stmt = $pdo->prepare("
-    INSERT INTO customer_measurements 
-    (
-        user_id,
-        category_id,
-        sub_category_id,
-        measurements,
-        created_by
-    )
-    VALUES (?, ?, ?, ?, ?)
-");
+            INSERT INTO customer_measurements 
+            (
+                user_id,
+                category_id,
+                sub_category_id,
+                measurements,
+                created_by
+            )
+            VALUES (?, ?, ?, ?, ?)
+        ");
 
         $stmt->execute([
             $_SESSION['user_id'],
@@ -182,14 +165,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // ✅ UPDATE LATEST SAVED MEASUREMENTS IN customer_profiles
 
         $stmt = $pdo->prepare("
-    SELECT id
-    FROM customer_profiles
-    WHERE user_id = ?
-    AND section_type = 'measurements'
-    AND JSON_EXTRACT(data, '$.category_id') = ?
-    AND JSON_EXTRACT(data, '$.sub_category_id') = ?
-    LIMIT 1
-");
+            SELECT id
+            FROM customer_profiles
+            WHERE user_id = ?
+            AND section_type = 'measurements'
+            AND JSON_EXTRACT(data, '$.category_id') = ?
+            AND JSON_EXTRACT(data, '$.sub_category_id') = ?
+            LIMIT 1
+        ");
 
         $stmt->execute([
             $_SESSION['user_id'],
@@ -208,11 +191,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($existingProfile) {
 
             $stmt = $pdo->prepare("
-        UPDATE customer_profiles
-        SET data = ?,
-            updated_at = NOW()
-        WHERE id = ?
-    ");
+                UPDATE customer_profiles
+                SET data = ?,
+                    updated_at = NOW()
+                WHERE id = ?
+            ");
 
             $stmt->execute([
                 json_encode($profileData),
@@ -222,15 +205,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
 
             $stmt = $pdo->prepare("
-        INSERT INTO customer_profiles
-        (
-            user_id,
-            section_type,
-            data,
-            created_at
-        )
-        VALUES (?, 'measurements', ?, NOW())
-    ");
+                INSERT INTO customer_profiles
+                (
+                    user_id,
+                    section_type,
+                    data,
+                    created_at
+                )
+                VALUES (?, 'measurements', ?, NOW())
+            ");
 
             $stmt->execute([
                 $_SESSION['user_id'],
@@ -257,11 +240,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $deleteStmt = $pdo->prepare("
 
-        DELETE FROM appointment_notifications
-        WHERE user_id = ?
-        AND status = 'pending'
+                DELETE FROM appointment_notifications
+                WHERE user_id = ?
+                AND status = 'pending'
 
-    ");
+            ");
 
             $deleteStmt->execute([
                 $_SESSION['user_id']
@@ -269,19 +252,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $notifyStmt = $pdo->prepare("
 
-        INSERT INTO appointment_notifications (
-            user_id,
-            title,
-            message,
-            suggested_date,
-            suggested_time,
-            status,
-            created_at
-        )
+                INSERT INTO appointment_notifications (
+                    user_id,
+                    title,
+                    message,
+                    suggested_date,
+                    suggested_time,
+                    status,
+                    created_at
+                )
 
-        VALUES (?, ?, ?, ?, ?, ?, NOW())
+                VALUES (?, ?, ?, ?, ?, ?, NOW())
 
-    ");
+            ");
 
             $notifyStmt->execute([
                 $_SESSION['user_id'],
@@ -302,59 +285,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
 
-
-        // INSERT INTO ORDERS TABLE
-        $stmt = $pdo->prepare("
-        INSERT INTO customer_orders 
-        (
-            order_code,
-            user_id,
-            category_id,
-            sub_category_id,
-            visit_type,
-            appointment_date,
-            appointment_time,
-            base_price,
-            extra_charges,
-            total_amount,
-            customer_measurement_id,
-            delivery_type,
-            additional_notes,
-            material_image,
-            referral_image,
-            created_by
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ");
-
-        $stmt->execute([
-            $orderCode,
-            $_SESSION['user_id'],
-            $category_id,
-            $sub_category_id,
-            $visitType,
-            $appointmentDate,
-            $appointmentTime,
-            $base_price,
-            $extra_charges,
-            $total_amount,
-            $measurementId,
-            $deliveryType,
-            $additional_notes,
-            $material_image,
-            $referral_image,
-            $_SESSION['user_id']
-        ]);
-
-        $orderId = $pdo->lastInsertId();
         // CLEAR SESSION
         unset($_SESSION['order']);
-        $_SESSION['order_success'] = 'Order placed successfully';
+        $_SESSION['appointment_success'] = 'Appointment created successfully!';
         session_write_close();
 
         echo json_encode([
             'success' => true,
-            'redirect' => 'my-orders.php'
+            'redirect' => 'dashboard.php'
         ]);
 
         exit();
@@ -424,49 +362,63 @@ include 'includes/header.php';
         <form id="measurementsForm" method="POST" enctype="multipart/form-data" novalidate onsubmit="return false;">
             <input type="hidden" name="category_id" value="<?php echo $categoryId; ?>">
             <input type="hidden" name="sub_category_id" value="<?php echo $subCategoryId; ?>">
+            <div style="margin-bottom:20px;">
+                <label class="input-label">Do you want to provide measurements?</label>
 
-            <div class="section-title">
-                <span>Body Measurements</span>
-                <span style="font-size: 0.8rem; font-weight: 400; color: var(--text-muted);">(in inches)</span>
+                <label style="margin-right:20px;">
+                    <input type="radio" name="has_measurements" value="yes">
+                    Yes
+                </label>
+
+                <label>
+                    <input type="radio" name="has_measurements" value="no" checked>
+                    No
+                </label>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
-                <?php foreach ($measurementFields as $field): ?>
-                    <div>
-                        <label class="input-label"><?php echo $field['label']; ?></label>
-                        <?php if ($field['input_type'] == 'checkbox'): ?>
-                            <input type="checkbox" name="<?php echo str_replace(' ', '_', $field['key_name']); ?>" value="1"
-                                <?php
-                                $fieldKey = str_replace(' ', '_', $field['key_name']);
+            <div id="measurementSection">
 
-                                echo (
-                                    !empty($savedData[$field['key_name']])
-                                    || !empty($savedData[$fieldKey])
-                                )
-                                    ? 'checked'
-                                    : '';
-                                ?>>
-                        <?php elseif ($field['input_type'] == 'select'): ?>
-                            <select name="<?php echo str_replace(' ', '_', $field['key_name']); ?>" class="form-input">
-                                <option value="">Select</option>
-                                <option value="yes">Yes</option>
-                                <option value="no">No</option>
-                            </select>
-                        <?php else: ?>
-                            <input type="number" name="<?php echo str_replace(' ', '_', $field['key_name']); ?>"
-                                class="form-input" step="0.1" <?php
-                                $fieldKey = str_replace(' ', '_', $field['key_name']);
+                <div class="section-title">
+                    <span>Body Measurements</span>
+                    <span style="font-size: 0.8rem; font-weight: 400; color: var(--text-muted);">(in inches)</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+                    <?php foreach ($measurementFields as $field): ?>
+                        <div>
+                            <label class="input-label"><?php echo $field['label']; ?></label>
+                            <?php if ($field['input_type'] == 'checkbox'): ?>
+                                <input type="checkbox" name="<?php echo str_replace(' ', '_', $field['key_name']); ?>" value="1"
+                                    <?php
+                                    $fieldKey = str_replace(' ', '_', $field['key_name']);
 
-                                $value =
-                                    $savedData[$field['key_name']]
-                                    ?? $savedData[$fieldKey]
-                                    ?? '';
-                                ?>
-                                value="<?php echo htmlspecialchars($value); ?>">
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach; ?>
+                                    echo (
+                                        !empty($savedData[$field['key_name']])
+                                        || !empty($savedData[$fieldKey])
+                                    )
+                                        ? 'checked'
+                                        : '';
+                                    ?>>
+                            <?php elseif ($field['input_type'] == 'select'): ?>
+                                <select name="<?php echo str_replace(' ', '_', $field['key_name']); ?>" class="form-input">
+                                    <option value="">Select</option>
+                                    <option value="yes">Yes</option>
+                                    <option value="no">No</option>
+                                </select>
+                            <?php else: ?>
+                                <input type="number" name="<?php echo str_replace(' ', '_', $field['key_name']); ?>"
+                                    class="form-input" step="0.1" <?php
+                                    $fieldKey = str_replace(' ', '_', $field['key_name']);
+
+                                    $value =
+                                        $savedData[$field['key_name']]
+                                        ?? $savedData[$fieldKey]
+                                        ?? '';
+                                    ?>
+                                    value="<?php echo htmlspecialchars($value); ?>">
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
             </div>
-
             <div class="section-title">Additional Notes</div>
             <textarea name="additional_notes" class="form-input" rows="4"
                 placeholder="Any specific requirements regarding fit, design or style..."
@@ -586,10 +538,73 @@ include 'includes/header.php';
     .input-error {
         border: 1px solid red !important;
     }
+
+    @media (max-width: 768px) {
+
+        /* Category & Sub Category */
+        .card>div:first-child>div[style*="grid-template-columns: 1fr 1fr"] {
+            display: grid !important;
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
+        }
+
+        /* Measurement fields */
+        #measurementSection>div:last-child {
+            display: grid !important;
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
+        }
+
+        /* Attachments */
+        div[style*="grid-template-columns:1fr 1fr"] {
+            display: grid !important;
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
+        }
+
+        .form-input,
+        textarea,
+        input[type="file"] {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .card {
+            overflow: hidden;
+        }
+
+        .container {
+            overflow-x: hidden;
+        }
+    }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    const measurementSection = document.getElementById('measurementSection');
+
+    function toggleMeasurements() {
+
+        const selected = document.querySelector(
+            'input[name="has_measurements"]:checked'
+        );
+
+        if (selected && selected.value === 'yes') {
+            measurementSection.style.display = 'block';
+        } else {
+            measurementSection.style.display = 'none';
+        }
+    }
+
+    // Page load lo default state
+    toggleMeasurements();
+
+    // Radio change ayinappudu
+    document.querySelectorAll('input[name="has_measurements"]').forEach(radio => {
+
+        radio.addEventListener('change', toggleMeasurements);
+
+    });
 
     document.getElementById('saveMeasurementsBtn').onclick = function (e) {
 
