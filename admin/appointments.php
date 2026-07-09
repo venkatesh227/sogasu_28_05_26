@@ -80,25 +80,29 @@ LEFT JOIN employees emp
     ON emp.id = a.assigned_employee_id
 WHERE
     a.is_deleted = 0
-AND a.appointment_source = 'customer'
 ";
 
 if ($selected_supervisor) {
     $query .= " AND a.supervisor_id=" . intval($selected_supervisor);
 }
+if (!empty($_GET['date'])) {
+    $query .= " AND a.appointment_date = :selected_date";
+}
 
 $query .= " ORDER BY a.appointment_date DESC,a.appointment_time ASC";
+$stmt = $pdo->prepare($query);
 
-$stmt = $pdo->query($query);
-
+if (!empty($_GET['date'])) {
+    $stmt->bindValue(':selected_date', $selected_date);
+}
+$stmt->execute();
 $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch booked dates for calendar highlight
 $bookedStmt = $pdo->prepare("
-SELECT appointment_date
+SELECT DISTINCT appointment_date
 FROM appointments
-WHERE is_deleted=0
-AND appointment_source='customer'
+WHERE is_deleted = 0
 ");
 $bookedStmt->execute();
 $bookedDates = $bookedStmt->fetchAll(PDO::FETCH_COLUMN);

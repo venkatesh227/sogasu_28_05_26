@@ -305,9 +305,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $stmt = $pdo->prepare("
                 INSERT INTO appointments
-                (customer_name, customer_phone, appointment_date, appointment_time,
-                type, notes, order_id, status, created_at, created_by)
-                VALUES (?,?,?,?,?,?,?,?,NOW(),?)
+                    (customer_name, customer_phone, appointment_date, appointment_time,
+                    type, notes, order_id, appointment_source, status, created_at, created_by)
+                    VALUES (?,?,?,?,?,?,?,'admin',?,NOW(),?)
             ");
 
             $stmt->execute([

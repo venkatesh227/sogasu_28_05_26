@@ -176,8 +176,7 @@ include 'includes/header.php';
 
                         &nbsp;&nbsp;
 
-                        <a onclick="return confirm('Delete address?')" href="?delete=<?= $row['id'] ?>"
-                            style="color:red;text-decoration:none;">
+                        <a href="?delete=<?= $row['id'] ?>" class="delete-address" style="color:red;text-decoration:none;">
 
                             <i class="ri-delete-bin-line" style="font-size:20px;"></i>
 
@@ -187,43 +186,27 @@ include 'includes/header.php';
 
                 </div>
 
-                <div style="margin-top:15px;line-height:1.8;">
+                <div style="margin-top:15px;line-height:1.7;">
 
-                    <b><?= htmlspecialchars($row['full_name']) ?></b>
+                    <b><?= htmlspecialchars($row['full_name']) ?></b><br>
 
-                    <br>
-
-                    <?= htmlspecialchars($row['phone']) ?>
-
-                    <br><br>
+                    <?= htmlspecialchars($row['phone']) ?><br><br>
 
                     <?= htmlspecialchars($row['house_no']) ?>
 
-                    <?php if ($row['apartment']) { ?>
-
-                        ,
-                        <?= htmlspecialchars($row['apartment']) ?>
-
+                    <?php if (!empty($row['apartment'])) { ?>
+                        , <?= htmlspecialchars($row['apartment']) ?>
                     <?php } ?>
 
-                    <br>
+                    <?php if (!empty($row['landmark'])) { ?>
+                        , <?= htmlspecialchars($row['landmark']) ?>
+                    <?php } ?>
 
-                    <?= htmlspecialchars($row['landmark']) ?>
+                    , <?= htmlspecialchars($row['area']) ?><br>
 
-                    <br>
-
-                    <?= htmlspecialchars($row['area']) ?>
-
-                    <br>
-
-                    <?= htmlspecialchars($row['city']) ?>
-
-                    -
+                    <?= htmlspecialchars($row['city']) ?>,
+                    <?= htmlspecialchars($row['state']) ?> -
                     <?= htmlspecialchars($row['pincode']) ?>
-
-                    <br>
-
-                    <?= htmlspecialchars($row['state']) ?>
 
                 </div>
 
@@ -233,5 +216,48 @@ include 'includes/header.php';
     <?php } ?>
 
 </div>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.querySelectorAll('.delete-address').forEach(function(btn){
+
+    btn.addEventListener('click', function(e){
+
+        e.preventDefault();
+
+        let url = this.href;
+
+        Swal.fire({
+            title: 'Delete Address?',
+            text: 'This address will be deleted.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, Delete',
+            cancelButtonText: 'Cancel'
+        }).then((result)=>{
+
+            if(result.isConfirmed){
+                window.location.href = url;
+            }
+
+        });
+
+    });
+
+});
+</script>
+<?php if(isset($_SESSION['success_message'])) { ?>
+
+<script>
+Swal.fire({
+    icon:'success',
+    title:'Success',
+    text:'<?= addslashes($_SESSION['success_message']) ?>',
+    confirmButtonColor:'#e91e63'
+});
+</script>
+
+<?php unset($_SESSION['success_message']); } ?>
 
 <?php include 'includes/bottom-nav.php'; ?>
