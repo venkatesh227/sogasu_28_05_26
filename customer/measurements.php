@@ -284,6 +284,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             exit();
         }
+        // Get customer details
+        $stmt = $pdo->prepare("
+            SELECT username, mobile
+            FROM users
+            WHERE id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$_SESSION['user_id']]);
+        $user = $stmt->fetch();
+
+        $stmt = $pdo->prepare("
+INSERT INTO appointments
+(
+    user_id,
+    customer_name,
+    customer_phone,
+    category_id,
+    sub_category_id,
+    appointment_date,
+    appointment_time,
+    visit_type,
+    measurement_id,
+    material_image,
+    referral_image,
+    delivery_type,
+    delivery_method,
+    appointment_source,
+    workflow_status,
+    status,
+    notes,
+    created_by,
+    created_at
+)
+VALUES
+(
+    :user_id,
+    :customer_name,
+    :customer_phone,
+    :category_id,
+    :sub_category_id,
+    :appointment_date,
+    :appointment_time,
+    :visit_type,
+    :measurement_id,
+    :material_image,
+    :referral_image,
+    :delivery_type,
+    :delivery_method,
+    'customer',
+    'pending',
+    'scheduled',
+    :notes,
+    :created_by,
+    NOW()
+)
+");
+
+        $stmt->execute([
+            ':user_id' => $_SESSION['user_id'],
+            ':customer_name' => $user['username'] ?? '',
+            ':customer_phone' => $user['mobile'] ?? '',
+            ':category_id' => $category_id,
+            ':sub_category_id' => $sub_category_id,
+            ':appointment_date' => $appointmentDate,
+            ':appointment_time' => $appointmentTime,
+            ':visit_type' => $visitType,
+            ':measurement_id' => $measurementId,
+            ':material_image' => $material_image,
+            ':referral_image' => $referral_image,
+            ':delivery_type' => $deliveryType,
+            ':delivery_method' => $_POST['delivery_method'] ?? null,
+            ':notes' => $additional_notes,
+            ':created_by' => $_SESSION['user_id']
+        ]);
 
         // CLEAR SESSION
         unset($_SESSION['order']);
@@ -435,6 +509,17 @@ include 'includes/header.php';
                 </select>
             </div>
             <div id="deliveryError" class="error"></div>
+            <div class="section-title">Delivery Method</div>
+
+            <div style="margin-bottom:2rem;">
+                <select name="delivery_method" class="form-input">
+                    <option value="">Select Delivery Method</option>
+                    <option value="store_pickup">Store Pickup</option>
+                    <option value="home_delivery">Home Delivery</option>
+                </select>
+            </div>
+
+            <div id="deliveryMethodError" class="error"></div>
 
             <div style="margin-bottom:2rem;">
                 <div class="section-title">Attachments</div>
@@ -611,6 +696,24 @@ include 'includes/header.php';
         e.preventDefault();
 
         const form = document.getElementById('measurementsForm');
+        const deliveryMethod =
+            document.querySelector('[name="delivery_method"]').value;
+
+        document.getElementById('deliveryMethodError').innerText = '';
+
+        document.querySelector('[name="delivery_method"]')
+            .classList.remove('input-error');
+
+        if (!deliveryMethod) {
+
+            document.getElementById('deliveryMethodError').innerText =
+                'Please select delivery method';
+
+            document.querySelector('[name="delivery_method"]')
+                .classList.add('input-error');
+
+            return;
+        }
 
         const formData = new FormData(form);
 
@@ -627,7 +730,9 @@ include 'includes/header.php';
 
                 } else {
 
-                    window.location.href = 'dashboard.php';
+                    console.log(data);
+                    alert(data.message);
+
                 }
             })
             .catch(error => {
