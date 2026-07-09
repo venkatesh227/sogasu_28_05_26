@@ -27,10 +27,11 @@ $activePage = 'my-appointments';
 
 // Fetch appointments assigned to this employee
 $stmt = $pdo->prepare("
-    SELECT 
-        co.id,
-        co.order_code,
-        co.appointment_date,
+SELECT
+    co.id,
+    co.order_code,
+    co.visit_type,
+    co.appointment_date,
         co.appointment_time,
         co.status,
         co.slot_status,
@@ -103,6 +104,8 @@ include 'includes/header.php';
                         <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Garment</th>
                         <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Appointment Date & Time</th>
                         <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Status</th>
+                                                <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Visit Type</th>
+
                         <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Amount</th>
                         <th style="padding: 1rem; text-align: center; font-weight: 600; color: #475569; font-size: 0.9rem;">Actions</th>
                     </tr>
@@ -150,13 +153,27 @@ include 'includes/header.php';
                                     <i class="ri-time-line"></i> <?= substr($apt['appointment_time'], 0, 5) ?>
                                 </span>
                             </td>
-                            <td style="padding: 1rem;">
-                                <span style="background: <?= $status_bg ?>; color: <?= $status_color ?>; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">
-                                    <?= htmlspecialchars($apt['status'] ?? 'Pending') ?>
-                                </span>
-                            </td>
-                            <td style="padding: 1rem; color: #1e293b; font-weight: 600;">
-                                ₹<?= number_format($apt['total_amount'] ?? 0, 2) ?>
+<td style="padding: 1rem;">
+    <span style="background: <?= $status_bg ?>; color: <?= $status_color ?>; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">
+        <?= htmlspecialchars($apt['status'] ?? 'Pending') ?>
+    </span>
+</td>
+
+<td style="padding:1rem;">
+    <span style="
+        background:#eef2ff;
+        color:#4f46e5;
+        padding:0.4rem 0.8rem;
+        border-radius:6px;
+        font-size:0.85rem;
+        font-weight:600;
+        text-transform:capitalize;">
+        <?= htmlspecialchars($apt['visit_type']) ?>
+    </span>
+</td>
+
+<td style="padding: 1rem; color: #1e293b; font-weight: 600;">
+                                    ₹<?= number_format($apt['total_amount'] ?? 0, 2) ?>
                             </td>
                             <td style="padding: 1rem; text-align: center;">
                                 <button onclick="openDetailsModal(

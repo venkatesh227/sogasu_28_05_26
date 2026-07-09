@@ -49,14 +49,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Fetch appointments for this supervisor
 $stmt = $pdo->prepare("
-    SELECT 
-        co.id,
-        co.order_code,
-        co.appointment_date,
-        co.appointment_time,
-        co.status,
-        co.slot_status,
-        co.total_amount,
+SELECT 
+    co.id,
+    co.order_code,
+    co.visit_type,
+    co.appointment_date,
+    co.appointment_time,
+    co.status,
+    co.slot_status,
+    co.total_amount,
         co.assigned_employee_id,
         cu.first_name as cust_first,
         cu.last_name as cust_last,
@@ -136,6 +137,8 @@ include 'includes/header.php';
                         <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Date & Time</th>
                         <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Assigned Employee</th>
                         <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Status</th>
+                                                <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Visit Type</th>
+
                         <th style="padding: 1rem; text-align: center; font-weight: 600; color: #475569; font-size: 0.9rem;">Action</th>
                     </tr>
                 </thead>
@@ -168,13 +171,27 @@ include 'includes/header.php';
                                     </span>
                                 <?php endif; ?>
                             </td>
-                            <td style="padding: 1rem;">
-                                <span style="background: <?= $apt['status'] === 'confirmed' ? '#ecfdf5' : '#fef3c7' ?>; color: <?= $apt['status'] === 'confirmed' ? '#059669' : '#b45309' ?>; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">
-                                    <?= htmlspecialchars($apt['status'] ?? 'Pending') ?>
-                                </span>
-                            </td>
-                            <td style="padding: 1rem; text-align: center;">
-                                <button onclick="openAssignModal(
+<td style="padding: 1rem;">
+    <span style="background: <?= $status_bg ?>; color: <?= $status_color ?>; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">
+        <?= htmlspecialchars($apt['status'] ?? 'Pending') ?>
+    </span>
+</td>
+
+<td style="padding:1rem;">
+    <span style="
+        background:#eef2ff;
+        color:#4f46e5;
+        padding:0.4rem 0.8rem;
+        border-radius:6px;
+        font-size:0.85rem;
+        font-weight:600;
+        text-transform:capitalize;">
+        <?= htmlspecialchars($apt['visit_type']) ?>
+    </span>
+</td>
+
+<td style="padding: 1rem; color: #1e293b; font-weight: 600;">
+                                    <button onclick="openAssignModal(
                                     <?= $apt['id'] ?>,
                                     '<?= htmlspecialchars($apt['cust_first']) ?>',
                                     <?= $apt['assigned_employee_id'] ?? 'null' ?>
