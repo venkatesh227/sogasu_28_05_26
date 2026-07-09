@@ -332,6 +332,10 @@ foreach ($conflictNotifications as $notification) {
             <?php echo isset($headerTitle) ? $headerTitle : 'Sogasu'; ?>
         </div>
         <div class="header-actions">
+            <a href="manage-addresses.php" class="icon-btn" title="My Addresses">
+                <i class="ri-map-pin-2-fill"></i>
+            </a>
+
             <button class="icon-btn">
                 <i class="ri-shopping-bag-3-line"></i>
             </button>
