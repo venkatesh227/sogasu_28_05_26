@@ -28,32 +28,26 @@ $activePage = 'my-appointments';
 // Fetch appointments assigned to this employee
 $stmt = $pdo->prepare("
 SELECT
-    co.id,
-    co.order_code,
-    co.visit_type,
-    co.appointment_date,
-        co.appointment_time,
-        co.status,
-        co.slot_status,
-        co.total_amount,
-        co.sub_category_id,
-        co.created_at,
-        cu.first_name as cust_first,
-        cu.last_name as cust_last,
-        cu.phone as cust_phone,
-        cu.email as cust_email,
-        sc.name as garment,
-        sc.image as garment_img,
-        sup.first_name as sup_first,
-        sup.last_name as sup_last
-    FROM customer_orders co
-    LEFT JOIN customers cu ON co.user_id = cu.user_id
-    LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
-    LEFT JOIN employees sup ON co.supervisor_id = sup.id
-    WHERE co.assigned_employee_id = ?
-    AND co.is_deleted = 0
-    AND (co.slot_status = 'confirmed' OR co.slot_status IS NULL)
-    ORDER BY co.appointment_date DESC, co.appointment_time ASC
+    a.id,
+    a.visit_type,
+    a.appointment_date,
+    a.appointment_time,
+    a.status,
+    a.notes,
+    c.first_name AS cust_first,
+    c.last_name AS cust_last,
+    c.phone AS cust_phone,
+    c.email AS cust_email,
+    sc.name AS garment,
+    sc.image AS garment_img
+FROM appointments a
+LEFT JOIN customers c
+    ON c.user_id = a.user_id
+LEFT JOIN sub_categories sc
+    ON sc.id = a.sub_category_id
+WHERE a.assigned_employee_id = ?
+AND a.is_deleted = 0
+ORDER BY a.appointment_date DESC, a.appointment_time ASC
 ");
 $stmt->execute([$employee_id]);
 $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);

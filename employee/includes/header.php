@@ -337,6 +337,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         <i class="ri-calendar-2-line" style="font-size: 1.25rem;"></i>
                         <span>My Appointments</span>
                     </a>
+                    <a href="measurements.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'measurements') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+                        <i class="ri-file-text-line" style="font-size: 1.25rem;"></i>
+                        <span>Measurements</span>
+                    </a>
                     <?php endif; ?>
                     
                     <!-- Supervisor Appointments -->

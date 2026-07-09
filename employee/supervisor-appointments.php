@@ -29,14 +29,20 @@ $activePage = 'supervisor-appointments';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'assign_employee') {
     $appointment_id = $_POST['appointment_id'] ?? null;
     $assign_employee_id = $_POST['assign_employee_id'] ?? null;
-    
+    $source = $_POST['source'] ?? 'customer_orders';
+
     if ($appointment_id) {
         try {
-            $upd_stmt = $pdo->prepare("
-                UPDATE customer_orders 
-                SET assigned_employee_id = ?
-                WHERE id = ? AND supervisor_id = ?
-            ");
+            if ($source === 'appointments') {
+                $upd_stmt = $pdo->prepare(
+                    "UPDATE appointments SET assigned_employee_id = ? WHERE id = ? AND supervisor_id = ?"
+                );
+            } else {
+                $upd_stmt = $pdo->prepare(
+                    "UPDATE customer_orders SET assigned_employee_id = ? WHERE id = ? AND supervisor_id = ?"
+                );
+            }
+
             $upd_stmt->execute([$assign_employee_id, $appointment_id, $employee_id]);
             $_SESSION['success'] = "Employee assigned successfully";
         } catch (PDOException $e) {
@@ -47,33 +53,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// Fetch appointments for this supervisor
-$stmt = $pdo->prepare("
-SELECT 
-    co.id,
-    co.order_code,
-    co.visit_type,
-    co.appointment_date,
-    co.appointment_time,
-    co.status,
-    co.slot_status,
-    co.total_amount,
-        co.assigned_employee_id,
-        cu.first_name as cust_first,
-        cu.last_name as cust_last,
-        cu.phone as cust_phone,
-        sc.name as garment,
-        e.first_name as emp_first,
-        e.last_name as emp_last
-    FROM customer_orders co
-    LEFT JOIN customers cu ON co.user_id = cu.user_id
-    LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
-    LEFT JOIN employees e ON co.assigned_employee_id = e.id
-    WHERE co.supervisor_id = ?
-    AND co.is_deleted = 0
-    AND (co.slot_status = 'confirmed' OR co.slot_status IS NULL)
-    ORDER BY co.appointment_date DESC, co.appointment_time ASC
-");
+// Fetch appointments for this supervisor (include both admin `appointments` and `customer_orders`)
+$sql = <<<'SQL'
+SELECT
+    a.id,
+    a.customer_name AS cust_first,
+    '' AS cust_last,
+    a.customer_phone AS cust_phone,
+    sc.name AS garment,
+    a.appointment_date,
+    a.appointment_time,
+    a.visit_type,
+    a.status,
+    a.workflow_status,
+    a.appointment_source,
+    a.user_id,
+    a.supervisor_id,
+    a.assigned_employee_id,
+    e.first_name AS emp_first,
+    e.last_name AS emp_last,
+    'appointments' AS source
+FROM appointments a
+LEFT JOIN sub_categories sc ON sc.id = a.sub_category_id
+LEFT JOIN employees e ON e.id = a.assigned_employee_id
+WHERE a.supervisor_id = ?
+AND a.is_deleted = 0
+AND a.appointment_source = 'customer'
+ORDER BY a.appointment_date DESC, a.appointment_time ASC
+SQL;
+
+$stmt = $pdo->prepare($sql);
 $stmt->execute([$employee_id]);
 $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -194,7 +203,8 @@ include 'includes/header.php';
                                     <button onclick="openAssignModal(
                                     <?= $apt['id'] ?>,
                                     '<?= htmlspecialchars($apt['cust_first']) ?>',
-                                    <?= $apt['assigned_employee_id'] ?? 'null' ?>
+                                    <?= $apt['assigned_employee_id'] ?? 'null' ?>,
+                                    '<?= htmlspecialchars($apt['source']) ?>'
                                 )" style="background: #f8fafc; color: #4f46e5; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s;">
                                     <i class="ri-user-add-line"></i> Assign
                                 </button>
@@ -222,6 +232,7 @@ include 'includes/header.php';
         <form method="POST">
             <input type="hidden" name="action" value="assign_employee">
             <input type="hidden" name="appointment_id" id="modalAppointmentId">
+            <input type="hidden" name="source" id="modalSource" value="customer_orders">
 
             <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1.25rem;">
                 Assign an employee to handle this appointment for <strong id="modalCustomerName" style="color: #4f46e5;"></strong>.
@@ -252,10 +263,11 @@ include 'includes/header.php';
 </div>
 
 <script>
-function openAssignModal(appointmentId, customerName, currentEmployeeId) {
+function openAssignModal(appointmentId, customerName, currentEmployeeId, source) {
     document.getElementById('modalAppointmentId').value = appointmentId;
     document.getElementById('modalCustomerName').textContent = customerName;
     document.getElementById('modalEmployeeSelect').value = currentEmployeeId || '';
+    document.getElementById('modalSource').value = source || 'customer_orders';
     document.getElementById('assignModal').style.display = 'flex';
 }
 

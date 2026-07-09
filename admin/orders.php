@@ -283,10 +283,8 @@ include 'includes/header.php';
                         FROM customer_orders co
                         LEFT JOIN customers cc ON co.user_id = cc.user_id
                         LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
-WHERE co.is_deleted = 0
-AND co.slot_status = 'confirmed'
-AND co.assigned_employee_id IS NOT NULL
-AND co.rack_id IS NOT NULL
+                        WHERE co.is_deleted = 0
+                        AND co.slot_status != 'rejected'
                     ";
                     if ($tab != 'all' && in_array($tab, $statuses)) {
                         $query .= " AND co.status = " . $pdo->quote($tab);
