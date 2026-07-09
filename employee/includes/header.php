@@ -330,6 +330,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 <i class="ri-calendar-event-line" style="font-size: 1.25rem;"></i>
                 <span>Shift Roster</span>
             </a>
+
+                    <!-- My Appointments (Regular Employee) -->
+                    <?php if($hdr_emp_role !== 'Supervisor'): ?>
+                    <a href="my-appointments.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'my-appointments') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+                        <i class="ri-calendar-2-line" style="font-size: 1.25rem;"></i>
+                        <span>My Appointments</span>
+                    </a>
+                    <?php endif; ?>
+                    
+                    <!-- Supervisor Appointments -->
+                    <?php if($hdr_emp_role === 'Supervisor'): ?>
+                    <a href="supervisor-appointments.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'supervisor-appointments') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">
+                        <i class="ri-calendar-check-line" style="font-size: 1.25rem;"></i>
+                        <span>Appointments</span>
+                    </a>
+                    <?php endif; ?>
             <?php endif; ?>
 <?php if(hasPermission('leave_applications_view')): ?>
                 <a href="leaves.php" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; text-decoration: none; color: #475569; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; <?= (isset($activePage) && $activePage == 'leaves') ? 'background: var(--primary-light); color: var(--primary);' : '' ?>">

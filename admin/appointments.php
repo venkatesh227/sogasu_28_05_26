@@ -13,30 +13,66 @@ if (strtotime($selected_date) < strtotime(date('Y-m-d'))) {
     $selected_date = date('Y-m-d');
 }
 
-$stmt = $pdo->prepare("
+// Handle supervisor assignment to appointment
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'assign_supervisor') {
+    $appointment_id = $_POST['appointment_id'] ?? null;
+    $supervisor_id = $_POST['supervisor_id'] ?: null;
+    
+    if ($appointment_id) {
+        try {
+            $stmt = $pdo->prepare("
+                UPDATE customer_orders
+                SET supervisor_id = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$supervisor_id, $appointment_id]);
+            $_SESSION['success'] = "Supervisor assigned successfully";
+        } catch (PDOException $e) {
+            $_SESSION['error'] = "Error: " . $e->getMessage();
+        }
+    }
+    header("Location: appointments.php?date=" . $selected_date);
+    exit();
+}
 
+// Handle employee assignment to appointment
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'assign_employee') {
+    $appointment_id = $_POST['appointment_id'] ?? null;
+    $employee_id = $_POST['employee_id'] ?: null;
+    
+    if ($appointment_id) {
+        try {
+            $stmt = $pdo->prepare("
+                UPDATE customer_orders
+                SET assigned_employee_id = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$employee_id, $appointment_id]);
+            $_SESSION['success'] = "Employee assigned to appointment";
+        } catch (PDOException $e) {
+            $_SESSION['error'] = "Error: " . $e->getMessage();
+        }
+    }
+    header("Location: appointments.php?date=" . $selected_date);
+    exit();
+}
+
+// Fetch all supervisors
+$supervisors = $pdo->query("
+    SELECT id, CONCAT(first_name, ' ', last_name) as name 
+    FROM employees 
+    WHERE is_deleted=0 AND job_role = 'Supervisor'
+    ORDER BY first_name
+")->fetchAll(PDO::FETCH_ASSOC);
+
+// Get selected supervisor
+$selected_supervisor = $_GET['supervisor'] ?? null;
+
+// Main query - show all appointments or filter by supervisor
+$query = "
     SELECT 
-        a.id,
-        a.customer_name,
-        a.customer_phone,
-        a.appointment_date,
-        a.appointment_time,
-        a.type,
-        a.status,
-        'appointments' as booking_source,
-        NULL as slot_status,
-        NULL as order_code,
-        NULL as user_id
-
-    FROM appointments a
-
-    WHERE a.is_deleted = 0
-    AND a.appointment_date = ?
-
-    UNION ALL
-
-    SELECT
         co.id,
+        co.order_code,
         u.username as customer_name,
         u.mobile as customer_phone,
         co.appointment_date,
@@ -45,58 +81,53 @@ $stmt = $pdo->prepare("
         co.status,
         'customer_orders' as booking_source,
         co.slot_status,
-        co.order_code,
-        co.user_id
-
+        co.user_id,
+        co.supervisor_id,
+        co.assigned_employee_id,
+        co.total_amount,
+        co.sub_category_id,
+        sc.name as garment,
+        sup.first_name as sup_first,
+        sup.last_name as sup_last,
+        emp.first_name as emp_first,
+        emp.last_name as emp_last
     FROM customer_orders co
+    LEFT JOIN users u ON u.id = co.user_id
+    LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
+    LEFT JOIN employees sup ON co.supervisor_id = sup.id
+    LEFT JOIN employees emp ON co.assigned_employee_id = emp.id
+    WHERE co.is_deleted = 0
+    AND (co.slot_status = 'confirmed' OR co.slot_status IS NULL)
+";
 
-    LEFT JOIN users u
-    ON u.id = co.user_id
+if ($selected_supervisor) {
+    $query .= " AND co.supervisor_id = " . intval($selected_supervisor);
+}
 
-   WHERE co.is_deleted = 0
-    AND co.appointment_date = ?
-    AND (
-        co.slot_status = 'confirmed'
-        OR co.slot_status IS NULL
-    )
+$query .= " ORDER BY co.appointment_date DESC, co.appointment_time ASC";
 
-    ORDER BY appointment_time ASC
+$appointments = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
 
-");
-$stmt->execute([
-    $selected_date,
-    $selected_date
-]);
-$appointments = $stmt->fetchAll();
-/*
-|--------------------------------------------------------------------------
-| FETCH BOOKED DATES FOR CALENDAR HIGHLIGHT
-|--------------------------------------------------------------------------
-*/
-
+// Fetch booked dates for calendar highlight
 $bookedStmt = $pdo->prepare("
-
-    SELECT appointment_date
-    FROM appointments
-    WHERE is_deleted = 0
-
-    UNION
-
     SELECT appointment_date
     FROM customer_orders
     WHERE is_deleted = 0
-    AND (
-        slot_status = 'confirmed'
-        OR slot_status IS NULL
-    )
-
+    AND (slot_status = 'confirmed' OR slot_status IS NULL)
 ");
-
 $bookedStmt->execute();
+$bookedDates = $bookedStmt->fetchAll(PDO::FETCH_COLUMN);
 
-$bookedDates = $bookedStmt->fetchAll(
-    PDO::FETCH_COLUMN
-);
+// Get all employees for assignment (excluding supervisors)
+$all_employees = $pdo->query("
+    SELECT id, CONCAT(first_name, ' ', last_name) as name 
+    FROM employees 
+    WHERE is_deleted=0 
+    AND status = 1
+    AND job_role != 'Supervisor'
+    ORDER BY first_name
+")->fetchAll(PDO::FETCH_ASSOC);
+
 $pageTitle = "Appointments - Sogasu";
 $activePage = "appointments";
 include 'includes/header.php';
@@ -149,6 +180,48 @@ include 'includes/header.php';
         </div>
     </div>
 
+    <!-- Success/Error Messages -->
+    <?php if (!empty($_SESSION['success'])): ?>
+        <div style="background: #ecfdf5; color: #047857; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #a7f3d0; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+            <i class="ri-checkbox-circle-line" style="font-size: 1.2rem;"></i>
+            <span><?= htmlspecialchars($_SESSION['success']) ?></span>
+        </div>
+        <?php unset($_SESSION['success']); ?>
+    <?php endif; ?>
+
+    <?php if (!empty($_SESSION['error'])): ?>
+        <div style="background: #fef2f2; color: #b91c1c; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #fca5a5; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+            <i class="ri-error-warning-line" style="font-size: 1.2rem;"></i>
+            <span><?= htmlspecialchars($_SESSION['error']) ?></span>
+        </div>
+        <?php unset($_SESSION['error']); ?>
+    <?php endif; ?>
+
+    <!-- Supervisor Filter -->
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 250px;">
+                <!-- <label style="font-size: 0.85rem; font-weight: 600; color: #475569; display: block; margin-bottom: 0.5rem;">
+                    <i class="ri-user-star-line" style="margin-right: 0.5rem;"></i>Filter by Supervisor
+                </label> -->
+                <select id="supervisorFilter" onchange="window.location.href='appointments.php?supervisor=' + this.value + '&date=<?= $selected_date ?>'" 
+                    style="width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none;">
+                    <option value="">-- All Appointments --</option>
+                    <?php foreach ($supervisors as $sup): ?>
+                        <option value="<?= $sup['id'] ?>" <?= $selected_supervisor == $sup['id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($sup['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <?php if ($selected_supervisor): ?>
+                <a href="appointments.php?date=<?= $selected_date ?>" style="padding: 0.75rem 1.25rem; background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; border-radius: 8px; text-decoration: none; font-weight: 600; align-self: flex-end;">
+                    <i class="ri-close-line"></i> Clear Filter
+                </a>
+            <?php endif; ?>
+        </div>
+    </div>
+
     <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 1.5rem;">
 
         <!-- Appointments List -->
@@ -175,72 +248,94 @@ include 'includes/header.php';
                             <div style="display: flex; justify-content: space-between; align-items: start;">
                                 <div>
                                     <h4 class="appointment-title">
-                                        <?= ucfirst(str_replace('_', ' ', $row['type'])) ?> -
-                                        <?= htmlspecialchars($row['customer_name']) ?>
+                                        <?= htmlspecialchars($row['customer_name']) ?> - 
+                                        <?= htmlspecialchars($row['garment'] ?? 'General') ?>
                                     </h4>
 
                                     <div class="appointment-meta">
                                         <span>
                                             <i class="ri-time-line"></i>
-                                            <?= date('h:i A', strtotime($row['appointment_time'])) ?> -
-                                            <?= date('h:i A', strtotime($row['appointment_time'] . ' +15 minutes')) ?>
+                                            <?= date('h:i A', strtotime($row['appointment_time'])) ?>
                                         </span>
-
                                         <span>
-                                            <i class="ri-user-line"></i>
+                                            <i class="ri-phone-line"></i>
                                             <?= htmlspecialchars($row['customer_phone'] ?: 'No phone') ?>
                                         </span>
+                                        <span>
+                                            <i class="ri-tag-line"></i>
+                                            <?= htmlspecialchars($row['order_code'] ?? 'N/A') ?>
+                                        </span>
+                                    </div>
+
+                                    <!-- Supervisor & Employee Info -->
+                                    <div style="margin-top: 0.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                                        <?php if ($row['supervisor_id']): ?>
+                                            <span style="background: #ecfdf5; color: #059669; padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
+                                                <i class="ri-user-star-line"></i> <?= htmlspecialchars($row['sup_first'] . ' ' . ($row['sup_last'] ?? '')) ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span style="background: #fef3c7; color: #b45309; padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
+                                                <i class="ri-alert-line"></i> No Supervisor
+                                            </span>
+                                        <?php endif; ?>
+
+                                        <?php if ($row['assigned_employee_id']): ?>
+                                            <span style="background: #f0fdf4; color: #166534; padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
+                                                <i class="ri-user-3-line"></i> <?= htmlspecialchars($row['emp_first'] . ' ' . ($row['emp_last'] ?? '')) ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span style="background: #fdf2f8; color: #db2777; padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
+                                                <i class="ri-alert-line"></i> Unassigned Employee
+                                            </span>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
 
-                                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+<div style="display:flex;align-items:center;gap:10px;">
+    <span class="badge badge-primary">
+         Order Booked
+    </span>
+    <span class="badge badge-primary">
+        Customer Order
+    </span>
 
-                                    <span
-                                        class="badge 
-        <?= $row['type'] == 'trial' ? 'badge-orange' : ($row['type'] == 'delivery_pickup' ? 'badge-green' : 'badge-blue') ?>">
-                                        <?= ucfirst(str_replace('_', ' ', $row['type'])) ?>
-                                    </span>
+    <!-- 3 DOT MENU -->
+<button
+    class="btn-icon-only action-btn"
+    data-id="<?= $row['id'] ?>"
+    data-source="<?= $row['booking_source'] ?>"
+    style="border:none;background:none;cursor:pointer;padding:5px;">
 
-                                    <?php if ($row['booking_source'] == 'customer_orders'): ?>
+    <i class="ri-more-2-fill" style="font-size:20px;"></i>
 
-                                        <span class="badge badge-primary">
-                                            Customer Order
-                                        </span>
+</button>
 
-                                    <?php else: ?>
-
-                                        <span class="badge badge-warning">
-                                            Admin Appointment
-                                        </span>
-
-                                    <?php endif; ?>
-
-                                    <?php if (
-                                        isset($row['slot_status']) &&
-                                        $row['slot_status'] == 'conflict'
-                                    ): ?>
-
-                                        <span class="badge badge-danger">
-                                            Slot Conflict
-                                        </span>
-
-                                    <?php endif; ?>
-
-                                </div>
-
+</div>
                             </div>
                         </div>
 
-                        <button class="btn-icon-only action-btn" data-id="<?= $row['id'] ?>"
-                            data-source="<?= $row['booking_source'] ?>">
-                            <i class="ri-more-2-fill"></i>
-                        </button>
+                        <div style="display: flex; gap: 0.5rem; flex-direction: column;">
+                            <button onclick="openSupervisorModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['customer_name']) ?>', <?= $row['supervisor_id'] ?? 'null' ?>)" 
+                                class="btn btn-sm" style="background: #f8fafc; color: #f59e0b; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                                <i class="ri-user-star-line"></i> Supervisor
+                            </button>
+                            <button onclick="openEmployeeModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['customer_name']) ?>', <?= $row['assigned_employee_id'] ?? 'null' ?>)" 
+                                class="btn btn-sm" style="background: #f8fafc; color: #4f46e5; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                                <i class="ri-user-add-line"></i> Employee
+                            </button>
+                        </div>
                     </div>
                 <?php endforeach; ?>
 
             <?php else: ?>
 
-                <p>No appointments found</p>
+                <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 3rem; text-align: center; color: #64748b;">
+                    <i class="ri-calendar-blank-line" style="font-size: 3rem; color: #cbd5e1; display: block; margin-bottom: 1rem;"></i>
+                    <p style="font-size: 1.1rem; font-weight: 600;">No appointments found</p>
+                    <p style="font-size: 0.9rem; margin-top: 0.5rem;">
+                        <?= $selected_supervisor ? 'This supervisor has no appointments.' : 'No appointments found for the selected date.' ?>
+                    </p>
+                </div>
 
             <?php endif; ?>
         </div>
@@ -281,7 +376,7 @@ include 'includes/header.php';
                         <div class="day empty"></div>
                     <?php endfor; ?>
 
-
+                    
 
                     <?php for ($d = 1; $d <= $daysInMonth; $d++):
 
@@ -485,49 +580,185 @@ include 'includes/header.php';
     </script>
     <?php unset($_SESSION['success']); endif; ?>
 <script>
-    document.querySelectorAll('.action-btn').forEach(btn => {
+document.querySelectorAll('.action-btn').forEach(function(btn){
 
-        btn.addEventListener('click', function (e) {
-            e.stopPropagation(); // IMPORTANT
+    btn.addEventListener("click",function(e){
 
-            let id = this.dataset.id;
-            let source = this.dataset.source;
+        e.preventDefault();
+        e.stopPropagation();
 
-            Swal.fire({
-                title: 'Choose Action',
-                showCancelButton: true,
-                showDenyButton: true,
-                confirmButtonText: 'Edit',
-                denyButtonText: 'Delete',
-            }).then((result) => {
+        let id=this.dataset.id;
 
-                if (result.isConfirmed) {
-                    window.location.href =
-                        'add-appointment.php?id=' + id + '&source=' + source;
-                }
+        Swal.fire({
 
-                if (result.isDenied) {
+            title:"Choose Action",
+            icon:"question",
 
-                    Swal.fire({
-                        title: 'Are you sure?',
-                        text: "This appointment will be deleted",
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'Yes, delete it!'
-                    }).then((res) => {
+            showCancelButton:true,
+            showDenyButton:true,
 
-                        if (res.isConfirmed) {
-                            window.location.href = 'delete-appointment.php?id=' + id;
-                        }
+            confirmButtonText:"Edit",
+            denyButtonText:"Delete",
+            cancelButtonText:"Cancel"
 
-                    });
-                }
+        }).then((result)=>{
 
-            });
+            // EDIT
+            if(result.isConfirmed){
+
+let source = this.dataset.source;
+
+window.location.href =
+"add-appointment.php?id="+id+"&source="+source;
+            }
+
+            // DELETE
+            if(result.isDenied){
+
+                Swal.fire({
+
+                    title:"Delete Appointment?",
+                    text:"Are you sure you want to delete this appointment?",
+                    icon:"warning",
+
+                    showCancelButton:true,
+
+                    confirmButtonText:"Yes Delete",
+                    cancelButtonText:"Cancel"
+
+                }).then((res)=>{
+
+                    if(res.isConfirmed){
+
+                        window.location.href="delete-appointment.php?id="+id;
+
+                    }
+
+                });
+
+            }
+
+            // CANCEL -> popup closes automatically
 
         });
 
     });
+
+});
+</script>
+
+<!-- Supervisor Assignment Modal -->
+<div id="supervisorModal" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center;">
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 400px; width: 90%; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                <i class="ri-user-star-line" style="color: #4f46e5;"></i> Assign Supervisor
+            </h3>
+            <button onclick="closeSupervisorModal()" style="border: none; background: transparent; color: #64748b; font-size: 1.2rem; cursor: pointer;">
+                <i class="ri-close-line"></i>
+            </button>
+        </div>
+
+        <form method="POST">
+            <input type="hidden" name="action" value="assign_supervisor">
+            <input type="hidden" name="appointment_id" id="modalAppointmentId">
+
+            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1.25rem;">
+                Assign a supervisor to appointment for <strong id="modalCustomerName" style="color: #4f46e5;"></strong>.
+            </p>
+
+            <div style="margin-bottom: 1rem;">
+                <label style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 0.5rem;">Supervisor</label>
+                <select name="supervisor_id" id="modalSupervisorSelect" style="width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none;">
+                    <option value="">-- Select Supervisor --</option>
+                    <?php foreach ($supervisors as $sup): ?>
+                        <option value="<?= $sup['id'] ?>"><?= htmlspecialchars($sup['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                <button type="button" onclick="closeSupervisorModal()" style="padding: 0.625rem 1rem; border: 1px solid #e2e8f0; background: white; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer;">Cancel</button>
+                <button type="submit" style="padding: 0.625rem 1.25rem; border: none; background: #4f46e5; color: white; font-weight: 600; border-radius: 8px; cursor: pointer;">Assign</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Employee Assignment Modal -->
+<div id="employeeModal" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center;">
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 400px; width: 90%; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                <i class="ri-user-add-line" style="color: #4f46e5;"></i> Assign Employee
+            </h3>
+            <button onclick="closeEmployeeModal()" style="border: none; background: transparent; color: #64748b; font-size: 1.2rem; cursor: pointer;">
+                <i class="ri-close-line"></i>
+            </button>
+        </div>
+
+        <form method="POST">
+            <input type="hidden" name="action" value="assign_employee">
+            <input type="hidden" name="appointment_id" id="modalAppointmentId2">
+
+            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1.25rem;">
+                Assign an employee to this appointment for <strong id="modalCustomerName2" style="color: #4f46e5;"></strong>. The employee will see this appointment in their panel.
+            </p>
+
+            <div style="margin-bottom: 1rem;">
+                <label style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 0.5rem;">Select Employee</label>
+                <select name="employee_id" id="modalEmployeeSelect" style="width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none;">
+                    <option value="">-- Choose Employee --</option>
+                    <?php foreach ($all_employees as $emp): ?>
+                        <option value="<?= $emp['id'] ?>"><?= htmlspecialchars($emp['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.8rem; color: #1e40af;">
+                <i class="ri-information-line" style="margin-right: 0.5rem;"></i>
+                After assignment, the employee will see this appointment in their "My Appointments" panel.
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                <button type="button" onclick="closeEmployeeModal()" style="padding: 0.625rem 1rem; border: 1px solid #e2e8f0; background: white; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer;">Cancel</button>
+                <button type="submit" style="padding: 0.625rem 1.25rem; border: none; background: #4f46e5; color: white; font-weight: 600; border-radius: 8px; cursor: pointer;">Assign</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openSupervisorModal(appointmentId, customerName, currentSupervisorId) {
+    document.getElementById('modalAppointmentId').value = appointmentId;
+    document.getElementById('modalCustomerName').textContent = customerName;
+    document.getElementById('modalSupervisorSelect').value = currentSupervisorId || '';
+    document.getElementById('supervisorModal').style.display = 'flex';
+}
+
+function closeSupervisorModal() {
+    document.getElementById('supervisorModal').style.display = 'none';
+}
+
+function openEmployeeModal(appointmentId, customerName, currentEmployeeId) {
+    document.getElementById('modalAppointmentId2').value = appointmentId;
+    document.getElementById('modalCustomerName2').textContent = customerName;
+    document.getElementById('modalEmployeeSelect').value = currentEmployeeId || '';
+    document.getElementById('employeeModal').style.display = 'flex';
+}
+
+function closeEmployeeModal() {
+    document.getElementById('employeeModal').style.display = 'none';
+}
+
+// Close modals when clicking outside
+document.getElementById('supervisorModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeSupervisorModal();
+});
+
+document.getElementById('employeeModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeEmployeeModal();
+});
 </script>
 
 <?php include 'includes/footer.php'; ?>
