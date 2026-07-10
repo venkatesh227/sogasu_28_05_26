@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
 
 $user_id = $_SESSION['user_id'];
 
-// Get employee id
+// Get employee id                   
 $stmt = $pdo->prepare("
     SELECT id 
     FROM employees 
@@ -29,7 +29,7 @@ $stmt = $pdo->prepare("SELECT * FROM notifications WHERE employee_id = ? ORDER B
 $stmt->execute([$employee_id]);
 $notifications = $stmt->fetchAll();
 
-// Mark all as read               
+// Mark all as read                                    
 $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE employee_id = ? AND is_read = 0")->execute([$employee_id]);
 
 $pageTitle = "Notifications - Sogasu";
@@ -62,6 +62,6 @@ include 'includes/header.php';
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
-</div>
+</div>                              
 
 <?php include 'includes/bottom-nav.php'; ?>

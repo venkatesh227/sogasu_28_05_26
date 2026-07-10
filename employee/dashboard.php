@@ -94,7 +94,7 @@ $stmt->execute([$employee_id]);
 $pending = $stmt->fetch();
 $pending_tasks = $pending['pending_count'] ?? 0;
 
-// Fetch Active Tasks (Urgent first)
+// Fetch Active Tasks (Urgent first)                            
 $stmt = $pdo->prepare("
     SELECT 
         o.*,
@@ -115,7 +115,7 @@ $stmt = $pdo->prepare("
 $stmt->execute([$employee_id]);
 $active_tasks = $stmt->fetchAll();
 
-// Fetch stats for the dashboard       
+// Fetch stats for the dashboard                              
 $currentMonth = date('Y-m');
 $totalEarned = 0;
 

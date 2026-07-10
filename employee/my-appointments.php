@@ -25,7 +25,7 @@ if (!$emp) {
 $employee_id = $emp['id'];
 $activePage = 'my-appointments';
 
-// Fetch appointments assigned to this employee
+// Fetch appointments assigned to this employee                   
 $stmt = $pdo->prepare("
 SELECT
     a.id,
@@ -67,7 +67,7 @@ include 'includes/header.php';
         </div>
     </div>
 
-    <!-- Success/Error Messages -->
+    <!-- Success/Error Messages -->                      
     <?php if (isset($_SESSION['success'])): ?>
         <div style="background: #f0fdf4; color: #166534; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #bbf7d0;">
             <i class="ri-check-line" style="margin-right: 0.5rem;"></i><?= htmlspecialchars($_SESSION['success']) ?>
@@ -82,7 +82,7 @@ include 'includes/header.php';
         <?php unset($_SESSION['error']); ?>
     <?php endif; ?>
 
-    <!-- Appointments List -->
+    <!-- Appointments List -->                     
     <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
         <?php if (empty($appointments)): ?>
             <div style="padding: 3rem; text-align: center; color: #64748b;">
@@ -198,7 +198,8 @@ include 'includes/header.php';
         </div>
 
         <div id="detailsContent" style="color: #475569;">
-            <!-- Content will be populated via JavaScript -->
+
+            <!-- Content will be populated via JavaScript -->                
         </div>
 
         <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
