@@ -274,12 +274,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $suggestedTime,
                 'pending'
             ]);
+            $notificationId = $pdo->lastInsertId();
+            $_SESSION['pending_appointment'] = [
+                'category_id' => $category_id,
+                'sub_category_id' => $sub_category_id,
+                'visit_type' => $visitType,
+                'measurement_id' => $measurementId,
+                'material_image' => $material_image,
+                'referral_image' => $referral_image,
+                'delivery_type' => $deliveryType,
+                'delivery_method' => $_POST['delivery_method'] ?? null,
+                'notes' => $additional_notes
+            ];
 
             echo json_encode([
                 'success' => false,
                 'slot_conflict' => true,
-                'message' => 'Selected slot already booked. Try after '
-                    . date('h:i A', strtotime($nextSlot))
+                'notification_id' => $notificationId,
+                'suggested_date' => $suggestedDate,
+                'suggested_time' => $suggestedTime
             ]);
 
             exit();
@@ -728,10 +741,94 @@ include 'includes/header.php';
 
                     window.location.href = data.redirect;
 
+                } else if (data.slot_conflict) {
+
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Slot Already Booked',
+                        html:
+                            'The selected slot is unavailable.<br><br>' +
+                            '<b>Suggested Slot:</b><br>' +
+                            data.suggested_date +
+                            ' ' +
+                            data.suggested_time,
+                        showCancelButton: true,
+                        confirmButtonText: 'Book Suggested Slot',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#db2777'
+                    }).then((result) => {
+
+                        if (result.isConfirmed) {
+
+                            fetch('update-slot-status.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded'
+                                },
+                                body: new URLSearchParams({
+                                    id: data.notification_id,
+                                    action: 'accept'
+                                })
+
+                            })
+                                .then(response => response.json())
+                                .then(result => {
+
+                                    if (result.success) {
+
+                                        window.location.href = result.redirect;
+
+                                    } else {
+
+                                        Swal.fire({
+                                            icon: 'error',
+                                            title: 'Error',
+                                            text: result.message
+                                        });
+
+                                    }
+
+                                });
+
+                        }
+                        else if (result.dismiss === Swal.DismissReason.cancel) {
+
+                            fetch('update-slot-status.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded'
+                                },
+                                body: new URLSearchParams({
+                                    id: data.notification_id,
+                                    action: 'reject'
+                                })
+                            })
+                                .then(response => response.json())
+                                .then(result => {
+
+                                    if (!result.success) {
+
+                                        Swal.fire({
+                                            icon: 'error',
+                                            title: 'Error',
+                                            text: result.message
+                                        });
+
+                                    }
+
+                                });
+
+                        }
+
+                    });
+
                 } else {
 
-                    console.log(data);
-                    alert(data.message);
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: data.message
+                    });
 
                 }
             })
@@ -739,7 +836,12 @@ include 'includes/header.php';
 
                 console.error(error);
 
-                alert('Server error');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Server error'
+                });
+
             });
 
     };

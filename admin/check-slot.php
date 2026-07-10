@@ -19,25 +19,12 @@ function checkSlotConflict($pdo, $date, $time, $excludeId = null)
         AND appointment_time < ?
         AND ADDTIME(appointment_time, '00:15:00') > ?
 
-        UNION ALL
-
-        SELECT id, appointment_time
-        FROM customer_orders
-        WHERE appointment_date = ?
-        AND is_deleted = 0
-        AND appointment_time < ?
-        AND ADDTIME(appointment_time, '00:15:00') > ?
-
     ");
 
     $stmt->execute([
         $date,
         $excludeId,
         $excludeId,
-        $endTime,
-        $startTime,
-
-        $date,
         $endTime,
         $startTime
     ]);

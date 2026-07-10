@@ -19,15 +19,6 @@ function findNextAvailableSlot($pdo, $date, $startTime)
             AND appointment_time < ?
             AND ADDTIME(appointment_time, '00:15:00') > ?
 
-            UNION ALL
-
-            SELECT appointment_time
-            FROM customer_orders
-            WHERE appointment_date = ?
-            AND is_deleted = 0
-            AND appointment_time < ?
-            AND ADDTIME(appointment_time, '00:15:00') > ?
-
         ");
 
         $endTime = date(
@@ -36,10 +27,6 @@ function findNextAvailableSlot($pdo, $date, $startTime)
         );
 
         $stmt->execute([
-            $date,
-            $endTime,
-            $time,
-
             $date,
             $endTime,
             $time

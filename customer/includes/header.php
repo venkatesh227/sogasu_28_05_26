@@ -342,27 +342,7 @@ foreach ($conflictNotifications as $notification) {
             <button class="icon-btn notification-btn" onclick="toggleNotifications()">
 
                 <i class="ri-notification-3-line"></i>
-                <?php
-
-                $hasSlotSuggestion = false;
-
-                foreach ($conflictNotifications as $notification) {
-
-                    if (
-                        !empty($notification['suggested_date']) &&
-                        !empty($notification['suggested_time'])
-                    ) {
-
-                        $hasSlotSuggestion = true;
-                        break;
-                    }
-                }
-
-                ?>
-
-                <?php if ($hasSlotSuggestion): ?>
-                    <span class="notification-dot"></span>
-                <?php endif; ?>
+                
 
             </button>
             <button class="icon-btn">
@@ -381,46 +361,6 @@ foreach ($conflictNotifications as $notification) {
             <?php if (!empty($conflictNotifications)): ?>
 
                 <?php foreach ($conflictNotifications as $notification): ?>
-
-
-                    <?php if (
-                        !empty($notification['suggested_date']) &&
-                        !empty($notification['suggested_time'])
-                    ): ?>
-
-                        <div class="notification-item">
-
-                            <div class="notification-title">
-                                Appointment Slot Conflict
-                            </div>
-
-                            <div class="notification-text">
-                                Suggested Slot:
-                                <?= date(
-                                    'd M Y - h:i A',
-                                    strtotime(
-                                        $notification['suggested_date'] .
-                                        ' ' .
-                                        $notification['suggested_time']
-                                    )
-                                ) ?>
-                            </div>
-
-                            <div class="notification-actions">
-
-                                <a href="notification-action.php?id=<?= $notification['id'] ?>&action=accept" class="accept-btn">
-                                    Accept
-                                </a>
-
-                                <a href="notification-action.php?id=<?= $notification['id'] ?>&action=reject" class="reject-btn">
-                                    Reject
-                                </a>
-
-                            </div>
-
-                        </div>
-
-                    <?php endif; ?>
 
                 <?php endforeach; ?>
 
@@ -475,15 +415,6 @@ foreach ($conflictNotifications as $notification) {
         document.getElementById('notificationOverlay')
             .addEventListener('click', closeNotifications);
         window.addEventListener('load', function () {
-
-
-            <?php if ($hasSlotSuggestion): ?>
-
-                setTimeout(() => {
-                    toggleNotifications();
-                }, 500);
-
-            <?php endif; ?>
 
         });
 

@@ -85,16 +85,11 @@ WHERE
 if ($selected_supervisor) {
     $query .= " AND a.supervisor_id=" . intval($selected_supervisor);
 }
-if (!empty($_GET['date'])) {
-    $query .= " AND a.appointment_date = :selected_date";
-}
+$query .= " AND a.appointment_date = :selected_date";
 
 $query .= " ORDER BY a.appointment_date DESC,a.appointment_time ASC";
 $stmt = $pdo->prepare($query);
-
-if (!empty($_GET['date'])) {
-    $stmt->bindValue(':selected_date', $selected_date);
-}
+$stmt->bindValue(':selected_date', $selected_date);
 $stmt->execute();
 $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -169,24 +164,40 @@ include 'includes/header.php';
         </div>
     </div>
 
-    <!-- Success/Error Messages -->
     <?php if (!empty($_SESSION['success'])): ?>
-        <div
-            style="background: #ecfdf5; color: #047857; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #a7f3d0; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-            <i class="ri-checkbox-circle-line" style="font-size: 1.2rem;"></i>
-            <span><?= htmlspecialchars($_SESSION['success']) ?></span>
-        </div>
-        <?php unset($_SESSION['success']); ?>
-    <?php endif; ?>
 
-    <?php if (!empty($_SESSION['error'])): ?>
-        <div
-            style="background: #fef2f2; color: #b91c1c; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #fca5a5; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-            <i class="ri-error-warning-line" style="font-size: 1.2rem;"></i>
-            <span><?= htmlspecialchars($_SESSION['error']) ?></span>
-        </div>
-        <?php unset($_SESSION['error']); ?>
-    <?php endif; ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    Swal.fire({
+        icon: 'success',
+        title: 'Success',
+        text: '<?= addslashes($_SESSION['success']) ?>',
+        confirmButtonColor: '#6366f1'
+    });
+
+});
+</script>
+
+<?php unset($_SESSION['success']); endif; ?>
+
+
+<?php if (!empty($_SESSION['error'])): ?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: '<?= addslashes($_SESSION['error']) ?>',
+        confirmButtonColor: '#ef4444'
+    });
+
+});
+</script>
+
+<?php unset($_SESSION['error']); endif; ?>
 
     <!-- Supervisor Filter -->
     <div
@@ -382,13 +393,13 @@ include 'includes/header.php';
                     <?php for ($d = 1; $d <= $daysInMonth; $d++):
 
                         $date = $currentMonth . '-' . str_pad($d, 2, '0', STR_PAD_LEFT);
-                        $isPast = strtotime($date) < strtotime(date('Y-m-d'));
+                        $isPast = false;
                         ?>
 
                         <div class="day 
                         <?= ($date == $selected_date) ? 'active' : '' ?> 
                         <?= in_array($date, $bookedDates) ? 'has-booking' : '' ?>
-                        <?= $isPast ? 'empty' : '' ?>" <?= !$isPast ? "onclick=\"window.location.href='?date=$date'\"" : '' ?>>
+                        <?= $isPast ? 'empty' : '' ?>" onclick="window.location.href='?date=<?= $date ?>'">
                             <?= $d ?>
                         </div>
 

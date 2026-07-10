@@ -23,7 +23,7 @@ if ($id) {
             WHERE id = ?
         ")->execute([$current_user_id, $id]);
 
-        $_SESSION['success'] = "deleted";
+        $_SESSION['success'] = "Appointment deleted successfully";
     }
 }
 

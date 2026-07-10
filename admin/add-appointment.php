@@ -298,7 +298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             }
 
-            $_SESSION['success'] = "updated";
+            $_SESSION['success'] = "Appointment updated successfully";
         } else {
 
             $phone = $old['customer_phone'] ?: null;
@@ -321,7 +321,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $old['status'],
                 $current_user_id
             ]);
-            $_SESSION['success'] = "added";
+            $_SESSION['success'] = "Appointment created successfully";
         }
 
         header("Location: appointments.php");
@@ -606,21 +606,6 @@ include 'includes/header.php';
     });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-<?php if (!empty($_SESSION['success'])): ?>
-    <script>
-        let msg = "Appointment created";
-
-        if ("<?= $_SESSION['success'] ?>" === "updated") msg = "Appointment updated";
-        if ("<?= $_SESSION['success'] ?>" === "deleted") msg = "Appointment deleted";
-
-        Swal.fire({
-            icon: 'success',
-            title: 'Success',
-            text: msg
-        });
-    </script>
-    <?php unset($_SESSION['success']); endif; ?>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('input[name="type"]:checked').forEach(el => {
