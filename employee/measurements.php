@@ -109,15 +109,28 @@ include 'includes/header.php';
                     }
                     ?>
                     <div style="margin-top:1rem; padding:1rem; background:#f8fafc; border-radius:12px;">
-                        <?php if (empty($measurements)): ?>
-                            <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
-                                <div>
-                                    <div style="font-size:0.95rem; font-weight:700; color:#111827;">Measurement details not entered</div>
-                                    <div style="color:#475569; margin-top:0.25rem;">Customer has not saved measurements for this appointment yet.</div>
-                                </div>
-                                <a href="customer/measurements.php?category_id=<?= urlencode($order['category_id']) ?>&sub_category_id=<?= urlencode($order['sub_category_id']) ?>&appointment_date=<?= urlencode($order['appointment_date']) ?>&appointment_time=<?= urlencode($order['appointment_time']) ?>&visit_type=<?= urlencode($order['visit_type']) ?>&source=employee" style="padding:0.65rem 1rem; background:#4338ca; color:white; border-radius:8px; text-decoration:none; font-weight:600;">Enter Measurement</a>
-                            </div>
-                        <?php else: ?>
+<?php if (empty($measurements)): ?>
+
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px;">
+
+    <div>
+        <div style="font-weight:700;">
+            Measurement not added
+        </div>
+
+        <div style="color:#64748b;">
+            Customer measurements are not available.
+        </div>
+    </div>
+
+    <a href="add-measurement.php?appointment_id=<?= $order['id'] ?>"
+       class="btn btn-primary">
+        Add Measurement
+    </a>
+
+</div>
+
+<?php else: ?>
                             <?php if ($size_value !== ''): ?>
                                 <div style="margin-bottom:0.75rem; padding:0.75rem; background:white; border:1px solid #c7d2fe; border-radius:10px;">
                                     <div style="font-size:0.8rem; color:#4338ca; margin-bottom:0.35rem; text-transform:uppercase; font-weight:700;">Size</div>
@@ -125,6 +138,16 @@ include 'includes/header.php';
                                 </div>
                             <?php endif; ?>
                             <div style="font-size:0.95rem; font-weight:700; color:#111827; margin-bottom:0.75rem;">Measurements</div>
+                            <div style="text-align:right;margin-bottom:15px;">
+
+<a href="add-measurement.php?appointment_id=<?= $order['id'] ?>"
+class="btn btn-warning btn-sm">
+
+Update Measurement
+
+</a>
+
+</div>
                             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:0.75rem;">
                                 <?php foreach ($measurements as $key => $value): ?>
                                     <?php if (in_array($key, ['size', 'Size', 'SIZE'], true)) continue; ?>
