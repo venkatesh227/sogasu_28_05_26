@@ -178,9 +178,11 @@ if (isset($_POST['action']) && $_POST['action'] === 'bulk_mark_attendance') {
         $in_loc = $_POST['check_in_location'] ?? null;
         $out_loc = $_POST['check_out_location'] ?? null;
         $work_from = $_POST['working_from'];
+
+        $status = $_POST['status'] ?? 'Present';
+
         $is_late = ($status === 'Late') ? 1 : 0;
         $is_half_day = ($status === 'Half Day') ? 1 : 0;
-        $status = $_POST['status'] ?? 'Present';
         $overwrite = isset($_POST['overwrite']) ? true : false;
 
         $dates = [];

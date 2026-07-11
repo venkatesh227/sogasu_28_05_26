@@ -54,8 +54,40 @@ $pending_ot = 0;
 foreach ($approved_ots as $ot)
     $pending_ot += $ot['amount'];
 
-$daily_rate = $employee['base_salary'] / 30;
-$attendance_pay = ($present_days * $daily_rate) + ($half_days * ($daily_rate / 2));
+$payCycle = strtolower(trim($employee['pay_cycle']));
+$baseSalary = (float) $employee['base_salary'];
+
+switch ($payCycle) {
+
+    case 'daily':
+
+        // Base salary itself is one day's salary
+        $daily_rate = $baseSalary;
+        break;
+
+    case 'weekly':
+
+        // Weekly salary -> daily salary
+        $daily_rate = $baseSalary / 7;
+        break;
+
+    case 'monthly':
+
+        // Monthly salary -> daily salary
+        // Keep 30 because your current system already follows this rule
+        $daily_rate = $baseSalary / 30;
+        break;
+
+    default:
+
+        // Safe fallback
+        $daily_rate = $baseSalary / 30;
+        break;
+}
+
+$attendance_pay =
+    ($present_days * $daily_rate) +
+    ($half_days * ($daily_rate / 2));
 
 // Calculate Outstanding Advance
 $stmt = $pdo->prepare("SELECT SUM(amount) FROM employee_payments WHERE employee_id = ? AND payment_type = 'Advance' AND status = 'Paid'");
@@ -96,6 +128,9 @@ AND YEAR(payment_date)=?
     $bonus = floatval($_POST['bonus'] ?? 0);
     $lates = floatval($_POST['lates'] ?? 0);
     $advance_repay = floatval($_POST['advance_repay'] ?? 0);
+    if ($advance_repay > $outstanding_advance) {
+        $advance_repay = $outstanding_advance;
+    }
     $deductions = $lates + $advance_repay;
 
     $notes = $_POST['notes'] ?? '';
@@ -105,7 +140,7 @@ AND YEAR(payment_date)=?
 
     // Insert Salary based on Amount Paying Now
     $paying_now = floatval($_POST['paying_now'] ?? 0);
-    $salary_to_log = $paying_now - $overtime - $bonus + $deductions;
+    $salary_to_log = $base_salary;
 
     if ($salary_to_log != 0) {
         $stmt = $pdo->prepare("INSERT INTO employee_payments (employee_id, payment_date, description, payment_type, amount, status) VALUES (?, ?, ?, 'Salary', ?, 'Paid')");
@@ -263,8 +298,8 @@ include 'includes/header.php';
                     <div style="position: relative;">
                         <span
                             style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #64748b;">₹</span>
-                        <input type="number" step="0.01" name="overtime" <?= $salaryPaid ? 'disabled' : '' ?> id="overtime" class="form-control"
-                            style="padding-left: 2rem;" placeholder="0.00"
+                        <input type="number" step="0.01" name="overtime" <?= $salaryPaid ? 'disabled' : '' ?>
+                            id="overtime" class="form-control" style="padding-left: 2rem;" placeholder="0.00"
                             value="<?= $pending_ot > 0 ? $pending_ot : '' ?>" oninput="calculateNet()">
                     </div>
                 </div>
@@ -286,8 +321,9 @@ include 'includes/header.php';
                         <div style="position: relative;">
                             <span
                                 style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #64748b;">₹</span>
-                            <input type="number" step="0.01" name="lates" <?= $salaryPaid ? 'disabled' : '' ?> id="lates" class="form-control"
-                                style="padding-left: 2rem;" placeholder="0.00" oninput="calculateNet()">
+                            <input type="number" step="0.01" name="lates" <?= $salaryPaid ? 'disabled' : '' ?> id="lates"
+                                class="form-control" style="padding-left: 2rem;" placeholder="0.00"
+                                oninput="calculateNet()">
                         </div>
                     </div>
 
@@ -300,8 +336,8 @@ include 'includes/header.php';
                         <div style="position: relative;">
                             <span
                                 style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #64748b;">₹</span>
-                            <input type="number" step="0.01" name="advance_repay" <?= $salaryPaid ? 'disabled' : '' ?> id="advance_repay"
-                                class="form-control" style="padding-left: 2rem;" placeholder="0.00"
+                            <input type="number" step="0.01" name="advance_repay" <?= $salaryPaid ? 'disabled' : '' ?>
+                                id="advance_repay" class="form-control" style="padding-left: 2rem;" placeholder="0.00"
                                 oninput="calculateNet()">
                         </div>
                     </div>
@@ -316,7 +352,8 @@ include 'includes/header.php';
 
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
                     <label class="payment-method-card selected">
-                        <input type="radio" <?= $salaryPaid ? 'disabled' : '' ?> name="method" value="Bank Transfer" checked>
+                        <input type="radio" <?= $salaryPaid ? 'disabled' : '' ?> name="method" value="Bank Transfer"
+                            checked>
                         <i class="ri-bank-card-line"></i>
                         <span>Bank Transfer</span>
                     </label>
@@ -334,7 +371,8 @@ include 'includes/header.php';
 
                 <div class="form-group" style="margin-top: 1.5rem;">
                     <label class="form-label">Transaction Reference / Notes</label>
-                    <input type="text" name="notes" <?= $salaryPaid ? 'disabled' : '' ?> class="form-control" placeholder="e.g. UPI Ref: 1234567890">
+                    <input type="text" name="notes" <?= $salaryPaid ? 'disabled' : '' ?> class="form-control"
+                        placeholder="e.g. UPI Ref: 1234567890">
                 </div>
             </div>
 

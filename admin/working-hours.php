@@ -143,21 +143,32 @@ foreach ($daily_sessions as $emp_id => $dates) {
             }
 
             $total_shift_seconds = $shift_end - $shift_start;
-            $half_day_limit = $total_shift_seconds / 2;
 
             /*
-             * Apply Half Day only when:
-             * 1. Employee has worked at least half of the shift.
-             * 2. Employee has not completed the full shift.
-             */
+            |--------------------------------------------------------------------------
+            | Working Hours Policy
+            |--------------------------------------------------------------------------
+            | Half Day for insufficient working hours only.
+            | Do NOT override the monthly grace-period logic.
+            |--------------------------------------------------------------------------
+            */
 
+            // Company minimum working hours (4 Hours)
+            $minimum_work_seconds = 4 * 60 * 60;
+
+            // Apply Half Day only if employee worked less than minimum hours
+            // AND employee has completed checkout.
             if (
-                $total_sec >= $half_day_limit &&
-                $total_sec < $total_shift_seconds
+                end($daySessions)['out'] &&
+                $total_sec > 0 &&
+                $total_sec < $minimum_work_seconds &&
+                !$is_half_day
             ) {
                 $is_half_day = true;
-                $is_late = false;
             }
+
+            // If employee completed minimum hours or more,
+// don't overwrite Late/Half Day already decided by grace-period logic.
         }
 
         $records[] = [

@@ -49,6 +49,15 @@ $stmt = $pdo->prepare("
         users.status AS user_status,
         (SELECT COUNT(*) FROM attendance WHERE employee_id = employees.id AND attendance_date BETWEEN :from_date1 AND :to_date1 AND status = 'Present') as present_days,
         (SELECT COUNT(*) FROM attendance WHERE employee_id = employees.id AND attendance_date BETWEEN :from_date2 AND :to_date2 AND status = 'Half Day') as half_days,
+        (SELECT COUNT(*) FROM attendance
+        WHERE employee_id = employees.id
+        AND attendance_date BETWEEN :from_date6 AND :to_date6
+        AND status = 'Absent') AS absent_days,
+
+        (SELECT COUNT(*) FROM attendance
+        WHERE employee_id = employees.id
+        AND attendance_date BETWEEN :from_date7 AND :to_date7
+        AND status = 'Late') AS late_days,
         (SELECT SUM(hours) FROM employee_overtime WHERE employee_id = employees.id AND status = 'Approved' AND ot_date BETWEEN :from_date3 AND :to_date3) as approved_ot_hours,
         (SELECT SUM(amount) FROM employee_overtime WHERE employee_id = employees.id AND status = 'Approved' AND ot_date BETWEEN :from_date4 AND :to_date4) as approved_ot_amount,
         (SELECT SUM(hours) FROM employee_overtime WHERE employee_id = employees.id AND status = 'Pending' AND ot_date BETWEEN :from_date5 AND :to_date5) as pending_ot_hours,
@@ -71,6 +80,10 @@ $stmt->execute([
     'to_date4' => $to_date,
     'from_date5' => $from_date,
     'to_date5' => $to_date,
+    'from_date6' => $from_date,
+    'to_date6' => $to_date,
+    'from_date7' => $from_date,
+    'to_date7' => $to_date,
     'employee_type' => $employee_type
 ]);
 
@@ -123,19 +136,44 @@ foreach ($employees as &$row) {
 
         $row['calculated_total'] = $row['outsource_balance'];
     }
-    $monthly_base = floatval($row['base_salary']);
-    $per_day = $monthly_base / 30;
+    $baseSalary = floatval($row['base_salary']);
 
-    // Assuming 30 days for daily rate
+    switch (strtolower(trim($row['pay_cycle']))) {
+
+        case 'daily':
+            $per_day = $baseSalary;
+            break;
+
+        case 'weekly':
+            $per_day = $baseSalary / 7;
+            break;
+
+        default:
+            $per_day = $baseSalary / 30;
+            break;
+    }
 
     $present_days = intval($row['present_days']);
     $half_days = intval($row['half_days']);
-    $approved_ot_amount = floatval($row['approved_ot_amount']);
-    $advances = floatval($row['advance_dues']);
 
-    // Formula: (Present * Per Day) + (Half * Half Salary) + OT - Advances
-    $attendance_salary = ($present_days * $per_day) + ($half_days * ($per_day / 2));
-    $total = $attendance_salary + $approved_ot_amount - $advances;
+    $approved_ot_amount = floatval($row['approved_ot_amount']);
+
+    $attendance_salary =
+        ($present_days * $per_day)
+        +
+        ($half_days * ($per_day / 2));
+
+    $total = $attendance_salary;
+
+    // Add approved OT
+    $total += $approved_ot_amount;
+
+    // Don't deduct advance here.
+    // Don't deduct bonus here.
+    // Don't deduct fines here.
+
+    $row['attendance_salary'] = $attendance_salary;
+    $row['approved_ot_amount'] = $approved_ot_amount;
 
     // Check if salary has already been paid for this exact period
     if ($employee_type == 'outsource') {
@@ -448,11 +486,30 @@ include 'includes/header.php';
                                         <div style="font-weight: 700; color: var(--text-dark);">₹
                                             <?= number_format($row['base_salary'] ?: 0, 2) ?>
                                         </div>
-                                        <div style="font-size: 0.75rem; display: flex; gap: 0.5rem; margin-top: 2px;">
-                                            <span
-                                                style="color: var(--success); font-weight: 700;"><?= $row['present_days'] ?>P</span>
-                                            <span
-                                                style="color: var(--warning); font-weight: 700;"><?= $row['half_days'] ?>H</span>
+                                        <div style="font-size:12px;margin-top:3px;line-height:1.5;">
+
+                                            <span style="color:#16a34a;font-weight:700;">
+                                                P : <?= $row['present_days'] ?>
+                                            </span>
+
+                                            |
+
+                                            <span style="color:#f59e0b;font-weight:700;">
+                                                H : <?= $row['half_days'] ?>
+                                            </span>
+
+                                            <br>
+
+                                            <span style="color:#ef4444;font-weight:700;">
+                                                A : <?= $row['absent_days'] ?>
+                                            </span>
+
+                                            |
+
+                                            <span style="color:#0ea5e9;font-weight:700;">
+                                                L : <?= $row['late_days'] ?>
+                                            </span>
+
                                         </div>
                                     </td>
 
@@ -467,11 +524,21 @@ include 'includes/header.php';
 
                                     <td>
                                         <?php if ($row['advance_dues'] > 0): ?>
-                                            <div style="font-weight: 700; color: var(--danger);">
-                                                ₹<?= number_format($row['advance_dues'], 2) ?>
+
+                                            <div style="font-size:12px;">
+                                                <div style="color:#ef4444;font-weight:700;">
+                                                    Advance
+                                                </div>
+
+                                                <div style="font-weight:700;">
+                                                    ₹<?= number_format($row['advance_dues'], 2) ?>
+                                                </div>
                                             </div>
+
                                         <?php else: ?>
+
                                             -
+
                                         <?php endif; ?>
                                     </td>
 
