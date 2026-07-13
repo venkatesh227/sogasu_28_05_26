@@ -160,8 +160,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         advance_payment_mode,
                         transaction_reference,
                         due_date,
-                        measurement_unit
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        measurement_unit,
+                        is_customer_order
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
 
                 $stmt->execute([
@@ -186,7 +187,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $advance_payment_mode,
                     $transaction_reference,
                     $due_date,
-                    $measurement_unit
+                    $measurement_unit,
+                    0
                 ]);
             } else {
 

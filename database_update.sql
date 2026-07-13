@@ -164,3 +164,7 @@ CREATE TABLE IF NOT EXISTS `gallery` (
 
 -- Add detailed task tracking categories
 -- ALTER TABLE `orders` ADD COLUMN `task_category` enum('Embroidery','Cutting','Sewing','Finishes','Aari Work') DEFAULT NULL;
+
+-- Add flag to distinguish customer-originated orders from admin-created ones
+ALTER TABLE `orders`
+  ADD COLUMN IF NOT EXISTS `is_customer_order` TINYINT(1) NOT NULL DEFAULT 0;

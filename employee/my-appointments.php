@@ -23,10 +23,101 @@ if (!$emp) {
 }
 
 $employee_id = $emp['id'];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $action = $_POST['action'];
+    $appointmentId = intval($_POST['appointment_id'] ?? 0);
+
+    if ($appointmentId > 0) {
+        try {
+            $pdo->beginTransaction();
+            
+            if ($action === 'schedule') {
+                $newDate = $_POST['appointment_date'] ?? '';
+                $newTime = $_POST['appointment_time'] ?? '';
+                $stmt = $pdo->prepare("UPDATE appointments SET appointment_date = ?, appointment_time = ?, updated_at = NOW() WHERE id = ? AND assigned_employee_id = ?");
+                $stmt->execute([$newDate, $newTime, $appointmentId, $employee_id]);
+                $_SESSION['success'] = 'Appointment schedule updated successfully.';
+            } elseif ($action === 'cancel') {
+                $stmt = $pdo->prepare("UPDATE appointments SET status = 'cancelled', workflow_status = 'cancelled', updated_at = NOW() WHERE id = ? AND assigned_employee_id = ?");
+                $stmt->execute([$appointmentId, $employee_id]);
+                $_SESSION['success'] = 'Appointment cancelled successfully.';
+            } elseif ($action === 'assign_rack') {
+                $rackId = intval($_POST['rack_id'] ?? 0);
+                $stmt = $pdo->prepare("SELECT * FROM appointments WHERE id = ? AND assigned_employee_id = ? AND is_deleted = 0 FOR UPDATE");
+                $stmt->execute([$appointmentId, $employee_id]);
+                $appointment = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$appointment) {
+                    throw new Exception('Appointment not found.');
+                }
+
+                if ($rackId <= 0) {
+                    throw new Exception('Please choose a rack.');
+                }
+
+                $stmt = $pdo->prepare("SELECT id, status FROM racks WHERE id = ?");
+                $stmt->execute([$rackId]);
+                $rack = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$rack) {
+                    throw new Exception('Rack not found.');
+                }
+
+                $orderCode = $appointment['order_id'];
+                if (empty($orderCode)) {
+                    $orderCode = 'ORD-' . date('Y') . '-' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
+                    $customerId = null;
+                    if (!empty($appointment['user_id'])) {
+                        $custStmt = $pdo->prepare("SELECT id FROM customers WHERE user_id = ? LIMIT 1");
+                        $custStmt->execute([$appointment['user_id']]);
+                        $customer = $custStmt->fetch(PDO::FETCH_ASSOC);
+                        $customerId = $customer['id'] ?? null;
+                    }
+
+                    $stmt = $pdo->prepare("INSERT INTO orders (order_code, customer_id, category_id, sub_category_id, fabric_details, notes, material_image, referral_image, order_status, supervisor_id, assigned_employee_id, rack_id, base_price, extra_charges, total_amount, advance_amount, due_date, measurement_unit, is_customer_order, is_deleted, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, 0.00, 0.00, 0.00, 0.00, NULL, 'CMS', 1, 0, NOW(), NOW())");
+                    $stmt->execute([
+                        $orderCode,
+                        $customerId,
+                        $appointment['category_id'],
+                        $appointment['sub_category_id'],
+                        $appointment['type'] ?? '',
+                        $appointment['notes'],
+                        $appointment['material_image'],
+                        $appointment['referral_image'],
+                        $appointment['supervisor_id'],
+                        $appointment['assigned_employee_id'],
+                        $rackId
+                    ]);
+                } else {
+                    $stmt = $pdo->prepare("UPDATE orders SET rack_id = ?, is_customer_order = 1 WHERE order_code = ?");
+                    $stmt->execute([$rackId, $orderCode]);
+                }
+
+                $stmt = $pdo->prepare("UPDATE appointments SET order_id = ?, workflow_status = 'order_created', updated_at = NOW() WHERE id = ?");
+                $stmt->execute([$orderCode, $appointmentId]);
+
+                $stmt = $pdo->prepare("UPDATE racks SET status = 'Occupied' WHERE id = ?");
+                $stmt->execute([$rackId]);
+
+                $_SESSION['success'] = 'Rack assigned and order created successfully.';
+            }
+
+            $pdo->commit();
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $_SESSION['error'] = 'Action failed: ' . $e->getMessage();
+        }
+    }
+
+    header('Location: my-appointments.php');
+    exit();
+}
+
 $activePage = 'my-appointments';
 
-// Fetch appointments assigned to this employee
-$stmt = $pdo->prepare("
+// Fetch appointments assigned to this employee                   
+$stmt = $pdo->prepare(" 
 SELECT
     a.id,
     a.visit_type,
@@ -34,23 +125,31 @@ SELECT
     a.appointment_time,
     a.status,
     a.notes,
+    a.order_id,
     c.first_name AS cust_first,
     c.last_name AS cust_last,
     c.phone AS cust_phone,
     c.email AS cust_email,
     sc.name AS garment,
-    sc.image AS garment_img
+    sc.image AS garment_img,
+    o.order_code,
+    o.total_amount
 FROM appointments a
 LEFT JOIN customers c
     ON c.user_id = a.user_id
 LEFT JOIN sub_categories sc
     ON sc.id = a.sub_category_id
+LEFT JOIN orders o
+    ON o.order_code = a.order_id
 WHERE a.assigned_employee_id = ?
 AND a.is_deleted = 0
 ORDER BY a.appointment_date DESC, a.appointment_time ASC
 ");
 $stmt->execute([$employee_id]);
 $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$rackStmt = $pdo->query("SELECT id, rack_name, status FROM racks ORDER BY rack_name ASC");
+$racks = $rackStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $pageTitle = "My Appointments";
 $headerTitle = "Appointments";
@@ -67,7 +166,7 @@ include 'includes/header.php';
         </div>
     </div>
 
-    <!-- Success/Error Messages -->
+    <!-- Success/Error Messages -->                      
     <?php if (isset($_SESSION['success'])): ?>
         <div style="background: #f0fdf4; color: #166534; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #bbf7d0;">
             <i class="ri-check-line" style="margin-right: 0.5rem;"></i><?= htmlspecialchars($_SESSION['success']) ?>
@@ -82,7 +181,7 @@ include 'includes/header.php';
         <?php unset($_SESSION['error']); ?>
     <?php endif; ?>
 
-    <!-- Appointments List -->
+    <!-- Appointments List -->                     
     <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
         <?php if (empty($appointments)): ?>
             <div style="padding: 3rem; text-align: center; color: #64748b;">
@@ -100,7 +199,7 @@ include 'includes/header.php';
                         <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Status</th>
                                                 <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Visit Type</th>
 
-                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Amount</th>
+                        <!-- <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Amount</th> -->
                         <th style="padding: 1rem; text-align: center; font-weight: 600; color: #475569; font-size: 0.9rem;">Actions</th>
                     </tr>
                 </thead>
@@ -166,16 +265,30 @@ include 'includes/header.php';
     </span>
 </td>
 
-<td style="padding: 1rem; color: #1e293b; font-weight: 600;">
+<!-- <td style="padding: 1rem; color: #1e293b; font-weight: 600;">
                                     ₹<?= number_format($apt['total_amount'] ?? 0, 2) ?>
-                            </td>
+                            </td> -->
                             <td style="padding: 1rem; text-align: center;">
-                                <button onclick="openDetailsModal(
-                                    <?= $apt['id'] ?>,
-                                    '<?= htmlspecialchars(json_encode($apt)) ?>'
-                                )" style="background: #f8fafc; color: #4f46e5; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s;">
-                                    <i class="ri-eye-line"></i> View
-                                </button>
+                                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center;">
+                                    <button onclick="openDetailsModal(
+                                        <?= $apt['id'] ?>,
+                                        '<?= htmlspecialchars(json_encode($apt), ENT_QUOTES) ?>'
+                                    )" style="background: #f8fafc; color: #4f46e5; border: 1px solid #e2e8f0; padding: 0.45rem 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.78rem; transition: all 0.2s;">
+                                        <i class="ri-eye-line"></i> View
+                                    </button>
+                                    <button onclick="openScheduleModal(<?= $apt['id'] ?>, '<?= $apt['appointment_date'] ?>', '<?= substr($apt['appointment_time'], 0, 5) ?>')" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 0.45rem 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.78rem;">
+                                        <i class="ri-calendar-event-line"></i> Schedule
+                                    </button>
+                                    <button onclick="openRackModal(<?= $apt['id'] ?>)" style="background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; padding: 0.45rem 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.78rem;">
+                                        <i class="ri-stack-line"></i> Assign Rack
+                                    </button>
+                                    <button onclick="window.location.href='add-measurement.php?appointment_id=<?= $apt['id'] ?>'" style="background: #fce7f3; color: #be185d; border: 1px solid #fecdd3; padding: 0.45rem 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.78rem;">
+                                        <i class="ri-ruler-line"></i> Measurements
+                                    </button>
+                                    <button onclick="confirmCancel(<?= $apt['id'] ?>)" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 0.45rem 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.78rem;">
+                                        <i class="ri-close-circle-line"></i> Cancel
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -198,7 +311,8 @@ include 'includes/header.php';
         </div>
 
         <div id="detailsContent" style="color: #475569;">
-            <!-- Content will be populated via JavaScript -->
+
+            <!-- Content will be populated via JavaScript -->                
         </div>
 
         <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
@@ -249,10 +363,7 @@ function openDetailsModal(appointmentId, appointmentJson) {
                 </div>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div>
-                    <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem; font-weight: 600;">Amount</p>
-                    <p style="color: #1e293b; font-weight: 600;">₹${parseFloat(apt.total_amount).toFixed(2)}</p>
-                </div>
+
                 <div>
                     <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem; font-weight: 600;">Status</p>
                     <span style="background: ${apt.status === 'confirmed' ? '#f0fdf4' : apt.status === 'completed' ? '#ecf7ff' : '#fef3c7'}; color: ${apt.status === 'confirmed' ? '#059669' : apt.status === 'completed' ? '#0891b2' : '#b45309'}; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; text-transform: capitalize;">
@@ -279,6 +390,101 @@ document.getElementById('detailsModal').addEventListener('click', function(e) {
         closeDetailsModal();
     }
 });
+
+function openScheduleModal(appointmentId, appointmentDate, appointmentTime) {
+    document.getElementById('scheduleAppointmentId').value = appointmentId;
+    document.getElementById('scheduleDate').value = appointmentDate;
+    document.getElementById('scheduleTime').value = appointmentTime;
+    document.getElementById('scheduleModal').style.display = 'flex';
+}
+
+function closeScheduleModal() {
+    document.getElementById('scheduleModal').style.display = 'none';
+}
+
+function openRackModal(appointmentId) {
+    document.getElementById('rackAppointmentId').value = appointmentId;
+    document.getElementById('rackModal').style.display = 'flex';
+}
+
+function closeRackModal() {
+    document.getElementById('rackModal').style.display = 'none';
+}
+
+function confirmCancel(appointmentId) {
+    Swal.fire({
+        title: 'Cancel Appointment?',
+        text: "Are you sure you want to cancel this appointment?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, Cancel',
+        cancelButtonText: 'No'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.getElementById('cancelAppointmentId').value = appointmentId;
+            document.getElementById('cancelForm').submit();
+        }
+    });
+}
 </script>
+
+<!-- Schedule Modal -->
+<div id="scheduleModal" style="display: none; position: fixed; inset: 0; z-index: 9998; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center; overflow-y: auto;">
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 440px; width: 90%; margin: 2rem auto; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0;">Reschedule Appointment</h3>
+            <button onclick="closeScheduleModal()" style="border: none; background: transparent; color: #64748b; font-size: 1.2rem; cursor: pointer;"><i class="ri-close-line"></i></button>
+        </div>
+        <form method="post">
+            <input type="hidden" name="action" value="schedule">
+            <input type="hidden" name="appointment_id" id="scheduleAppointmentId">
+            <div style="display: grid; gap: 1rem;">
+                <label style="font-size: 0.9rem; color: #475569; font-weight: 600;">Date</label>
+                <input id="scheduleDate" type="date" name="appointment_date" required style="width: 100%; padding: 0.85rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; outline: none;">
+                <label style="font-size: 0.9rem; color: #475569; font-weight: 600;">Time</label>
+                <input id="scheduleTime" type="time" name="appointment_time" required style="width: 100%; padding: 0.85rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; outline: none;">
+                <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
+                    <button type="button" onclick="closeScheduleModal()" style="padding: 0.75rem 1rem; border: 1px solid #e2e8f0; background: white; color: #475569; border-radius: 8px; cursor: pointer;">Cancel</button>
+                    <button type="submit" style="padding: 0.75rem 1rem; border: none; background: #4f46e5; color: white; border-radius: 8px; cursor: pointer;">Save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Rack Modal -->
+<div id="rackModal" style="display: none; position: fixed; inset: 0; z-index: 9998; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center; overflow-y: auto;">
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 440px; width: 90%; margin: 2rem auto; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0;">Assign Rack</h3>
+            <button onclick="closeRackModal()" style="border: none; background: transparent; color: #64748b; font-size: 1.2rem; cursor: pointer;"><i class="ri-close-line"></i></button>
+        </div>
+        <form method="post">
+            <input type="hidden" name="action" value="assign_rack">
+            <input type="hidden" name="appointment_id" id="rackAppointmentId">
+            <label style="font-size: 0.9rem; color: #475569; font-weight: 600; margin-bottom: 0.5rem; display: block;">Choose Rack</label>
+            <select name="rack_id" required style="width: 100%; padding: 0.85rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; outline: none;">
+                <option value="">Select rack</option>
+                <?php foreach ($racks as $rack): ?>
+                    <option value="<?= $rack['id'] ?>" <?= $rack['status'] !== 'Available' ? 'disabled' : '' ?>>
+                        <?= htmlspecialchars($rack['rack_name']) ?> <?= $rack['status'] !== 'Available' ? '(' . $rack['status'] . ')' : '' ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
+                <button type="button" onclick="closeRackModal()" style="padding: 0.75rem 1rem; border: 1px solid #e2e8f0; background: white; color: #475569; border-radius: 8px; cursor: pointer;">Cancel</button>
+                <button type="submit" style="padding: 0.75rem 1rem; border: none; background: #4f46e5; color: white; border-radius: 8px; cursor: pointer;">Assign</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<form id="cancelForm" method="post" style="display: none;">
+    <input type="hidden" name="action" value="cancel">
+    <input type="hidden" name="appointment_id" id="cancelAppointmentId">
+</form>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <?php include 'includes/bottom-nav.php'; ?>

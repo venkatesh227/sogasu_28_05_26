@@ -22,6 +22,7 @@ try {
         advance_payment_mode VARCHAR(50) DEFAULT NULL,
         due_date DATE,
         measurement_unit VARCHAR(10) DEFAULT 'CMS',
+        is_customer_order TINYINT(1) NOT NULL DEFAULT 0,
         is_deleted TINYINT(1) DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
