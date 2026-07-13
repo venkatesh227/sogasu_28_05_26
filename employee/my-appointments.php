@@ -39,10 +39,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmt->execute([$newDate, $newTime, $appointmentId, $employee_id]);
                 $_SESSION['success'] = 'Appointment schedule updated successfully.';
             } elseif ($action === 'cancel') {
-                $stmt = $pdo->prepare("UPDATE appointments SET status = 'cancelled', workflow_status = 'cancelled', updated_at = NOW() WHERE id = ? AND assigned_employee_id = ?");
-                $stmt->execute([$appointmentId, $employee_id]);
-                $_SESSION['success'] = 'Appointment cancelled successfully.';
-            } elseif ($action === 'assign_rack') {
+
+    $reason = trim($_POST['cancel_reason']);
+
+    $stmt = $pdo->prepare("
+        UPDATE appointments
+        SET
+            status='cancelled',
+            workflow_status='cancelled',
+            cancel_reason=?,
+            updated_at=NOW()
+        WHERE id=? AND assigned_employee_id=?
+    ");
+
+    $stmt->execute([
+        $reason,
+        $appointmentId,
+        $employee_id
+    ]);
+
+    $_SESSION['success'] = 'Appointment cancelled successfully.';
+} elseif ($action === 'assign_rack') {
                 $rackId = intval($_POST['rack_id'] ?? 0);
                 $stmt = $pdo->prepare("SELECT * FROM appointments WHERE id = ? AND assigned_employee_id = ? AND is_deleted = 0 FOR UPDATE");
                 $stmt->execute([$appointmentId, $employee_id]);
@@ -123,7 +140,8 @@ SELECT
     a.visit_type,
     a.appointment_date,
     a.appointment_time,
-    a.status,
+a.status,
+a.cancel_reason,
     a.notes,
     a.order_id,
     c.first_name AS cust_first,
@@ -412,21 +430,46 @@ function closeRackModal() {
 }
 
 function confirmCancel(appointmentId) {
+
     Swal.fire({
-        title: 'Cancel Appointment?',
-        text: "Are you sure you want to cancel this appointment?",
+        title: 'Cancel Appointment',
+        input: 'textarea',
+        inputLabel: 'Reason',
+        inputPlaceholder: 'Enter cancellation reason...',
+        inputAttributes: {
+            maxlength: 300
+        },
+        inputValidator: (value) => {
+            if (!value) {
+                return 'Please enter a reason.';
+            }
+        },
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#dc2626',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, Cancel',
-        cancelButtonText: 'No'
+        confirmButtonText: 'Cancel Appointment',
+        cancelButtonText: 'Close'
     }).then((result) => {
-        if (result.isConfirmed) {
+
+        if(result.isConfirmed){
+
             document.getElementById('cancelAppointmentId').value = appointmentId;
+
+            if(!document.getElementById('cancelReason')){
+                let input=document.createElement('input');
+                input.type='hidden';
+                input.name='cancel_reason';
+                input.id='cancelReason';
+                document.getElementById('cancelForm').appendChild(input);
+            }
+
+            document.getElementById('cancelReason').value=result.value;
+
             document.getElementById('cancelForm').submit();
+
         }
+
     });
+
 }
 </script>
 
