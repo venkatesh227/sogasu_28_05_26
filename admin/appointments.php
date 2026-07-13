@@ -160,45 +160,45 @@ include 'includes/header.php';
                 <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b;">Appointments</h2>
                 <p class="text-muted">Manage trials, consultations and measurements</p>
             </div>
-            <button class="btn btn-primary" onclick="window.location.href='add-appointment.php'"><i
+            <button class="btn btn-primary" onclick="window.location.href='add-appointment-order.php'"><i
                     class="ri-calendar-check-line"></i> New Appointment</button>
         </div>
     </div>
 
-    <?php if (!empty($_SESSION['success'])): ?>
+    <?php if (!empty($_SESSION['appointment_success'])): ?>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
 
-    Swal.fire({
-        icon: 'success',
-        title: 'Success',
-        text: '<?= addslashes($_SESSION['success']) ?>',
-        confirmButtonColor: '#6366f1'
-    });
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: <?= json_encode($_SESSION['appointment_success']) ?>,
+                    confirmButtonColor: '#6366f1'
+                });
 
-});
-</script>
+            });
+        </script>
 
-<?php unset($_SESSION['success']); endif; ?>
+        <?php unset($_SESSION['appointment_success']); endif; ?>
 
 
-<?php if (!empty($_SESSION['error'])): ?>
+    <?php if (!empty($_SESSION['error'])): ?>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
 
-    Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: '<?= addslashes($_SESSION['error']) ?>',
-        confirmButtonColor: '#ef4444'
-    });
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: '<?= addslashes($_SESSION['error']) ?>',
+                    confirmButtonColor: '#ef4444'
+                });
 
-});
-</script>
+            });
+        </script>
 
-<?php unset($_SESSION['error']); endif; ?>
+        <?php unset($_SESSION['error']); endif; ?>
 
     <!-- Supervisor Filter -->
     <div
@@ -326,6 +326,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             </div>
                         </div>
 
+<<<<<<< Updated upstream
 <div style="display: flex; gap: 0.5rem; flex-direction: column;">
 
     <button
@@ -363,6 +364,19 @@ document.addEventListener('DOMContentLoaded', function () {
     <?php endif; ?>
 
 </div>
+=======
+                        <?php if (($row['visit_type'] ?? '') !== 'store'): ?>
+                            <div style="display: flex; gap: 0.5rem; flex-direction: column;">
+                                <button
+                                    onclick="openSupervisorModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['customer_name']) ?>', <?= $row['supervisor_id'] ?? 'null' ?>)"
+                                    class="btn btn-sm"
+                                    style="background: #f8fafc; color: #f59e0b; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                                    <i class="ri-user-star-line"></i>
+                                    <?= $row['supervisor_id'] ? 'Change Supervisor' : 'Assign Supervisor' ?>
+                                </button>
+                            </div>
+                        <?php endif; ?>
+>>>>>>> Stashed changes
                     </div>
                 <?php endforeach; ?>
 
@@ -650,7 +664,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     let source = this.dataset.source;
 
                     window.location.href =
-                        "add-appointment.php?id=" + id + "&source=" + source;
+                        "add-appointment-order.php?id=" + id + "&source=" + source;
                 }
 
                 // DELETE
