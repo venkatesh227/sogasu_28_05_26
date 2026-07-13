@@ -83,7 +83,7 @@ include 'includes/header.php';
                 <div class="card" style="margin-bottom: 1rem; border: 1px solid #e5e7eb;">
                     <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
                         <div>
-                            <div style="font-weight:700; font-size:1rem; color:#111827;">Order #<?= htmlspecialchars($order['order_code']) ?></div>
+                            <div style="font-weight:700; font-size:1rem; color:#111827;">Appointment #<?= htmlspecialchars($order['order_code']) ?></div>
                             <div style="color:#475569; margin-top:0.25rem;">Customer: <?= htmlspecialchars($order['cust_first'] . ' ' . ($order['cust_last'] ?? '')) ?></div>
                             <div style="color:#475569; margin-top:0.25rem;">Phone: <?= htmlspecialchars($order['cust_phone'] ?: 'N/A') ?></div>
                             <div style="color:#475569; margin-top:0.25rem;">Garment: <?= htmlspecialchars($order['garment'] ?: 'General') ?></div>
@@ -141,7 +141,19 @@ include 'includes/header.php';
                             <div style="text-align:right;margin-bottom:15px;">
 
 <a href="add-measurement.php?appointment_id=<?= $order['id'] ?>"
-class="btn btn-warning btn-sm">
+style="
+display:inline-block;
+background:#db2777;
+color:#ffffff;
+padding:10px 18px;
+border-radius:8px;
+font-size:14px;
+font-weight:600;
+text-decoration:none;
+box-shadow:0 4px 10px rgba(219,39,119,.30);
+">
+
+<i class="ri-edit-line"></i>
 
 Update Measurement
 
@@ -164,5 +176,58 @@ Update Measurement
         <?php endif; ?>
     </div>
 </div>
+<style>
 
+.update-btn{
+
+display:inline-flex;
+align-items:center;
+justify-content:center;
+gap:8px;
+
+padding:10px 20px;
+
+background:#db2777;
+
+color:#fff !important;
+
+border:none;
+
+border-radius:10px;
+
+font-size:14px;
+
+font-weight:600;
+
+text-decoration:none;
+
+cursor:pointer;
+
+transition:.3s;
+
+box-shadow:0 4px 12px rgba(219,39,119,.30);
+
+}
+
+.update-btn:hover{
+
+background:#be185d;
+
+color:#fff !important;
+
+text-decoration:none;
+
+transform:translateY(-2px);
+
+box-shadow:0 8px 20px rgba(219,39,119,.45);
+
+}
+
+.update-btn i{
+
+font-size:15px;
+
+}
+
+</style>
 <?php include 'includes/bottom-nav.php'; ?>
