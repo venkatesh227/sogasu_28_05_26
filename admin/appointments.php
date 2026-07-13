@@ -326,45 +326,6 @@ include 'includes/header.php';
                             </div>
                         </div>
 
-<<<<<<< Updated upstream
-<div style="display: flex; gap: 0.5rem; flex-direction: column;">
-
-    <button
-        onclick="openSupervisorModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['customer_name']) ?>', <?= $row['supervisor_id'] ?? 'null' ?>)"
-        class="btn btn-sm"
-        style="background:#f8fafc;color:#f59e0b;border:1px solid #e2e8f0;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:0.8rem;text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem;white-space:nowrap;">
-        <i class="ri-user-star-line"></i>
-        <?= $row['supervisor_id'] ? 'Change Supervisor' : 'Assign Supervisor' ?>
-    </button>
-
-    <?php if($row['status'] == 'cancelled'): ?>
-
-        <span style="
-            background:#fee2e2;
-            color:#dc2626;
-            padding:5px 10px;
-            border-radius:6px;
-            font-size:13px;
-            font-weight:600;
-            display:inline-block;">
-            Cancelled
-        </span>
-
-        <div style="
-            background:#fff7ed;
-            border-left:4px solid #f97316;
-            padding:8px 10px;
-            border-radius:6px;
-            font-size:13px;
-            color:#374151;">
-            <strong>Reason:</strong><br>
-            <?= htmlspecialchars($row['cancel_reason']) ?>
-        </div>
-
-    <?php endif; ?>
-
-</div>
-=======
                         <?php if (($row['visit_type'] ?? '') !== 'store'): ?>
                             <div style="display: flex; gap: 0.5rem; flex-direction: column;">
                                 <button
@@ -376,7 +337,6 @@ include 'includes/header.php';
                                 </button>
                             </div>
                         <?php endif; ?>
->>>>>>> Stashed changes
                     </div>
                 <?php endforeach; ?>
 
