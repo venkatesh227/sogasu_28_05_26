@@ -652,50 +652,99 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $customerId =
                     $customer['id'] ?? null;
             }
+            /*
+|--------------------------------------------------------------------------
+| Order Pricing And Due Date
+|--------------------------------------------------------------------------
+*/
+
+            $pricingStmt = $pdo->prepare("
+    SELECT
+        price,
+        preparation_days
+    FROM sub_categories
+    WHERE id = ?
+    AND category_id = ?
+    AND status = 'active'
+    AND is_deleted = 0
+    LIMIT 1
+");
+
+            $pricingStmt->execute([
+                $lockedAppointment['sub_category_id'],
+                $lockedAppointment['category_id']
+            ]);
+
+            $subCategoryDetails =
+                $pricingStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$subCategoryDetails) {
+                throw new Exception(
+                    'Unable to calculate order pricing and due date.'
+                );
+            }
+
+            $basePrice = (float) (
+                $subCategoryDetails['price'] ?? 0
+            );
+
+            $extraCharges = 0.00;
+
+            $totalAmount =
+                $basePrice + $extraCharges;
+
+            $preparationDays = (int) (
+                $subCategoryDetails['preparation_days'] ?? 0
+            );
+
+            $dueDate = date(
+                'Y-m-d',
+                strtotime(
+                    '+' . $preparationDays . ' days'
+                )
+            );
 
             $stmt = $pdo->prepare("
-                INSERT INTO orders
-                (
-                    order_code,
-                    customer_id,
-                    category_id,
-                    sub_category_id,
-                    fabric_details,
-                    notes,
-                    material_image,
-                    referral_image,
-                    order_status,
-                    supervisor_id,
-                    assigned_employee_id,
-                    rack_id,
-                    base_price,
-                    extra_charges,
-                    total_amount,
-                    advance_amount,
-                    due_date,
-                    measurement_unit,
-                    is_customer_order,
-                    is_deleted,
-                    created_at,
-                    updated_at
-                )
-                VALUES
-                (
-                    ?, ?, ?, ?, ?, ?, ?, ?,
-                    'pending',
-                    ?, ?, ?,
-                    0.00,
-                    0.00,
-                    0.00,
-                    0.00,
-                    NULL,
-                    'CMS',
-                    1,
-                    0,
-                    NOW(),
-                    NOW()
-                )
-            ");
+            INSERT INTO orders
+            (
+                order_code,
+                customer_id,
+                category_id,
+                sub_category_id,
+                fabric_details,
+                notes,
+                material_image,
+                referral_image,
+                order_status,
+                rack_id,
+                base_price,
+                extra_charges,
+                total_amount,
+                advance_amount,
+                due_date,
+                measurement_unit,
+                is_customer_order,
+                is_deleted,
+                created_at,
+                updated_at
+            )
+            VALUES
+            (
+                ?, ?, ?, ?, ?, ?, ?, ?,
+                'pending',
+                ?,
+                ?,
+                ?,
+                ?,
+                0.00,
+                ?,
+                'CMS',
+                1,
+                0,
+                NOW(),
+                NOW()
+            )
+        ");
 
             $stmt->execute([
                 $orderCode,
@@ -706,9 +755,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $lockedAppointment['notes'],
                 $lockedAppointment['material_image'],
                 $lockedAppointment['referral_image'],
-                $lockedAppointment['supervisor_id'],
-                $lockedAppointment['assigned_employee_id'],
-                $rackId
+                $rackId,
+                $basePrice,
+                $extraCharges,
+                $totalAmount,
+                $dueDate
             ]);
         }
 

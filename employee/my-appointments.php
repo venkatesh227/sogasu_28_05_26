@@ -59,65 +59,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 ]);
 
                 $_SESSION['success'] = 'Appointment cancelled successfully.';
-            } elseif ($action === 'assign_rack') {
-                $rackId = intval($_POST['rack_id'] ?? 0);
-                $stmt = $pdo->prepare("SELECT * FROM appointments WHERE id = ? AND assigned_employee_id = ? AND is_deleted = 0 FOR UPDATE");
-                $stmt->execute([$appointmentId, $employee_id]);
-                $appointment = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                if (!$appointment) {
-                    throw new Exception('Appointment not found.');
-                }
-
-                if ($rackId <= 0) {
-                    throw new Exception('Please choose a rack.');
-                }
-
-                $stmt = $pdo->prepare("SELECT id, status FROM racks WHERE id = ?");
-                $stmt->execute([$rackId]);
-                $rack = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                if (!$rack) {
-                    throw new Exception('Rack not found.');
-                }
-
-                $orderCode = $appointment['order_id'];
-                if (empty($orderCode)) {
-                    $orderCode = 'ORD-' . date('Y') . '-' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
-                    $customerId = null;
-                    if (!empty($appointment['user_id'])) {
-                        $custStmt = $pdo->prepare("SELECT id FROM customers WHERE user_id = ? LIMIT 1");
-                        $custStmt->execute([$appointment['user_id']]);
-                        $customer = $custStmt->fetch(PDO::FETCH_ASSOC);
-                        $customerId = $customer['id'] ?? null;
-                    }
-
-                    $stmt = $pdo->prepare("INSERT INTO orders (order_code, customer_id, category_id, sub_category_id, fabric_details, notes, material_image, referral_image, order_status, supervisor_id, assigned_employee_id, rack_id, base_price, extra_charges, total_amount, advance_amount, due_date, measurement_unit, is_customer_order, is_deleted, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, 0.00, 0.00, 0.00, 0.00, NULL, 'CMS', 1, 0, NOW(), NOW())");
-                    $stmt->execute([
-                        $orderCode,
-                        $customerId,
-                        $appointment['category_id'],
-                        $appointment['sub_category_id'],
-                        $appointment['type'] ?? '',
-                        $appointment['notes'],
-                        $appointment['material_image'],
-                        $appointment['referral_image'],
-                        $appointment['supervisor_id'],
-                        $appointment['assigned_employee_id'],
-                        $rackId
-                    ]);
-                } else {
-                    $stmt = $pdo->prepare("UPDATE orders SET rack_id = ?, is_customer_order = 1 WHERE order_code = ?");
-                    $stmt->execute([$rackId, $orderCode]);
-                }
-
-                $stmt = $pdo->prepare("UPDATE appointments SET order_id = ?, workflow_status = 'order_created', updated_at = NOW() WHERE id = ?");
-                $stmt->execute([$orderCode, $appointmentId]);
-
-                $stmt = $pdo->prepare("UPDATE racks SET status = 'Occupied' WHERE id = ?");
-                $stmt->execute([$rackId]);
-
-                $_SESSION['success'] = 'Rack assigned and order created successfully.';
             }
 
             $pdo->commit();
@@ -165,9 +106,6 @@ ORDER BY a.appointment_date DESC, a.appointment_time ASC
 ");
 $stmt->execute([$employee_id]);
 $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$rackStmt = $pdo->query("SELECT id, rack_name, status FROM racks ORDER BY rack_name ASC");
-$racks = $rackStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $pageTitle = "My Appointments";
 $headerTitle = "Appointments";
@@ -585,15 +523,6 @@ include 'includes/header.php';
         document.getElementById('scheduleModal').style.display = 'none';
     }
 
-    function openRackModal(appointmentId) {
-        document.getElementById('rackAppointmentId').value = appointmentId;
-        document.getElementById('rackModal').style.display = 'flex';
-    }
-
-    function closeRackModal() {
-        document.getElementById('rackModal').style.display = 'none';
-    }
-
     function confirmCancel(appointmentId) {
 
         Swal.fire({
@@ -669,44 +598,6 @@ include 'includes/header.php';
         </form>
     </div>
 </div>
-
-<!-- Rack Modal -->
-<div id="rackModal"
-    style="display: none; position: fixed; inset: 0; z-index: 9998; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center; overflow-y: auto;">
-    <div
-        style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 440px; width: 90%; margin: 2rem auto; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-            <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0;">Assign Rack</h3>
-            <button onclick="closeRackModal()"
-                style="border: none; background: transparent; color: #64748b; font-size: 1.2rem; cursor: pointer;"><i
-                    class="ri-close-line"></i></button>
-        </div>
-        <form method="post">
-            <input type="hidden" name="action" value="assign_rack">
-            <input type="hidden" name="appointment_id" id="rackAppointmentId">
-            <label
-                style="font-size: 0.9rem; color: #475569; font-weight: 600; margin-bottom: 0.5rem; display: block;">Choose
-                Rack</label>
-            <select name="rack_id" required
-                style="width: 100%; padding: 0.85rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; outline: none;">
-                <option value="">Select rack</option>
-                <?php foreach ($racks as $rack): ?>
-                    <option value="<?= $rack['id'] ?>" <?= $rack['status'] !== 'Available' ? 'disabled' : '' ?>>
-                        <?= htmlspecialchars($rack['rack_name']) ?>
-                        <?= $rack['status'] !== 'Available' ? '(' . $rack['status'] . ')' : '' ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
-                <button type="button" onclick="closeRackModal()"
-                    style="padding: 0.75rem 1rem; border: 1px solid #e2e8f0; background: white; color: #475569; border-radius: 8px; cursor: pointer;">Cancel</button>
-                <button type="submit"
-                    style="padding: 0.75rem 1rem; border: none; background: #4f46e5; color: white; border-radius: 8px; cursor: pointer;">Assign</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <form id="cancelForm" method="post" style="display: none;">
     <input type="hidden" name="action" value="cancel">
     <input type="hidden" name="appointment_id" id="cancelAppointmentId">

@@ -38,7 +38,10 @@ $stmt = $pdo->prepare("
 $stmt->execute([$id]);
 $order = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$is_customer_order = false;
+$is_customer_order = (
+    !empty($order) &&
+    (int) ($order['is_customer_order'] ?? 0) === 1
+);
 
 if (!$order) {
 

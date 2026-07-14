@@ -105,89 +105,134 @@ include 'includes/header.php';
 ?>
 
 <div style="padding: 1.25rem; max-width: 1200px; margin: 0 auto;">
-    
+
     <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+
+        <a href="dashboard.php" style="
+        width: 38px;
+        height: 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        color: #831843;
+        text-decoration: none;
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    ">
+            <i class="ri-arrow-left-line"></i>
+        </a>
+
         <div>
-            <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;">Appointments</h2>
-            <p style="color: #64748b; margin-top: 0.25rem;">Manage customer appointments and assign employees</p>
+            <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 0;">
+                Appointments
+            </h2>
+
+            <p style="color: #64748b; margin-top: 0.25rem;">
+                Manage customer appointments and assign employees
+            </p>
         </div>
+
     </div>
 
     <!-- Success/Error Messages -->
     <?php if (isset($_SESSION['success'])): ?>
-        <div style="background: #f0fdf4; color: #166534; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #bbf7d0;">
+        <div
+            style="background: #f0fdf4; color: #166534; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #bbf7d0;">
             <i class="ri-check-line" style="margin-right: 0.5rem;"></i><?= htmlspecialchars($_SESSION['success']) ?>
         </div>
         <?php unset($_SESSION['success']); ?>
     <?php endif; ?>
 
     <?php if (isset($_SESSION['error'])): ?>
-        <div style="background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #fecaca;">
+        <div
+            style="background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #fecaca;">
             <i class="ri-error-warning-line" style="margin-right: 0.5rem;"></i><?= htmlspecialchars($_SESSION['error']) ?>
         </div>
         <?php unset($_SESSION['error']); ?>
     <?php endif; ?>
 
     <!-- Appointments List -->
-    <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+    <div class="appointments-table-card"
+        style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
         <?php if (empty($appointments)): ?>
             <div style="padding: 3rem; text-align: center; color: #64748b;">
-                <i class="ri-calendar-blank-line" style="font-size: 3rem; color: #cbd5e1; display: block; margin-bottom: 1rem;"></i>
+                <i class="ri-calendar-blank-line"
+                    style="font-size: 3rem; color: #cbd5e1; display: block; margin-bottom: 1rem;"></i>
                 <p style="font-size: 1.1rem; font-weight: 600;">No appointments assigned</p>
                 <p style="font-size: 0.9rem; margin-top: 0.5rem;">You don't have any appointments to manage.</p>
             </div>
         <?php else: ?>
-            <table style="width: 100%; border-collapse: collapse;">
-                <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                    <tr>
-                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Customer</th>
-                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Garment</th>
-                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Date & Time</th>
-                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Assigned Employee</th>
-                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Status</th>
-                                                <th style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">Visit Type</th>
+            <div class="appointments-table-scroll">
+                <table class="appointments-table" style="width: 100%; border-collapse: collapse;">
+                    <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                        <tr>
+                            <th
+                                style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                                Customer</th>
+                            <th
+                                style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                                Garment</th>
+                            <th
+                                style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                                Date & Time</th>
+                            <th
+                                style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                                Assigned Employee</th>
+                            <th
+                                style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                                Status</th>
+                            <th
+                                style="padding: 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                                Visit Type</th>
 
-                        <th style="padding: 1rem; text-align: center; font-weight: 600; color: #475569; font-size: 0.9rem;">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($appointments as $apt): ?>
-                        <tr style="border-bottom: 1px solid #e2e8f0;">
-                            <td style="padding: 1rem; color: #1e293b; font-weight: 600;">
-                                <?= htmlspecialchars($apt['cust_first'] . ' ' . ($apt['cust_last'] ?? '')) ?>
-                                <br><span style="font-size: 0.8rem; color: #64748b; font-weight: 400;">
-                                    <i class="ri-phone-line" style="font-size: 0.75rem;"></i> <?= htmlspecialchars($apt['cust_phone'] ?? 'N/A') ?>
-                                </span>
-                            </td>
-                            <td style="padding: 1rem; color: #64748b;">
-                                <?= htmlspecialchars($apt['garment'] ?? 'General') ?>
-                            </td>
-                            <td style="padding: 1rem; color: #64748b;">
-                                <?= date('d M Y', strtotime($apt['appointment_date'])) ?>
-                                <br><span style="font-size: 0.85rem; color: #94a3b8;">
-                                    <?= substr($apt['appointment_time'], 0, 5) ?>
-                                </span>
-                            </td>
-                            <td style="padding: 1rem; color: #64748b;">
-                                <?php if ($apt['assigned_employee_id']): ?>
-                                    <span style="background: #f0fdf4; color: #166534; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">
-                                        <?= htmlspecialchars($apt['emp_first'] . ' ' . ($apt['emp_last'] ?? '')) ?>
+                            <th
+                                style="padding: 1rem; text-align: center; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                                Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($appointments as $apt): ?>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                                <td style="padding: 1rem; color: #1e293b; font-weight: 600;">
+                                    <?= htmlspecialchars($apt['cust_first'] . ' ' . ($apt['cust_last'] ?? '')) ?>
+                                    <br><span style="font-size: 0.8rem; color: #64748b; font-weight: 400;">
+                                        <i class="ri-phone-line" style="font-size: 0.75rem;"></i>
+                                        <?= htmlspecialchars($apt['cust_phone'] ?? 'N/A') ?>
                                     </span>
-                                <?php else: ?>
-                                    <span style="background: #fef3c7; color: #b45309; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">
-                                        <i class="ri-alert-line"></i> Unassigned
+                                </td>
+                                <td style="padding: 1rem; color: #64748b;">
+                                    <?= htmlspecialchars($apt['garment'] ?? 'General') ?>
+                                </td>
+                                <td style="padding: 1rem; color: #64748b;">
+                                    <?= date('d M Y', strtotime($apt['appointment_date'])) ?>
+                                    <br><span style="font-size: 0.85rem; color: #94a3b8;">
+                                        <?= substr($apt['appointment_time'], 0, 5) ?>
                                     </span>
-                                <?php endif; ?>
-                            </td>
-<td style="padding: 1rem;">
-    <span style="background: <?= $status_bg ?>; color: <?= $status_color ?>; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">
-        <?= htmlspecialchars($apt['status'] ?? 'Pending') ?>
-    </span>
-</td>
+                                </td>
+                                <td style="padding: 1rem; color: #64748b;">
+                                    <?php if ($apt['assigned_employee_id']): ?>
+                                        <span
+                                            style="background: #f0fdf4; color: #166534; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">
+                                            <?= htmlspecialchars($apt['emp_first'] . ' ' . ($apt['emp_last'] ?? '')) ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <span
+                                            style="background: #fef3c7; color: #b45309; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">
+                                            <i class="ri-alert-line"></i> Unassigned
+                                        </span>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="padding: 1rem;">
+                                    <span
+                                        style="background: <?= $status_bg ?>; color: <?= $status_color ?>; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">
+                                        <?= htmlspecialchars($apt['status'] ?? 'Pending') ?>
+                                    </span>
+                                </td>
 
-<td style="padding:1rem;">
-    <span style="
+                                <td style="padding:1rem;">
+                                    <span style="
         background:#eef2ff;
         color:#4f46e5;
         padding:0.4rem 0.8rem;
@@ -195,36 +240,42 @@ include 'includes/header.php';
         font-size:0.85rem;
         font-weight:600;
         text-transform:capitalize;">
-        <?= htmlspecialchars($apt['visit_type']) ?>
-    </span>
-</td>
+                                        <?= htmlspecialchars($apt['visit_type']) ?>
+                                    </span>
+                                </td>
 
-<td style="padding: 1rem; color: #1e293b; font-weight: 600;">
+                                <td style="padding: 1rem; color: #1e293b; font-weight: 600;">
                                     <button onclick="openAssignModal(
                                     <?= $apt['id'] ?>,
                                     '<?= htmlspecialchars($apt['cust_first']) ?>',
                                     <?= $apt['assigned_employee_id'] ?? 'null' ?>,
                                     '<?= htmlspecialchars($apt['source']) ?>'
-                                )" style="background: #f8fafc; color: #4f46e5; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s;">
-                                    <i class="ri-user-add-line"></i> Assign
-                                </button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                                )"
+                                        style="background: #f8fafc; color: #4f46e5; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s;">
+                                        <i class="ri-user-add-line"></i> Assign
+                                    </button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
         <?php endif; ?>
     </div>
 </div>
 
 <!-- Assign Employee Modal -->
-<div id="assignModal" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center;">
-    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 400px; width: 90%; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+<div id="assignModal"
+    style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center;">
+    <div
+        style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 400px; width: 90%; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-            <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+            <h3
+                style="font-size: 1.1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
                 <i class="ri-user-add-line" style="color: #4f46e5;"></i> Assign Employee
             </h3>
-            <button onclick="closeAssignModal()" style="border: none; background: transparent; color: #64748b; font-size: 1.2rem; cursor: pointer;">
+            <button onclick="closeAssignModal()"
+                style="border: none; background: transparent; color: #64748b; font-size: 1.2rem; cursor: pointer;">
                 <i class="ri-close-line"></i>
             </button>
         </div>
@@ -235,12 +286,16 @@ include 'includes/header.php';
             <input type="hidden" name="source" id="modalSource" value="customer_orders">
 
             <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1.25rem;">
-                Assign an employee to handle this appointment for <strong id="modalCustomerName" style="color: #4f46e5;"></strong>.
+                Assign an employee to handle this appointment for <strong id="modalCustomerName"
+                    style="color: #4f46e5;"></strong>.
             </p>
 
             <div style="margin-bottom: 1rem;">
-                <label style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 0.5rem;">Select Employee</label>
-                <select name="assign_employee_id" id="modalEmployeeSelect" style="width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none;">
+                <label
+                    style="font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 0.5rem;">Select
+                    Employee</label>
+                <select name="assign_employee_id" id="modalEmployeeSelect"
+                    style="width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none;">
                     <option value="">-- Choose Employee --</option>
                     <?php foreach ($all_employees as $emp_opt): ?>
                         <option value="<?= $emp_opt['id'] ?>">
@@ -251,35 +306,134 @@ include 'includes/header.php';
             </div>
 
             <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
-                <button type="button" onclick="closeAssignModal()" style="padding: 0.625rem 1rem; border: 1px solid #e2e8f0; background: white; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer;">
+                <button type="button" onclick="closeAssignModal()"
+                    style="padding: 0.625rem 1rem; border: 1px solid #e2e8f0; background: white; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer;">
                     Cancel
                 </button>
-                <button type="submit" style="padding: 0.625rem 1.25rem; border: none; background: #4f46e5; color: white; font-weight: 600; border-radius: 8px; cursor: pointer;">
+                <button type="submit"
+                    style="padding: 0.625rem 1.25rem; border: none; background: #4f46e5; color: white; font-weight: 600; border-radius: 8px; cursor: pointer;">
                     Assign
                 </button>
             </div>
         </form>
     </div>
 </div>
+<style>
+    .appointments-table-card {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .appointments-table-scroll {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .appointments-table-scroll::-webkit-scrollbar {
+        display: none;
+    }
+
+    .appointments-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    @media (max-width: 768px) {
+        .appointments-table-card {
+            overflow: hidden !important;
+        }
+
+        .appointments-table-scroll {
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            touch-action: pan-x;
+        }
+
+        .appointments-table {
+            width: max-content !important;
+            min-width: 950px !important;
+            table-layout: auto;
+        }
+
+        .appointments-table th,
+        .appointments-table td {
+            padding: 0.75rem !important;
+            font-size: 0.78rem !important;
+            white-space: nowrap !important;
+            vertical-align: middle;
+        }
+
+        .appointments-table th:nth-child(1),
+        .appointments-table td:nth-child(1) {
+            min-width: 145px;
+        }
+
+        .appointments-table th:nth-child(2),
+        .appointments-table td:nth-child(2) {
+            min-width: 120px;
+        }
+
+        .appointments-table th:nth-child(3),
+        .appointments-table td:nth-child(3) {
+            min-width: 150px;
+        }
+
+        .appointments-table th:nth-child(4),
+        .appointments-table td:nth-child(4) {
+            min-width: 170px;
+        }
+
+        .appointments-table th:nth-child(5),
+        .appointments-table td:nth-child(5) {
+            min-width: 110px;
+        }
+
+        .appointments-table th:nth-child(6),
+        .appointments-table td:nth-child(6) {
+            min-width: 110px;
+        }
+
+        .appointments-table th:nth-child(7),
+        .appointments-table td:nth-child(7) {
+            min-width: 120px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .appointments-table {
+            min-width: 950px !important;
+        }
+
+        .appointments-table th,
+        .appointments-table td {
+            padding: 0.65rem !important;
+            font-size: 0.74rem !important;
+        }
+    }
+</style>
 
 <script>
-function openAssignModal(appointmentId, customerName, currentEmployeeId, source) {
-    document.getElementById('modalAppointmentId').value = appointmentId;
-    document.getElementById('modalCustomerName').textContent = customerName;
-    document.getElementById('modalEmployeeSelect').value = currentEmployeeId || '';
-    document.getElementById('modalSource').value = source || 'customer_orders';
-    document.getElementById('assignModal').style.display = 'flex';
-}
-
-function closeAssignModal() {
-    document.getElementById('assignModal').style.display = 'none';
-}
-
-document.getElementById('assignModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeAssignModal();
+    function openAssignModal(appointmentId, customerName, currentEmployeeId, source) {
+        document.getElementById('modalAppointmentId').value = appointmentId;
+        document.getElementById('modalCustomerName').textContent = customerName;
+        document.getElementById('modalEmployeeSelect').value = currentEmployeeId || '';
+        document.getElementById('modalSource').value = source || 'customer_orders';
+        document.getElementById('assignModal').style.display = 'flex';
     }
-});
+
+    function closeAssignModal() {
+        document.getElementById('assignModal').style.display = 'none';
+    }
+
+    document.getElementById('assignModal').addEventListener('click', function (e) {
+        if (e.target === this) {
+            closeAssignModal();
+        }
+    });
 </script>
 
 <?php include 'includes/bottom-nav.php'; ?>
