@@ -11,49 +11,30 @@ $customerStmt = $pdo->prepare("
 $customerStmt->execute([$userId]);
 
 $customerId = $customerStmt->fetchColumn();
-
-
 $stmt = $pdo->prepare("
     SELECT
-    co.id,
-    co.order_code,
-    co.category_id,
-    co.sub_category_id,
-    co.created_at,
-    co.appointment_date,
-    co.status AS final_status,
-    c.category_name,
-    sc.name AS sub_category_name,
-    co.material_image,
-    'customer_order' AS order_type
-    FROM customer_orders co
-    LEFT JOIN categories c ON co.category_id = c.id
-    LEFT JOIN sub_categories sc ON co.sub_category_id = sc.id
-    WHERE co.user_id = ?
-    AND co.is_deleted = 0
-    AND LOWER(COALESCE(co.slot_status, '')) != 'rejected'
-
-    UNION ALL
-
-    SELECT
-    NULL AS id,
-    o.order_code,
-    o.category_id,
-    o.sub_category_id,
-    o.created_at,
-    NULL AS appointment_date,
-    o.order_status AS final_status,
-    c.category_name,
-    sc.name AS sub_category_name,
-    o.material_image,
-    'admin_order' AS order_type
-FROM orders o
-LEFT JOIN categories c ON o.category_id = c.id
-LEFT JOIN sub_categories sc ON o.sub_category_id = sc.id
-WHERE o.customer_id = ?
+        o.id,
+        o.order_code,
+        o.category_id,
+        o.sub_category_id,
+        o.created_at,
+        o.due_date,
+        o.order_status AS final_status,
+        c.category_name,
+        sc.name AS sub_category_name,
+        o.material_image,
+        'order' AS order_type
+    FROM orders o
+    LEFT JOIN categories c
+        ON o.category_id = c.id
+    LEFT JOIN sub_categories sc
+        ON o.sub_category_id = sc.id
+    WHERE o.customer_id = ?
+    AND o.is_deleted = 0
+    ORDER BY o.created_at DESC
 ");
-$stmt->execute([$userId, $customerId]);
 
+$stmt->execute([$customerId]);
 $orders = $stmt->fetchAll();
 $statusOrders = [];
 $statusOrders['all'] = $orders;
@@ -243,10 +224,10 @@ include 'includes/header.php';
 
                             <i class="ri-time-line" style="color: var(--primary);"></i>
 
-                            Appointment:
+                            Due Date:
                             <span style="font-weight: 700; color: var(--text-main);">
-                                <?php if (!empty($order['appointment_date'])): ?>
-                                    <?= date('d M, Y', strtotime($order['appointment_date'])) ?>
+                                <?php if (!empty($order['due_date'])): ?>
+                                    <?= date('d M, Y', strtotime($order['due_date'])) ?>
                                 <?php else: ?>
                                     Not Available
                                 <?php endif; ?>

@@ -145,23 +145,6 @@ include 'includes/header.php';
 
     </div>
 
-    <!-- Success/Error Messages -->
-    <?php if (isset($_SESSION['success'])): ?>
-        <div
-            style="background: #f0fdf4; color: #166534; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #bbf7d0;">
-            <i class="ri-check-line" style="margin-right: 0.5rem;"></i><?= htmlspecialchars($_SESSION['success']) ?>
-        </div>
-        <?php unset($_SESSION['success']); ?>
-    <?php endif; ?>
-
-    <?php if (isset($_SESSION['error'])): ?>
-        <div
-            style="background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #fecaca;">
-            <i class="ri-error-warning-line" style="margin-right: 0.5rem;"></i><?= htmlspecialchars($_SESSION['error']) ?>
-        </div>
-        <?php unset($_SESSION['error']); ?>
-    <?php endif; ?>
-
     <!-- Appointments List -->
     <div class="appointments-table-card"
         style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
@@ -603,5 +586,31 @@ include 'includes/header.php';
     <input type="hidden" name="appointment_id" id="cancelAppointmentId">
 </form>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<?php if (!empty($_SESSION['success'])): ?>
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: 'Success!',
+            text: <?= json_encode($_SESSION['success']) ?>,
+            confirmButtonColor: '#4f46e5',
+            timer: 1800,
+            showConfirmButton: false
+        });
+    </script>
+    <?php unset($_SESSION['success']); ?>
+<?php endif; ?>
+
+<?php if (!empty($_SESSION['error'])): ?>
+    <script>
+        Swal.fire({
+            icon: 'error',
+            title: 'Error!',
+            text: <?= json_encode($_SESSION['error']) ?>,
+            confirmButtonColor: '#ef4444'
+        });
+    </script>
+    <?php unset($_SESSION['error']); ?>
+<?php endif; ?>
 
 <?php include 'includes/bottom-nav.php'; ?>

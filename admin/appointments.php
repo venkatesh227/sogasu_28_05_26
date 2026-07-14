@@ -275,17 +275,21 @@ include 'includes/header.php';
 
                                     <!-- Supervisor & Employee Info -->
                                     <div style="margin-top: 0.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
-                                        <?php if ($row['supervisor_id']): ?>
-                                            <span
-                                                style="background: #ecfdf5; color: #059669; padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
-                                                <i class="ri-user-star-line"></i>
-                                                <?= htmlspecialchars($row['sup_first'] . ' ' . ($row['sup_last'] ?? '')) ?>
-                                            </span>
-                                        <?php else: ?>
-                                            <span
-                                                style="background: #fef3c7; color: #b45309; padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
-                                                <i class="ri-alert-line"></i> No Supervisor
-                                            </span>
+                                        <?php if (($row['visit_type'] ?? '') !== 'store'): ?>
+
+                                            <?php if ($row['supervisor_id']): ?>
+                                                <span
+                                                    style="background: #ecfdf5; color: #059669; padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
+                                                    <i class="ri-user-star-line"></i>
+                                                    <?= htmlspecialchars($row['sup_first'] . ' ' . ($row['sup_last'] ?? '')) ?>
+                                                </span>
+                                            <?php else: ?>
+                                                <span
+                                                    style="background: #fef3c7; color: #b45309; padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
+                                                    <i class="ri-alert-line"></i> No Supervisor
+                                                </span>
+                                            <?php endif; ?>
+
                                         <?php endif; ?>
 
                                         <?php if ($row['assigned_employee_id']): ?>
@@ -609,6 +613,20 @@ include 'includes/header.php';
     }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<?php if (!empty($_SESSION['appointment_success'])): ?>
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: 'Success!',
+            text: <?= json_encode($_SESSION['appointment_success']) ?>,
+            confirmButtonColor: '#6366f1',
+            timer: 1800,
+            showConfirmButton: false
+        });
+    </script>
+
+    <?php unset($_SESSION['appointment_success']); ?>
+<?php endif; ?>
 
 <?php if (!empty($_SESSION['success'])): ?>
     <script>
