@@ -46,7 +46,6 @@ LEFT JOIN customers cu ON a.user_id = cu.user_id
 LEFT JOIN sub_categories sc ON a.sub_category_id = sc.id
 WHERE a.assigned_employee_id = ?
 AND a.is_deleted = 0
-AND a.appointment_source = 'customer'
 ORDER BY a.appointment_date DESC, a.appointment_time ASC");
 $stmt->execute([$employee_id]);
 $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -76,22 +75,42 @@ include 'includes/header.php';
             <div style="padding: 2rem; text-align: center; color: #64748b; background: #f8fafc; border-radius: 12px;">
                 <i class="ri-search-line" style="font-size: 2rem; margin-bottom: 0.75rem;"></i>
                 <div style="font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem;">No assigned customer orders</div>
-                <div style="font-size: 0.95rem;">You have no customer orders assigned or all assigned customer orders are rejected/deleted.</div>
+                <div style="font-size: 0.95rem;">You have no customer orders assigned or all assigned customer orders are
+                    rejected/deleted.</div>
             </div>
         <?php else: ?>
             <?php foreach ($orders as $order): ?>
                 <div class="card" style="margin-bottom: 1rem; border: 1px solid #e5e7eb;">
                     <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
                         <div>
-                            <div style="font-weight:700; font-size:1rem; color:#111827;">Appointment #<?= htmlspecialchars($order['order_code']) ?></div>
-                            <div style="color:#475569; margin-top:0.25rem;">Customer: <?= htmlspecialchars($order['cust_first'] . ' ' . ($order['cust_last'] ?? '')) ?></div>
-                            <div style="color:#475569; margin-top:0.25rem;">Phone: <?= htmlspecialchars($order['cust_phone'] ?: 'N/A') ?></div>
-                            <div style="color:#475569; margin-top:0.25rem;">Garment: <?= htmlspecialchars($order['garment'] ?: 'General') ?></div>
+                            <div style="font-weight:700; font-size:1rem; color:#111827;">
+
+                                <?php if (!empty($order['order_code'])): ?>
+
+                                    Order #<?= htmlspecialchars($order['order_code']) ?>
+
+                                <?php else: ?>
+
+                                    Appointment #<?= htmlspecialchars($order['id']) ?>
+
+                                <?php endif; ?>
+
+                            </div>
+                            <div style="color:#475569; margin-top:0.25rem;">Customer:
+                                <?= htmlspecialchars($order['cust_first'] . ' ' . ($order['cust_last'] ?? '')) ?></div>
+                            <div style="color:#475569; margin-top:0.25rem;">Phone:
+                                <?= htmlspecialchars($order['cust_phone'] ?: 'N/A') ?></div>
+                            <div style="color:#475569; margin-top:0.25rem;">Garment:
+                                <?= htmlspecialchars($order['garment'] ?: 'General') ?></div>
                         </div>
                         <div style="text-align:right; min-width:180px;">
                             <div style="font-size:0.9rem; color:#6b7280;">Appointment</div>
-                            <div style="font-weight:700; color:#111827; margin-top:0.25rem;"><?= date('d M Y', strtotime($order['appointment_date'])) ?> <?= substr($order['appointment_time'], 0, 5) ?></div>
-                            <div style="margin-top:0.5rem;"><span style="padding: 0.35rem 0.75rem; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:0.8rem; font-weight:700; text-transform:capitalize;"><?= htmlspecialchars($order['status'] ?: 'unknown') ?></span></div>
+                            <div style="font-weight:700; color:#111827; margin-top:0.25rem;">
+                                <?= date('d M Y', strtotime($order['appointment_date'])) ?>
+                                <?= substr($order['appointment_time'], 0, 5) ?></div>
+                            <div style="margin-top:0.5rem;"><span
+                                    style="padding: 0.35rem 0.75rem; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:0.8rem; font-weight:700; text-transform:capitalize;"><?= htmlspecialchars($order['status'] ?: 'unknown') ?></span>
+                            </div>
                         </div>
                     </div>
                     <?php
@@ -109,63 +128,69 @@ include 'includes/header.php';
                     }
                     ?>
                     <div style="margin-top:1rem; padding:1rem; background:#f8fafc; border-radius:12px;">
-<?php if (empty($measurements)): ?>
+                        <?php if (empty($measurements)): ?>
 
-<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px;">
 
-    <div>
-        <div style="font-weight:700;">
-            Measurement not added
-        </div>
+                                <div>
+                                    <div style="font-weight:700;">
+                                        Measurement not added
+                                    </div>
 
-        <div style="color:#64748b;">
-            Customer measurements are not available.
-        </div>
-    </div>
+                                    <div style="color:#64748b;">
+                                        Customer measurements are not available.
+                                    </div>
+                                </div>
 
-    <a href="add-measurement.php?appointment_id=<?= $order['id'] ?>"
-       class="btn btn-primary">
-        Add Measurement
-    </a>
+                                <a href="add-measurement.php?appointment_id=<?= $order['id'] ?>" class="btn btn-primary">
+                                    Add Measurement
+                                </a>
 
-</div>
+                            </div>
 
-<?php else: ?>
+                        <?php else: ?>
                             <?php if ($size_value !== ''): ?>
-                                <div style="margin-bottom:0.75rem; padding:0.75rem; background:white; border:1px solid #c7d2fe; border-radius:10px;">
-                                    <div style="font-size:0.8rem; color:#4338ca; margin-bottom:0.35rem; text-transform:uppercase; font-weight:700;">Size</div>
-                                    <div style="font-size:1rem; font-weight:700; color:#111827;"><?= htmlspecialchars($size_value) ?></div>
+                                <div
+                                    style="margin-bottom:0.75rem; padding:0.75rem; background:white; border:1px solid #c7d2fe; border-radius:10px;">
+                                    <div
+                                        style="font-size:0.8rem; color:#4338ca; margin-bottom:0.35rem; text-transform:uppercase; font-weight:700;">
+                                        Size</div>
+                                    <div style="font-size:1rem; font-weight:700; color:#111827;"><?= htmlspecialchars($size_value) ?>
+                                    </div>
                                 </div>
                             <?php endif; ?>
-                            <div style="font-size:0.95rem; font-weight:700; color:#111827; margin-bottom:0.75rem;">Measurements</div>
+                            <div style="font-size:0.95rem; font-weight:700; color:#111827; margin-bottom:0.75rem;">Measurements
+                            </div>
                             <div style="text-align:right;margin-bottom:15px;">
 
-<a href="add-measurement.php?appointment_id=<?= $order['id'] ?>"
-style="
-display:inline-block;
-background:#db2777;
-color:#ffffff;
-padding:10px 18px;
-border-radius:8px;
-font-size:14px;
-font-weight:600;
-text-decoration:none;
-box-shadow:0 4px 10px rgba(219,39,119,.30);
-">
+                                <a href="add-measurement.php?appointment_id=<?= $order['id'] ?>" style="
+                                    display:inline-block;
+                                    background:#db2777;
+                                    color:#ffffff;
+                                    padding:10px 18px;
+                                    border-radius:8px;
+                                    font-size:14px;
+                                    font-weight:600;
+                                    text-decoration:none;
+                                    box-shadow:0 4px 10px rgba(219,39,119,.30);
+                                    ">
 
-<i class="ri-edit-line"></i>
+                                    <i class="ri-edit-line"></i>
 
-Update Measurement
+                                    Update Measurements
 
-</a>
+                                </a>
 
-</div>
+                            </div>
                             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:0.75rem;">
                                 <?php foreach ($measurements as $key => $value): ?>
-                                    <?php if (in_array($key, ['size', 'Size', 'SIZE'], true)) continue; ?>
+                                    <?php if (in_array($key, ['size', 'Size', 'SIZE'], true))
+                                        continue; ?>
                                     <div style="background:white; border:1px solid #e5e7eb; border-radius:10px; padding:0.75rem;">
-                                        <div style="font-size:0.8rem; color:#6b7280; margin-bottom:0.25rem; text-transform:capitalize;"><?= htmlspecialchars($key) ?></div>
-                                        <div style="font-size:1rem; font-weight:700; color:#111827;"><?= htmlspecialchars($value) ?></div>
+                                        <div style="font-size:0.8rem; color:#6b7280; margin-bottom:0.25rem; text-transform:capitalize;">
+                                            <?= htmlspecialchars($key) ?></div>
+                                        <div style="font-size:1rem; font-weight:700; color:#111827;"><?= htmlspecialchars($value) ?>
+                                        </div>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
@@ -177,57 +202,55 @@ Update Measurement
     </div>
 </div>
 <style>
+    .update-btn {
 
-.update-btn{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
 
-display:inline-flex;
-align-items:center;
-justify-content:center;
-gap:8px;
+        padding: 10px 20px;
 
-padding:10px 20px;
+        background: #db2777;
 
-background:#db2777;
+        color: #fff !important;
 
-color:#fff !important;
+        border: none;
 
-border:none;
+        border-radius: 10px;
 
-border-radius:10px;
+        font-size: 14px;
 
-font-size:14px;
+        font-weight: 600;
 
-font-weight:600;
+        text-decoration: none;
 
-text-decoration:none;
+        cursor: pointer;
 
-cursor:pointer;
+        transition: .3s;
 
-transition:.3s;
+        box-shadow: 0 4px 12px rgba(219, 39, 119, .30);
 
-box-shadow:0 4px 12px rgba(219,39,119,.30);
+    }
 
-}
+    .update-btn:hover {
 
-.update-btn:hover{
+        background: #be185d;
 
-background:#be185d;
+        color: #fff !important;
 
-color:#fff !important;
+        text-decoration: none;
 
-text-decoration:none;
+        transform: translateY(-2px);
 
-transform:translateY(-2px);
+        box-shadow: 0 8px 20px rgba(219, 39, 119, .45);
 
-box-shadow:0 8px 20px rgba(219,39,119,.45);
+    }
 
-}
+    .update-btn i {
 
-.update-btn i{
+        font-size: 15px;
 
-font-size:15px;
-
-}
-
+    }
 </style>
 <?php include 'includes/bottom-nav.php'; ?>

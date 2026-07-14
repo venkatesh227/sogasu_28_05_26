@@ -219,7 +219,8 @@ include 'includes/header.php';
             </div>
             <div>
                 <div style="font-weight: 800; color: #9d174d; font-size: 1.1rem;">
-                    <?= htmlspecialchars($today_holiday['name']) ?></div>
+                    <?= htmlspecialchars($today_holiday['name']) ?>
+                </div>
                 <div style="font-size: 0.85rem; color: #db2777; font-weight: 600;">Today is a <?= $today_holiday['type'] ?>!
                     Enjoy your day.</div>
             </div>
@@ -323,7 +324,8 @@ include 'includes/header.php';
                                 style="font-size: 0.65rem; font-weight: 700; color: #4338ca; background: #e0e7ff; padding: 2px 6px; border-radius: 4px;">#<?= $job['order_code'] ?></span>
                         </div>
                         <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.75rem;">
-                            <?= htmlspecialchars($job['cust_first'] . ' ' . $job['cust_last']) ?></div>
+                            <?= htmlspecialchars($job['cust_first'] . ' ' . $job['cust_last']) ?>
+                        </div>
 
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div
@@ -407,6 +409,14 @@ include 'includes/header.php';
                 </div>
                 <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">History</span>
             </button>
+            <button onclick="window.location.href='my-appointments.php'"
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <div
+                    style="width: 36px; height: 36px; background: #fdf2f8; color: #db2777; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="ri-calendar-check-line" style="font-size: 1.2rem;"></i>
+                </div>
+                <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">Appointments</span>
+            </button>
         </div>
     <?php endif; ?>
     <!-- My OT History -->
@@ -431,16 +441,19 @@ include 'includes/header.php';
                         style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
                         <div>
                             <div style="font-size: 0.95rem; font-weight: 700; color: #1e293b;">
-                                <?= date('d M, Y', strtotime($h['ot_date'])) ?></div>
+                                <?= date('d M, Y', strtotime($h['ot_date'])) ?>
+                            </div>
                             <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.2rem;">
-                                <?= htmlspecialchars($h['description']) ?></div>
+                                <?= htmlspecialchars($h['description']) ?>
+                            </div>
                             <div style="font-size: 0.75rem; font-weight: 700; color: #059669; margin-top: 0.4rem;">
                                 ₹<?= number_format($h['amount'], 0) ?></div>
                         </div>
                         <div style="text-align: right;">
                             <div style="font-size: 0.95rem; font-weight: 800; color: #1e293b;">
                                 <?= number_format($h['hours'], 1) ?> <span
-                                    style="font-size: 0.75rem; font-weight: 400; color: #94a3b8;">Hrs</span></div>
+                                    style="font-size: 0.75rem; font-weight: 400; color: #94a3b8;">Hrs</span>
+                            </div>
                             <span
                                 style="display: inline-block; margin-top: 0.5rem; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 6px; background: <?= $statusBg ?>; color: <?= $statusColor ?>;">
                                 <?= $h['status'] ?>
