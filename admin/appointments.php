@@ -160,7 +160,7 @@ include 'includes/header.php';
                 <h2 style="font-size: 1.5rem; font-weight: 700; color: #1e293b;">Appointments</h2>
                 <p class="text-muted">Manage trials, consultations and measurements</p>
             </div>
-            <button class="btn btn-primary" onclick="window.location.href='add-appointment.php'"><i
+            <button class="btn btn-primary" onclick="window.location.href='add-appointment-order.php'"><i
                     class="ri-calendar-check-line"></i> New Appointment</button>
         </div>
     </div>
@@ -654,7 +654,7 @@ include 'includes/header.php';
                     let source = this.dataset.source;
 
                     window.location.href =
-                        "add-appointment.php?id=" + id + "&source=" + source;
+                        "add-appointment-order.php?id=" + id + "&source=" + source;
                 }
 
                 // DELETE
