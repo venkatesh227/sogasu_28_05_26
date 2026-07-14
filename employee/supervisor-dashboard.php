@@ -601,6 +601,18 @@ $today_holiday = $h_stmt->fetch();
                     Outsource
                 </span>
             </button>
+            <button onclick="window.location.href='supervisor-appointments.php'"
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer;">
+
+                <div
+                    style="width: 36px; height: 36px; background: #eef2ff; color: #4f46e5; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="ri-calendar-check-line" style="font-size: 1.2rem;"></i>
+                </div>
+
+                <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">
+                    Appointments
+                </span>
+            </button>
         </div>
     <?php endif; ?>           
     <!-- Issues & Alerts -->               
