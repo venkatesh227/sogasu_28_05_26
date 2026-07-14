@@ -602,8 +602,8 @@ $today_holiday = $h_stmt->fetch();
                 </span>
             </button>
         </div>
-    <?php endif; ?>
-    <!-- Issues & Alerts -->
+    <?php endif; ?>           
+    <!-- Issues & Alerts -->               
     <?php if (!empty($open_issues)): ?>
         <div class="section-title" style="color: #e11d48;">
             <span><i class="ri-error-warning-fill"></i> Alerts & Issues</span>
