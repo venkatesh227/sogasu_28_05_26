@@ -78,7 +78,7 @@ LEFT JOIN sub_categories sc ON sc.id = a.sub_category_id
 LEFT JOIN employees e ON e.id = a.assigned_employee_id
 WHERE a.supervisor_id = ?
 AND a.is_deleted = 0
-AND a.appointment_source = 'customer'
+AND a.visit_type = 'home'
 ORDER BY a.appointment_date DESC, a.appointment_time ASC
 SQL;
 
