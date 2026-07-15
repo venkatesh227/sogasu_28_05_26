@@ -6,6 +6,83 @@ if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
+/*
+|--------------------------------------------------------------------------
+| DASHBOARD FILTERS
+|--------------------------------------------------------------------------
+*/
+
+$branches = $pdo->query("
+    SELECT id, branch_name
+    FROM branches
+    WHERE is_deleted = 0
+    AND status = 'active'
+    ORDER BY branch_name ASC
+")->fetchAll(PDO::FETCH_ASSOC);
+
+$selectedBranch = trim($_GET['branch'] ?? '');
+$selectedPeriod = $_GET['period'] ?? '1Y';
+$fromDate = $_GET['from_date'] ?? '';
+$toDate = $_GET['to_date'] ?? '';
+
+$allowedPeriods = ['24H', '1W', '1M', '1Y'];
+
+if (!in_array($selectedPeriod, $allowedPeriods, true)) {
+    $selectedPeriod = '1Y';
+}
+
+$validDate = function ($date) {
+    if (empty($date)) {
+        return false;
+    }
+
+    $d = DateTime::createFromFormat('Y-m-d', $date);
+
+    return $d && $d->format('Y-m-d') === $date;
+};
+
+$isCustomDateRange = (
+    $validDate($fromDate) &&
+    $validDate($toDate) &&
+    $fromDate <= $toDate
+);
+
+if ($isCustomDateRange) {
+    $filterStart = $fromDate . ' 00:00:00';
+    $filterEnd = $toDate . ' 23:59:59';
+} else {
+    $filterEnd = date('Y-m-d H:i:s');
+
+    switch ($selectedPeriod) {
+        case '24H':
+            $filterStart = date('Y-m-d H:i:s', strtotime('-24 hours'));
+            break;
+
+        case '1W':
+            $filterStart = date('Y-m-d H:i:s', strtotime('-1 week'));
+            break;
+
+        case '1M':
+            $filterStart = date('Y-m-d H:i:s', strtotime('-1 month'));
+            break;
+
+        case '1Y':
+        default:
+            $filterStart = date('Y-m-d H:i:s', strtotime('-1 year'));
+            break;
+    }
+
+    $fromDate = '';
+    $toDate = '';
+}
+
+$employeeBranchCondition = '';
+$employeeBranchParams = [];
+
+if ($selectedBranch !== '') {
+    $employeeBranchCondition = ' AND branch = ?';
+    $employeeBranchParams[] = $selectedBranch;
+}
 $readyDelivery = [];
 
 /* Normal Orders */
@@ -24,21 +101,6 @@ $stmt1 = $pdo->query("
 ");
 
 $readyDelivery = array_merge($readyDelivery, $stmt1->fetchAll(PDO::FETCH_ASSOC));
-$stmt2 = $pdo->query("
-    SELECT 
-        co.order_code,
-        c.first_name,
-        c.last_name,
-        c.phone,
-        sc.name AS sub_category
-    FROM customer_orders co
-    LEFT JOIN customers c ON c.user_id = co.user_id
-    LEFT JOIN sub_categories sc ON sc.id = co.sub_category_id
-    WHERE co.status IN ('ready', 'completed')
-    LIMIT 5
-");
-
-$readyDelivery = array_merge($readyDelivery, $stmt2->fetchAll(PDO::FETCH_ASSOC));
 
 $stmt3 = $pdo->query("
     SELECT 
@@ -61,11 +123,15 @@ $readyDelivery = array_slice($readyDelivery, 0, 5);
 $today = date('Y-m-d');
 $today_orders = $pdo->query("
     SELECT COUNT(*) FROM (
-        SELECT created_at FROM orders WHERE is_deleted = 0
+        SELECT created_at
+        FROM orders
+        WHERE is_deleted = 0
+
         UNION ALL
-        SELECT created_at FROM customer_orders WHERE is_deleted = 0
-        UNION ALL
-        SELECT created_at FROM outsource_orders WHERE is_deleted = 0
+
+        SELECT created_at
+        FROM outsource_orders
+        WHERE is_deleted = 0
     ) all_orders
     WHERE DATE(created_at) = '$today'
 ")->fetchColumn();
@@ -79,12 +145,6 @@ $pending_orders = $pdo->query("
     SELECT COUNT(*) FROM (
         SELECT order_status AS status
         FROM orders
-        WHERE is_deleted = 0
-
-        UNION ALL
-
-        SELECT status
-        FROM customer_orders
         WHERE is_deleted = 0
 
         UNION ALL
@@ -106,12 +166,18 @@ $pending_orders = $pdo->query("
         'in progress'
     )
 ")->fetchColumn();
-$total_employees = $pdo->query("
+$totalEmployeeSql = "
     SELECT COUNT(*)
     FROM employees
     WHERE is_deleted = 0
     AND status = 1
-")->fetchColumn();
+    $employeeBranchCondition
+";
+
+$totalEmployeeStmt = $pdo->prepare($totalEmployeeSql);
+$totalEmployeeStmt->execute($employeeBranchParams);
+
+$total_employees = $totalEmployeeStmt->fetchColumn();
 $low_stock_count = $pdo->query("
     SELECT COUNT(*)
     FROM inventory
@@ -129,19 +195,40 @@ $total_outstanding = $pdo->query("
 $chart_labels = [];
 $chart_data = [];
 
-for ($i = 6; $i >= 0; $i--) {
-    $date = date('Y-m-d', strtotime("-$i days"));
-    $chart_labels[] = date('D', strtotime($date));
+$chartSql = "
+    SELECT
+        DATE(created_at) AS revenue_date,
+        COALESCE(SUM(total_amount), 0) AS revenue
+    FROM bills
+    WHERE created_at BETWEEN ? AND ?
+    AND is_deleted = 0
+    GROUP BY DATE(created_at)
+    ORDER BY revenue_date ASC
+";
 
-    $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(total_amount), 0)
-        FROM bills
-        WHERE DATE(created_at) = ?
-        AND is_deleted = 0
-    ");
-    $stmt->execute([$date]);
+$chartStmt = $pdo->prepare($chartSql);
+$chartStmt->execute([
+    $filterStart,
+    $filterEnd
+]);
 
-    $chart_data[] = $stmt->fetchColumn();
+$chartRows = $chartStmt->fetchAll(PDO::FETCH_ASSOC);
+
+foreach ($chartRows as $row) {
+    $chart_labels[] = date(
+        'd M',
+        strtotime($row['revenue_date'])
+    );
+
+    $chart_data[] = (float) $row['revenue'];
+}
+
+if (empty($chart_labels)) {
+    $chart_labels[] = date('d M', strtotime($filterStart));
+    $chart_labels[] = date('d M', strtotime($filterEnd));
+
+    $chart_data[] = 0;
+    $chart_data[] = 0;
 }
 
 $status_counts = [
@@ -152,13 +239,32 @@ $status_counts = [
     'Cancelled' => 0
 ];
 
-$all_statuses = $pdo->query("
-    SELECT order_status AS status FROM orders WHERE is_deleted = 0
-    UNION ALL
-    SELECT status FROM customer_orders WHERE is_deleted = 0
-    UNION ALL
-    SELECT order_status AS status FROM outsource_orders WHERE is_deleted = 0
-")->fetchAll(PDO::FETCH_COLUMN);
+$statusStmt = $pdo->prepare("
+    SELECT status
+    FROM (
+        SELECT
+            order_status AS status,
+            created_at
+        FROM orders
+        WHERE is_deleted = 0
+
+        UNION ALL
+
+        SELECT
+            order_status AS status,
+            created_at
+        FROM outsource_orders
+        WHERE is_deleted = 0
+    ) all_order_statuses
+    WHERE created_at BETWEEN ? AND ?
+");
+
+$statusStmt->execute([
+    $filterStart,
+    $filterEnd
+]);
+
+$all_statuses = $statusStmt->fetchAll(PDO::FETCH_COLUMN);
 
 foreach ($all_statuses as $status) {
     if ($status === 'pending') {
@@ -187,7 +293,7 @@ foreach ($all_statuses as $status) {
 }
 $inventory_categories = $pdo->query("SELECT category, COUNT(*) as count FROM inventory WHERE is_deleted = 0 GROUP BY category LIMIT 5")->fetchAll(PDO::FETCH_KEY_PAIR);
 
-$recent_orders = $pdo->query("
+$recentOrdersStmt = $pdo->prepare("
     SELECT *
     FROM (
         SELECT 
@@ -213,29 +319,40 @@ $recent_orders = $pdo->query("
         FROM outsource_orders oo
         LEFT JOIN customers c ON oo.customer_id = c.id
         WHERE oo.is_deleted = 0
-
-        UNION ALL
-
-        SELECT 
-            co.order_code,
-            co.total_amount,
-            co.status,
-            co.created_at,
-            c.first_name,
-            c.last_name
-        FROM customer_orders co
-        LEFT JOIN customers c ON co.user_id = c.user_id
-        WHERE co.is_deleted = 0
     ) recent_orders
+    WHERE created_at BETWEEN ? AND ?
     ORDER BY created_at DESC
     LIMIT 6
-")->fetchAll(PDO::FETCH_ASSOC);
+");
+
+$recentOrdersStmt->execute([
+    $filterStart,
+    $filterEnd
+]);
+
+$recent_orders = $recentOrdersStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $logs = [];
-$trans_stmt = $pdo->query("SELECT 'Financial' as type, type as action, description, amount, created_at FROM financial_transactions ORDER BY created_at DESC LIMIT 4");
+$trans_stmt = $pdo->prepare("
+    SELECT
+        'Financial' AS type,
+        type AS action,
+        description,
+        amount,
+        created_at
+    FROM financial_transactions
+    WHERE created_at BETWEEN ? AND ?
+    ORDER BY created_at DESC
+    LIMIT 4
+");
+
+$trans_stmt->execute([
+    $filterStart,
+    $filterEnd
+]);
 while ($row = $trans_stmt->fetch())
     $logs[] = $row;
-$order_log_stmt = $pdo->query("
+$order_log_stmt = $pdo->prepare("
     SELECT *
     FROM (
         SELECT
@@ -252,26 +369,21 @@ $order_log_stmt = $pdo->query("
         SELECT
             'Order' AS type,
             'Created' AS action,
-            CONCAT('Customer Order #', order_code) AS description,
-            total_amount AS amount,
-            created_at
-        FROM customer_orders
-        WHERE is_deleted = 0
-
-        UNION ALL
-
-        SELECT
-            'Order' AS type,
-            'Created' AS action,
             CONCAT('Outsource Order #', order_code) AS description,
             total_amount AS amount,
             created_at
         FROM outsource_orders
         WHERE is_deleted = 0
     ) logs
+    WHERE created_at BETWEEN ? AND ?
     ORDER BY created_at DESC
     LIMIT 4
 ");
+
+$order_log_stmt->execute([
+    $filterStart,
+    $filterEnd
+]);
 
 while ($row = $order_log_stmt->fetch()) {
     $logs[] = $row;
