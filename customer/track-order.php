@@ -65,23 +65,28 @@ if (!$order) {
 
 $currentStatus = strtolower(trim($order['final_status']));
 
-$steps = [];
+$steps = ['pending'];
 
 if (!empty($order['status_history'])) {
 
-    $steps = array_filter(array_map('trim', explode(',', $order['status_history'])));
-    $steps = array_unique($steps);
+    $historySteps = array_filter(
+        array_map(
+            'trim',
+            explode(',', strtolower($order['status_history']))
+        )
+    );
 
-    /* ADD CURRENT STATUS IF MISSING */
-
-    if (!in_array($currentStatus, $steps)) {
-        $steps[] = $currentStatus;
+    foreach ($historySteps as $historyStep) {
+        if (!in_array($historyStep, $steps, true)) {
+            $steps[] = $historyStep;
+        }
     }
+}
 
-} else {
+/* ADD CURRENT STATUS IF MISSING */
 
-    $steps = ['pending'];
-
+if (!in_array($currentStatus, $steps, true)) {
+    $steps[] = $currentStatus;
 }
 
 $pageTitle = "Track Order";

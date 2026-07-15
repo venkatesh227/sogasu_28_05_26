@@ -2,7 +2,18 @@
 session_start();
 require '../includes/db.php';
 // Fetch logged in customer details
-$customerId = $_SESSION['user_id'] ?? 0;
+$userId = $_SESSION['user_id'] ?? 0;
+
+$customerStmt = $pdo->prepare("
+    SELECT id
+    FROM customers
+    WHERE user_id = ?
+    LIMIT 1
+");
+
+$customerStmt->execute([$userId]);
+
+$customerId = $customerStmt->fetchColumn();
 $pageTitle = "Home - Sogasu";
 $headerTitle = "Sogasu";
 $activePage = "dashboard";
@@ -201,22 +212,26 @@ foreach ($data as $row) {
 
             $currentStatus = strtolower(trim($order['final_status']));
 
-            $steps = [];
+            $steps = ['pending'];
 
             if (!empty($order['status_history'])) {
 
-                $steps = array_filter(array_map('trim', explode(',', $order['status_history'])));
+                $historySteps = array_filter(
+                    array_map(
+                        'trim',
+                        explode(',', strtolower($order['status_history']))
+                    )
+                );
 
-                $steps = array_unique($steps);
-
-                if (!in_array($currentStatus, $steps)) {
-                    $steps[] = $currentStatus;
+                foreach ($historySteps as $historyStep) {
+                    if (!in_array($historyStep, $steps, true)) {
+                        $steps[] = $historyStep;
+                    }
                 }
+            }
 
-            } else {
-
-                $steps = ['pending'];
-
+            if (!in_array($currentStatus, $steps, true)) {
+                $steps[] = $currentStatus;
             }
 
             $totalSteps = count($steps);
@@ -539,20 +554,20 @@ foreach ($data as $row) {
 <?php endif; ?>
 <?php if (!empty($_SESSION['appointment_success'])): ?>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
 
-    Swal.fire({
-        icon: 'success',
-        title: 'Success',
-        text: <?= json_encode($_SESSION['appointment_success']) ?>,
-        confirmButtonColor: '#d63384'
-    });
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: <?= json_encode($_SESSION['appointment_success']) ?>,
+                confirmButtonColor: '#d63384'
+            });
 
-});
-</script>
+        });
+    </script>
 
-<?php unset($_SESSION['appointment_success']); ?>
+    <?php unset($_SESSION['appointment_success']); ?>
 
 <?php endif; ?>
 <?php include 'includes/bottom-nav.php'; ?>
