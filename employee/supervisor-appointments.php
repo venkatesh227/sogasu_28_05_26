@@ -279,7 +279,7 @@ include 'includes/header.php';
                     Employee</label>
                 <select name="assign_employee_id" id="modalEmployeeSelect"
                     style="width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none;">
-                    <option value="">-- Choose Employee --</option>
+                    <option value="">Select</option>
                     <?php foreach ($all_employees as $emp_opt): ?>
                         <option value="<?= $emp_opt['id'] ?>">
                             <?= htmlspecialchars($emp_opt['first_name'] . ' ' . ($emp_opt['last_name'] ?? '')) ?>
@@ -395,6 +395,26 @@ include 'includes/header.php';
         .appointments-table td {
             padding: 0.65rem !important;
             font-size: 0.74rem !important;
+        }
+    }
+
+    #modalEmployeeSelect {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
+    }
+
+    @media (max-width: 768px) {
+        #assignModal>div {
+            width: 90% !important;
+            max-width: 320px !important;
+            box-sizing: border-box;
+        }
+
+        #modalEmployeeSelect {
+            width: 160px !important;
+            max-width: 160px !important;
+            box-sizing: border-box;
         }
     }
 </style>

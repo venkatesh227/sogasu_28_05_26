@@ -19,8 +19,8 @@ $order_id = $_GET['id'] ?? null;
 if (!$order_id) {
     header("Location: dashboard.php");
     exit();
-} 
-                                               
+}
+
 // Fetch order details
 $stmt = $pdo->prepare(" 
         SELECT 
@@ -146,13 +146,53 @@ $stmt->execute([
 $order = $stmt->fetch();
 
 // Fetch measurements dynamically
+$measurements = [];
+
+/*
+|--------------------------------------------------------------------------
+| Appointment Converted Order Measurements
+|--------------------------------------------------------------------------
+*/
+
 $stmt = $pdo->prepare("
-    SELECT key_name, measurement_value
-    FROM order_measurements
-    WHERE order_id = ?
+    SELECT cm.measurements
+    FROM appointments a
+    INNER JOIN customer_measurements cm
+        ON cm.id = a.measurement_id
+    WHERE a.order_id = ?
+    AND a.is_deleted = 0
+    LIMIT 1
 ");
-$stmt->execute([$order_id]);
-$measurements = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
+$stmt->execute([$order['order_code']]);
+
+$customerMeasurement = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if ($customerMeasurement) {
+
+    $measurements = json_decode(
+        $customerMeasurement['measurements'],
+        true
+    ) ?? [];
+
+} else {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Direct Order Measurements
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $pdo->prepare("
+        SELECT key_name, measurement_value
+        FROM order_measurements
+        WHERE order_id = ?
+    ");
+
+    $stmt->execute([$order_id]);
+
+    $measurements = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+}
 
 if (!$order) {
     echo "Order not found.";
@@ -165,9 +205,11 @@ $stmt->execute([$order_id]);
 $images = $stmt->fetchAll();
 
 $design_refs = array_filter($images, function ($img) {
-    return $img['image_type'] === 'sample'; });
+    return $img['image_type'] === 'sample';
+});
 $fabric_refs = array_filter($images, function ($img) {
-    return $img['image_type'] === 'fabric'; });
+    return $img['image_type'] === 'fabric';
+});
 
 $pageTitle = "Task Details - Sogasu Staff";
 $headerTitle = "Order #" . htmlspecialchars($order['order_code']);
@@ -181,7 +223,8 @@ include 'includes/header.php';
             <h2 style="font-size: 1.25rem; font-weight: 700;"><?= htmlspecialchars($order['garment'] ?: 'Product') ?>
             </h2>
             <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">Due by
-                <?= date('d M, Y', strtotime($order['due_date'])) ?></div>
+                <?= date('d M, Y', strtotime($order['due_date'])) ?>
+            </div>
         </div>
         <span class="badge <?= strtolower($order['order_status']) ?>"><?= ucfirst($order['order_status']) ?></span>
     </div>
@@ -197,7 +240,8 @@ include 'includes/header.php';
                 style="width: 48px; height: 48px; border-radius: 50%;">
             <div>
                 <div style="font-weight: 600; font-size: 1rem;">
-                    <?= htmlspecialchars($order['cust_first'] . ' ' . $order['cust_last']) ?></div>
+                    <?= htmlspecialchars($order['cust_first'] . ' ' . $order['cust_last']) ?>
+                </div>
                 <?php if ($is_supervisor): ?>
                     <div style="color: var(--text-muted); font-size: 0.9rem;"><?= htmlspecialchars($order['cust_phone']) ?>
                     </div>
@@ -224,7 +268,8 @@ include 'includes/header.php';
                     style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
                 <div>
                     <div style="font-weight: 600; font-size: 1rem;">
-                        <?= htmlspecialchars($order['emp_first'] . ' ' . $order['emp_last']) ?></div>
+                        <?= htmlspecialchars($order['emp_first'] . ' ' . $order['emp_last']) ?>
+                    </div>
                     <div style="color: var(--text-muted); font-size: 0.9rem;">Tailoring / Finishing Artist</div>
                 </div>
             <?php else: ?>
@@ -249,7 +294,8 @@ include 'includes/header.php';
             <div style="font-size: 1.1rem; font-weight: 700; color: #78350f;"><?= htmlspecialchars($order['rack_name']) ?>
             </div>
             <div style="font-size: 0.85rem; color: #92400e; margin-top: 0.25rem;">
-                <?= htmlspecialchars($order['rack_desc'] ?: 'Collect materials from this rack.') ?></div>
+                <?= htmlspecialchars($order['rack_desc'] ?: 'Collect materials from this rack.') ?>
+            </div>
         <?php else: ?>
             <div style="font-size: 0.9rem; color: #b45309; font-style: italic;">No rack allocated yet. Please check with
                 supervisor.</div>
@@ -341,7 +387,8 @@ include 'includes/header.php';
                     <option value="processing" <?= $order['order_status'] == 'processing' ? 'selected' : '' ?>>Processing
                     </option>
 
-                    <option value="pattern_making" <?= $order['order_status'] == 'pattern_making' ? 'selected' : '' ?>>Pattern
+                    <option value="pattern_making" <?= $order['order_status'] == 'pattern_making' ? 'selected' : '' ?>>
+                        Pattern
                         Making</option>
 
                     <option value="cutting" <?= $order['order_status'] == 'cutting' ? 'selected' : '' ?>>Cutting</option>
@@ -349,16 +396,19 @@ include 'includes/header.php';
                     <option value="embroidery" <?= $order['order_status'] == 'embroidery' ? 'selected' : '' ?>>Embroidery /
                         Maggam</option>
 
-                    <option value="stitching" <?= $order['order_status'] == 'stitching' ? 'selected' : '' ?>>Stitching</option>
+                    <option value="stitching" <?= $order['order_status'] == 'stitching' ? 'selected' : '' ?>>Stitching
+                    </option>
 
                     <option value="finishing" <?= $order['order_status'] == 'finishing' ? 'selected' : '' ?>>Finishing /
                         Ironing</option>
 
                     <option value="ready" <?= $order['order_status'] == 'ready' ? 'selected' : '' ?>>Ready</option>
 
-                    <option value="completed" <?= $order['order_status'] == 'completed' ? 'selected' : '' ?>>Completed</option>
+                    <option value="completed" <?= $order['order_status'] == 'completed' ? 'selected' : '' ?>>Completed
+                    </option>
 
-                    <option value="delivered" <?= $order['order_status'] == 'delivered' ? 'selected' : '' ?>>Delivered</option>
+                    <option value="delivered" <?= $order['order_status'] == 'delivered' ? 'selected' : '' ?>>Delivered
+                    </option>
 
                 </select>
             </div>
@@ -391,7 +441,7 @@ include 'includes/header.php';
 
 </div>
 
-<!-- Report Issue Modal -->                   
+<!-- Report Issue Modal -->
 <div id="issueModal"
     style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; align-items:flex-end;">
     <div

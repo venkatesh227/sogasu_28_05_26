@@ -614,8 +614,8 @@ $today_holiday = $h_stmt->fetch();
                 </span>
             </button>
         </div>
-    <?php endif; ?>           
-    <!-- Issues & Alerts -->               
+    <?php endif; ?>
+    <!-- Issues & Alerts -->
     <?php if (!empty($open_issues)): ?>
         <div class="section-title" style="color: #e11d48;">
             <span><i class="ri-error-warning-fill"></i> Alerts & Issues</span>
@@ -697,6 +697,104 @@ $today_holiday = $h_stmt->fetch();
         .employee-wl-card:active {
             transform: scale(0.98);
             background: #f8fafc;
+        }
+
+        .employee-dropdown {
+            position: relative;
+            width: 100%;
+        }
+
+        .employee-dropdown-toggle {
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            color: #1e293b;
+            font-size: 0.95rem;
+            text-align: left;
+            cursor: pointer;
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+
+        .employee-dropdown-toggle span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .employee-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            width: 100%;
+            max-height: 220px;
+            overflow-y: auto;
+            box-sizing: border-box;
+
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+            z-index: 10000;
+        }
+
+        .employee-dropdown-menu.show {
+            display: block;
+        }
+
+        .employee-dropdown-option {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0.75rem;
+
+            border: none;
+            border-bottom: 1px solid #f1f5f9;
+            background: #ffffff;
+            color: #1e293b;
+
+            font-size: 0.95rem;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .employee-dropdown-option:last-child {
+            border-bottom: none;
+        }
+
+        .employee-dropdown-option:hover,
+        .employee-dropdown-option:focus {
+            background: #fdf2f8;
+            color: var(--primary);
+        }
+
+        @media (max-width: 480px) {
+
+            .employee-dropdown,
+            .employee-dropdown-toggle,
+            .employee-dropdown-menu {
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .employee-dropdown-menu {
+                max-height: 180px;
+            }
+
+            .employee-dropdown-option {
+                padding: 0.7rem;
+                font-size: 0.9rem;
+            }
         }
     </style>
     <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
@@ -840,13 +938,25 @@ $today_holiday = $h_stmt->fetch();
             <input type="hidden" name="order_id" id="delegateOrderId">
             <div style="margin-bottom:1rem;">
                 <label style="display:block; font-size:0.85rem; margin-bottom:0.4rem;">Select Employee</label>
-                <select name="employee_id" id="employee_select" onchange="fetchWorkload(this.value)"
-                    style="width:100%; padding:0.75rem; border-radius:8px; border:1px solid #e2e8f0;">
-                    <option value="">Choose employee...</option>
-                    <?php foreach ($all_employees as $e): ?>
-                        <option value="<?= $e['id'] ?>"><?= $e['first_name'] ?>     <?= $e['last_name'] ?></option>
-                    <?php endforeach; ?>
-                </select>
+                <div class="employee-dropdown" id="employeeDropdown">
+                    <input type="hidden" name="employee_id" id="employee_select">
+
+                    <button type="button" class="employee-dropdown-toggle" onclick="toggleEmployeeDropdown()">
+                        <span id="employeeDropdownText">Choose employee...</span>
+                        <i class="ri-arrow-down-s-line"></i>
+                    </button>
+
+                    <div class="employee-dropdown-menu" id="employeeDropdownMenu">
+                        <?php foreach ($all_employees as $e): ?>
+                            <button type="button" class="employee-dropdown-option" onclick='selectEmployee(
+                                    <?= (int) $e["id"] ?>,
+                                    <?= json_encode(trim($e["first_name"] . " " . ($e["last_name"] ?? ""))) ?>
+                                )'>
+                                <?= htmlspecialchars(trim($e['first_name'] . ' ' . ($e['last_name'] ?? ''))) ?>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
                 <div id="employeeError" style="color:red; font-size:0.8rem; margin-top:5px;"></div>
             </div>
 
@@ -920,12 +1030,34 @@ $today_holiday = $h_stmt->fetch();
 </div>
 
 <script>
+    function toggleEmployeeDropdown() {
+        const menu = document.getElementById('employeeDropdownMenu');
+        menu.classList.toggle('show');
+    }
+
+    function selectEmployee(employeeId, employeeName) {
+        document.getElementById('employee_select').value = employeeId;
+        document.getElementById('employeeDropdownText').textContent = employeeName;
+        document.getElementById('employeeDropdownMenu').classList.remove('show');
+
+        fetchWorkload(employeeId);
+    }
+
+    document.addEventListener('click', function (event) {
+        const dropdown = document.getElementById('employeeDropdown');
+
+        if (dropdown && !dropdown.contains(event.target)) {
+            document.getElementById('employeeDropdownMenu').classList.remove('show');
+        }
+    });
     function openDelegateModal(id, code) {
         document.getElementById('delegateOrderId').value = id;
         document.getElementById('delegateOrderCode').innerText = '#' + code;
         document.getElementById('delegateModal').style.display = 'flex';
         // Reset preview
         document.getElementById('employee_select').value = '';
+        document.getElementById('employeeDropdownText').textContent = 'Choose employee...';
+        document.getElementById('employeeDropdownMenu').classList.remove('show');
         document.getElementById('workloadPreview').style.display = 'none';
     }
 
