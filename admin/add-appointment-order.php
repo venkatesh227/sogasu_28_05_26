@@ -156,29 +156,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $deliveryMethod = $_POST['delivery_method'] ?? 'store_pickup';
 
     if ($customerName === '') {
-        $errors[] = 'Customer name is required.';
+        $errors['customer_name'] = 'Customer name is required.';
     }
 
     if ($customerPhone === '') {
-        $errors[] = 'Customer mobile number is required.';
+        $errors['customer_phone'] = 'Customer mobile number is required.';
     } elseif (!preg_match('/^[0-9]{10}$/', $customerPhone)) {
-        $errors[] = 'Customer mobile number must contain exactly 10 digits.';
+        $errors['customer_phone'] = 'Customer mobile number must contain exactly 10 digits.';
     }
 
     if (!validId($categoryId)) {
-        $errors[] = 'Select a valid category.';
+        $errors['category_id'] = 'Select a valid category.';
     }
 
     if (!validId($subCategoryId)) {
-        $errors[] = 'Select a valid sub category.';
+        $errors['sub_category_id'] = 'Select a valid sub category.';
     }
 
     if (!in_array($deliveryType, ['normal', 'emergency'], true)) {
-        $errors[] = 'Invalid delivery type.';
+        $errors['delivery_type'] = 'Invalid delivery type.';
     }
 
     if (!in_array($deliveryMethod, ['store_pickup', 'home_delivery'], true)) {
-        $errors[] = 'Invalid delivery method.';
+        $errors['delivery_method'] = 'Invalid delivery method.';
     }
 
     $customer = null;
@@ -212,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([(int) $categoryId]);
 
         if (!$stmt->fetchColumn()) {
-            $errors[] = 'Selected category is invalid.';
+            $errors['category_id'] = 'Selected category is invalid.';
         }
     }
 
@@ -229,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([(int) $subCategoryId, (int) $categoryId]);
 
         if (!$stmt->fetchColumn()) {
-            $errors[] = 'Selected sub category does not belong to the selected category.';
+            $errors['sub_category_id'] = 'Selected sub category does not belong to the selected category.';
         }
     }
     $appointmentDate = $_POST['appointment_date'] ?? '';
@@ -237,23 +237,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $visitType = $_POST['visit_type'] ?? '';
 
     if ($appointmentDate === '') {
-        $errors[] = 'Appointment date is required.';
+        $errors['appointment_date'] = 'Appointment date is required.';
     } elseif ($appointmentDate < date('Y-m-d')) {
-        $errors[] = 'Past appointment date is not allowed.';
+        $errors['appointment_date'] = 'Past appointment date is not allowed.';
     }
 
     if ($appointmentTime === '') {
-        $errors[] = 'Select appointment time.';
+        $errors['appointment_time'] = 'Select appointment time.';
     } elseif (
         $appointmentDate !== ''
         && $appointmentDate === date('Y-m-d')
         && strtotime($appointmentDate . ' ' . $appointmentTime) <= time()
     ) {
-        $errors[] = 'Past appointment time is not allowed.';
+        $errors['appointment_time'] = 'Past appointment time is not allowed.';
     }
 
     if (!in_array($visitType, ['home', 'store'], true)) {
-        $errors[] = 'Select a valid visit type.';
+        $errors['visit_type'] = 'Select a valid visit type.';
     }
 
     /*
@@ -266,7 +266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $selectedDay = date('w', strtotime($appointmentDate));
 
         if ($selectedDay == 0) {
-            $errors[] = 'Appointments cannot be booked on Sundays.';
+            $errors['appointment_date'] = 'Appointments cannot be booked on Sundays.';
         } else {
             $holidayStmt = $pdo->prepare("
             SELECT *
@@ -284,7 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($holiday) {
                 $holidayType = ucfirst($holiday['type']);
 
-                $errors[] =
+                $errors['appointment_date'] =
                     $holidayType
                     . ' holiday: appointments are not allowed on this date.';
             }
@@ -313,7 +313,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $activeTiming = $timingStmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$activeTiming) {
-            $errors[] = 'Boutique appointment timings are not configured for the selected date.';
+            $errors['appointment_time'] = 'Boutique appointment timings are not configured for the selected date.';
         } else {
             $selectedTime = strtotime($appointmentTime);
             $startLimit = strtotime($activeTiming['start_time']);
@@ -323,7 +323,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $selectedTime < $startLimit ||
                 $selectedTime >= $endLimit
             ) {
-                $errors[] =
+                $errors['appointment_time'] =
                     'Appointments allowed only between '
                     . date('h:i A', $startLimit)
                     . ' and '
@@ -360,12 +360,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
             if ($nextSlot) {
-                $errors[] =
+                $errors['appointment_time'] =
                     'Selected slot already booked. Try after '
                     . date('h:i A', strtotime($nextSlot))
                     . '.';
             } else {
-                $errors[] =
+                $errors['appointment_time'] =
                     'No slots available for selected date.';
             }
         }
@@ -555,15 +555,6 @@ include 'includes/header.php';
 
     <div class="appointment-order-layout">
         <div class="appointment-order-main">
-
-            <?php if ($errors): ?>
-                <div style="padding:14px;border-radius:10px;background:#fff1f2;color:#9f1239;margin-bottom:18px;">
-                    <?php foreach ($errors as $error): ?>
-                        <div><?= htmlspecialchars($error) ?></div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-
             <form method="POST" id="mainForm">
 
                 <div class="form-grid">
@@ -574,6 +565,11 @@ include 'includes/header.php';
                         <input type="text" name="customer_name" id="customerName" class="form-control" maxlength="150"
                             value="<?= htmlspecialchars($_POST['customer_name'] ?? $appointment['customer_name'] ?? '') ?>"
                             placeholder="Enter customer name">
+                        <?php if (isset($errors['customer_name'])): ?>
+                            <small style="color:red;">
+                                <?= htmlspecialchars($errors['customer_name']) ?>
+                            </small>
+                        <?php endif; ?>
                     </div>
 
                     <div class="form-group">
@@ -583,6 +579,11 @@ include 'includes/header.php';
                         <input type="text" name="customer_phone" id="customerPhone" class="form-control" maxlength="10"
                             value="<?= htmlspecialchars($_POST['customer_phone'] ?? $appointment['customer_phone'] ?? '') ?>"
                             placeholder="Enter 10 digit mobile number">
+                        <?php if (isset($errors['customer_phone'])): ?>
+                            <small style="color:red;">
+                                <?= htmlspecialchars($errors['customer_phone']) ?>
+                            </small>
+                        <?php endif; ?>
                     </div>
 
 
@@ -600,6 +601,11 @@ include 'includes/header.php';
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <?php if (isset($errors['category_id'])): ?>
+                            <small style="color:red;">
+                                <?= htmlspecialchars($errors['category_id']) ?>
+                            </small>
+                        <?php endif; ?>
                     </div>
 
                     <div class="form-group">
@@ -609,6 +615,11 @@ include 'includes/header.php';
                         <select name="sub_category_id" id="subCategoryId" class="form-control">
                             <option value="">Select Sub Category</option>
                         </select>
+                        <?php if (isset($errors['sub_category_id'])): ?>
+                            <small style="color:red;">
+                                <?= htmlspecialchars($errors['sub_category_id']) ?>
+                            </small>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <div id="appointmentSection">
@@ -620,6 +631,11 @@ include 'includes/header.php';
                             </label>
                             <input type="date" name="appointment_date" class="form-control" min="<?= date('Y-m-d') ?>"
                                 value="<?= htmlspecialchars($_POST['appointment_date'] ?? $appointment['appointment_date'] ?? '') ?>">
+                            <?php if (isset($errors['appointment_date'])): ?>
+                                <small style="color:red;">
+                                    <?= htmlspecialchars($errors['appointment_date']) ?>
+                                </small>
+                            <?php endif; ?>
                         </div>
                         <div class="form-group">
                             <label class="form-label">
@@ -630,6 +646,11 @@ include 'includes/header.php';
                                 ?? $appointment['appointment_time']
                                 ?? ''
                             ) ?>">
+                            <?php if (isset($errors['appointment_time'])): ?>
+                                <small style="color:red;">
+                                    <?= htmlspecialchars($errors['appointment_time']) ?>
+                                </small>
+                            <?php endif; ?>
                         </div>
                         <div class="form-group">
                             <label class="form-label">
@@ -644,6 +665,11 @@ include 'includes/header.php';
                                     Store
                                 </option>
                             </select>
+                            <?php if (isset($errors['visit_type'])): ?>
+                                <small style="color:red;">
+                                    <?= htmlspecialchars($errors['visit_type']) ?>
+                                </small>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -660,6 +686,11 @@ include 'includes/header.php';
                             <option value="emergency" <?= ($_POST['delivery_type'] ?? $appointment['delivery_type'] ?? '') === 'emergency' ? 'selected' : '' ?>>
                                 Emergency</option>
                         </select>
+                        <?php if (isset($errors['delivery_type'])): ?>
+                            <small style="color:red;">
+                                <?= htmlspecialchars($errors['delivery_type']) ?>
+                            </small>
+                        <?php endif; ?>
                     </div>
                     <div class="form-group">
                         <label class="form-label">
@@ -670,6 +701,11 @@ include 'includes/header.php';
                             <option value="home_delivery" <?= ($_POST['delivery_method'] ?? $appointment['delivery_method'] ?? '') === 'home_delivery' ? 'selected' : '' ?>>Home
                                 Delivery</option>
                         </select>
+                        <?php if (isset($errors['delivery_method'])): ?>
+                            <small style="color:red;">
+                                <?= htmlspecialchars($errors['delivery_method']) ?>
+                            </small>
+                        <?php endif; ?>
                     </div>
                     <div class="form-group full">
                         <label class="form-label">Notes</label>
