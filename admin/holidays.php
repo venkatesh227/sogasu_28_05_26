@@ -37,17 +37,16 @@ if (isset($_POST['action']) && $_POST['action'] === 'add_holiday') {
         $affectedStmt = $pdo->prepare("
 
             SELECT
-            co.id,
-            co.user_id,
-            co.appointment_date,
-            co.appointment_time,
-            co.order_code
-        FROM customer_orders co
+                id,
+                user_id,
+                appointment_date,
+                appointment_time
+            FROM appointments
 
-        WHERE co.appointment_date = ?
-        AND co.is_deleted = 0
+            WHERE appointment_date = ?
+            AND status = 'scheduled'
 
-");
+        ");
 
         $affectedStmt->execute([
             $date
@@ -55,23 +54,13 @@ if (isset($_POST['action']) && $_POST['action'] === 'add_holiday') {
 
         $affectedAppointments = $affectedStmt->fetchAll();
 
-        $cancelCustomerStmt = $pdo->prepare("
-
-            UPDATE customer_orders
-            SET slot_status = 'rejected'
-            WHERE id = ?
-
-        ");
-
         $cancelAppointmentStmt = $pdo->prepare("
 
             UPDATE appointments
             SET status = 'cancelled'
-            WHERE order_id = ?
+            WHERE id = ?
 
         ");
-
-
         /*
         |--------------------------------------------------------------------------
         | SEND NOTIFICATIONS
@@ -79,12 +68,8 @@ if (isset($_POST['action']) && $_POST['action'] === 'add_holiday') {
         */
 
         foreach ($affectedAppointments as $appointment) {
-            $cancelCustomerStmt->execute([
-                $appointment['id']
-            ]);
-
             $cancelAppointmentStmt->execute([
-                $appointment['order_code']
+                $appointment['id']
             ]);
 
             /*
@@ -108,6 +93,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'add_holiday') {
             INSERT INTO appointment_notifications
             (
                 user_id,
+                notification_type,
                 title,
                 message,
                 status,
@@ -115,6 +101,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'add_holiday') {
             )
             VALUES
             (
+                ?,
                 ?,
                 ?,
                 ?,
@@ -127,6 +114,8 @@ if (isset($_POST['action']) && $_POST['action'] === 'add_holiday') {
             $notifyStmt->execute([
 
                 $appointment['user_id'],
+
+                'Holiday Cancellation',
 
                 'Appointment Rebooking Required',
 

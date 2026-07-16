@@ -4,87 +4,102 @@ require_once '../includes/db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $mobile = $_POST['login'] ?? '';
-    $password = $_POST['password'] ?? '';
+    $mobile = trim($_POST['login'] ?? '');
+    $password = trim($_POST['password'] ?? '');
 
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE mobile = ? AND role = 'employee'");
-    $stmt->execute([$mobile]);
-    $user = $stmt->fetch();
+    $errors = [];
 
-    $error = '';
+    if (empty($mobile)) {
+        $errors['mobile'] = "Phone number is required.";
+    } elseif (!preg_match('/^[0-9]{10}$/', $mobile)) {
+        $errors['mobile'] = "Please enter a valid 10-digit phone number.";
+    }
 
-    if ($user && password_verify($password, $user['password'])) {
+    if (empty($password)) {
+        $errors['password'] = "Password is required.";
+    }
 
-        $deviceToken = $_POST['device_token'] ?? '';
-        if (empty($deviceToken)) {
+    if (empty($errors)) {
 
-            $error = "Device validation failed. Please refresh page.";
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE mobile = ? AND role = 'employee'");
+        $stmt->execute([$mobile]);
+        $user = $stmt->fetch();
 
-        } elseif (
-            !empty($user['device_token']) &&
-            $user['device_token'] !== $deviceToken
-        ) {
+        $error = '';
 
-            $error = "You are already logged in on another device.";
+        if ($user && password_verify($password, $user['password'])) {
 
-        } else {
+            $deviceToken = $_POST['device_token'] ?? '';
+            if (empty($deviceToken)) {
 
-            // Generate session token
-            $sessionToken = bin2hex(random_bytes(32));
+                $error = "Device validation failed. Please refresh page.";
 
-            // Store session
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['role'] = $user['role'];
-            $_SESSION['session_token'] = $sessionToken;
+            } elseif (
+                !empty($user['device_token']) &&
+                $user['device_token'] !== $deviceToken
+            ) {
 
-            // Fetch employee preferred language
-            $empStmt = $pdo->prepare("
+                $error = "You are already logged in on another device.";
+
+            } else {
+
+                // Generate session token
+                $sessionToken = bin2hex(random_bytes(32));
+
+                // Store session
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['role'] = $user['role'];
+                $_SESSION['session_token'] = $sessionToken;
+
+                // Fetch employee preferred language
+                $empStmt = $pdo->prepare("
                 SELECT preferred_language, employee_type, job_role
                 FROM employees 
                 WHERE user_id = ?
             ");
 
-            $empStmt->execute([$user['id']]);
-            $emp = $empStmt->fetch();
-            if (!$emp) {
-                $error = "Employee record not found";
-            } else {
-
-                $_SESSION['employee_type'] = $emp['employee_type'] ?? 'inhouse';
-                $_SESSION['job_role'] = $emp['job_role'] ?? '';
-                $_SESSION['language'] = $emp['preferred_language'] ?? 'en';
-
-                // Update DB
-                $updateStmt = $pdo->prepare("
-            UPDATE users
-            SET
-                is_logged_in = 1,
-                session_token = ?,
-                device_token = ?    
-            WHERE id = ?
-        ");
-
-                $updateStmt->execute([
-                    $sessionToken,
-                    $deviceToken,
-                    $user['id']
-                ]);
-
-                if (($emp['employee_type'] ?? '') === 'outsource') {
-                    header("Location: outsourcing_dashboard.php");
-                } elseif (strtolower(trim($emp['job_role'] ?? '')) === 'supervisor') {
-                    header("Location: supervisor-dashboard.php");
+                $empStmt->execute([$user['id']]);
+                $emp = $empStmt->fetch();
+                if (!$emp) {
+                    $error = "Employee record not found";
                 } else {
-                    header("Location: dashboard.php");
+
+                    $_SESSION['employee_type'] = $emp['employee_type'] ?? 'inhouse';
+                    $_SESSION['job_role'] = $emp['job_role'] ?? '';
+                    $_SESSION['language'] = $emp['preferred_language'] ?? 'en';
+
+                    // Update DB
+                    $updateStmt = $pdo->prepare("
+                        UPDATE users
+                        SET
+                            is_logged_in = 1,
+                            session_token = ?,
+                            device_token = ?    
+                        WHERE id = ?
+                    ");
+
+                    $updateStmt->execute([
+                        $sessionToken,
+                        $deviceToken,
+                        $user['id']
+                    ]);
+
+                    if (($emp['employee_type'] ?? '') === 'outsource') {
+                        header("Location: outsourcing_dashboard.php");
+                    } elseif (strtolower(trim($emp['job_role'] ?? '')) === 'supervisor') {
+                        header("Location: supervisor-dashboard.php");
+                    } else {
+                        header("Location: dashboard.php");
+                    }
+                    exit();
                 }
-                exit();
             }
+
+        } else {
+
+            $error = "Invalid mobile or password";
+
         }
-
-    } else {
-
-        $error = "Invalid mobile or password";
-
     }
 }
 ?>
@@ -164,6 +179,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .input-group {
+            width: 100%;
+        }
+
+        .input-wrapper {
             position: relative;
         }
 
@@ -242,6 +261,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-color: var(--primary);
             transform: translateY(-1px);
         }
+
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.15rem;
+            transition: color .2s ease;
+        }
+
+        .password-toggle:hover {
+            color: var(--primary);
+        }
+
+        .field-error {
+            color: #dc2626;
+            font-size: 0.85rem;
+            margin-top: 0.4rem;
+            margin-left: 0.2rem;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -258,13 +299,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <form class="login-form" method="POST">
         <input type="hidden" name="device_token" id="device_token">
         <div class="input-group">
-            <i class="ri-phone-line input-icon"></i>
-            <input type="tel" name="login" class="form-input" placeholder="Phone Number" required>
+
+            <div class="input-wrapper">
+                <i class="ri-phone-line input-icon"></i>
+
+                <input type="text" name="login" class="form-input" placeholder="Phone Number"
+                    value="<?= htmlspecialchars($mobile ?? '') ?>" autocomplete="username">
+            </div>
+
+            <?php if (!empty($errors['mobile'])): ?>
+                <div class="field-error"><?= $errors['mobile'] ?></div>
+            <?php endif; ?>
+
         </div>
         <div class="input-group">
-            <i class="ri-lock-2-line input-icon"></i>
 
-            <input type="password" name="password" class="form-input" placeholder="Password" required>
+            <div class="input-wrapper">
+                <i class="ri-lock-2-line input-icon"></i>
+
+                <input type="password" id="password" name="password" class="form-input" placeholder="Password"
+                    autocomplete="current-password">
+
+                <i class="ri-eye-line password-toggle" id="togglePassword"></i>
+            </div>
+
+            <?php if (!empty($errors['password'])): ?>
+                <div class="field-error"><?= $errors['password'] ?></div>
+            <?php endif; ?>
+
         </div>
 
         <button type="submit" class="btn-login">Login to Workspace</button>
@@ -311,6 +373,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             });
         </script>
     <?php endif; ?>
+    <script>
+        const passwordInput = document.getElementById('password');
+        const togglePassword = document.getElementById('togglePassword');
+
+        if (passwordInput && togglePassword) {
+            togglePassword.addEventListener('click', function () {
+
+                const isHidden = passwordInput.type === 'password';
+
+                passwordInput.type = isHidden ? 'text' : 'password';
+
+                this.classList.toggle('ri-eye-line', !isHidden);
+                this.classList.toggle('ri-eye-off-line', isHidden);
+
+            });
+        }
+    </script>
 </body>
 
 </html>

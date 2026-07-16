@@ -12,51 +12,66 @@ if (isset($_SESSION['user_id'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $email = $_POST['email'] ?? '';
-    $password = $_POST['password'] ?? '';
+    $email = trim($_POST['email'] ?? '');
+    $password = trim($_POST['password'] ?? '');
 
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch();
+    $errors = [];
 
-    if ($user && password_verify($password, $user['password'])) {
+    if (empty($email)) {
+        $errors['email'] = "Email address is required.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors['email'] = "Please enter a valid email address.";
+    }
 
-        // Dynamically resolve the active role
-        $active_role = $user['role'];
-        if ($user['role'] === 'employee') {
-            $empStmt = $pdo->prepare("SELECT job_role FROM employees WHERE user_id = ?");
-            $empStmt->execute([$user['id']]);
-            $job_role = $empStmt->fetchColumn();
-            if ($job_role) {
-                $active_role = $job_role;
+    if (empty($password)) {
+        $errors['password'] = "Password is required.";
+    }
+
+    if (empty($errors)) {
+
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+
+        if ($user && password_verify($password, $user['password'])) {
+
+            // Dynamically resolve the active role
+            $active_role = $user['role'];
+            if ($user['role'] === 'employee') {
+                $empStmt = $pdo->prepare("SELECT job_role FROM employees WHERE user_id = ?");
+                $empStmt->execute([$user['id']]);
+                $job_role = $empStmt->fetchColumn();
+                if ($job_role) {
+                    $active_role = $job_role;
+                }
             }
-        }
 
-        // Verify admin access (Super Admin or has configured permissions)
-        $has_access = false;
-        if ($user['role'] === 'super_admin') {
-            $has_access = true;
-        } else {
-            $permStmt = $pdo->prepare("SELECT COUNT(*) FROM role_permissions WHERE role_name = ?");
-            $permStmt->execute([$active_role]);
-            if ($permStmt->fetchColumn() > 0) {
+            // Verify admin access (Super Admin or has configured permissions)
+            $has_access = false;
+            if ($user['role'] === 'super_admin') {
                 $has_access = true;
+            } else {
+                $permStmt = $pdo->prepare("SELECT COUNT(*) FROM role_permissions WHERE role_name = ?");
+                $permStmt->execute([$active_role]);
+                if ($permStmt->fetchColumn() > 0) {
+                    $has_access = true;
+                }
             }
-        }
 
-        if ($has_access) {
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['role'] = $user['role'];
-            $_SESSION['active_role'] = $active_role;
+            if ($has_access) {
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['role'] = $user['role'];
+                $_SESSION['active_role'] = $active_role;
 
-            header("Location: dashboard.php");
-            exit();
+                header("Location: dashboard.php");
+                exit();
+            } else {
+                $error = "Access Denied: Your role does not have admin panel access.";
+            }
+
         } else {
-            $error = "Access Denied: Your role does not have admin panel access.";
+            $error = "Invalid email or password";
         }
-
-    } else {
-        $error = "Invalid email or password";
     }
 }
 ?>
@@ -135,6 +150,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .input-group {
+            width: 100%;
+        }
+
+        .input-wrapper {
             position: relative;
         }
 
@@ -144,6 +163,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             top: 50%;
             transform: translateY(-50%);
             color: var(--text-muted);
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.15rem;
+            transition: color .2s ease;
+        }
+
+        .password-toggle:hover {
+            color: var(--primary);
         }
 
         .form-input {
@@ -169,6 +203,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             color: red;
             text-align: center;
         }
+
+        .field-error {
+            color: #dc2626;
+            font-size: 0.85rem;
+            margin-top: 0.4rem;
+            margin-left: 0.2rem;
+        }
     </style>
 </head>
 
@@ -183,21 +224,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <form class="login-form" method="POST">
 
         <div class="input-group">
-            <i class="ri-mail-line input-icon"></i>
-            <input type="email" name="email" class="form-input" placeholder="Email Address" required>
+
+            <div class="input-wrapper">
+                <i class="ri-mail-line input-icon"></i>
+
+                <input type="text" name="email" class="form-input" placeholder="Email Address"
+                    value="<?= htmlspecialchars($email ?? '') ?>" autocomplete="username">
+            </div>
+
+            <?php if (!empty($errors['email'])): ?>
+                <div class="field-error"><?= $errors['email'] ?></div>
+            <?php endif; ?>
+
         </div>
 
         <div class="input-group">
-            <i class="ri-lock-2-line input-icon"></i>
-            <input type="password" name="password" class="form-input" placeholder="Password" required>
+
+            <div class="input-wrapper">
+                <i class="ri-lock-2-line input-icon"></i>
+
+                <input type="password" id="password" name="password" class="form-input" placeholder="Password">
+
+                <i class="ri-eye-line password-toggle" id="togglePassword"></i>
+            </div>
+
+            <?php if (!empty($errors['password'])): ?>
+                <div class="field-error"><?= $errors['password'] ?></div>
+            <?php endif; ?>
+
         </div>
 
         <button type="submit" class="btn-login">Login to Admin</button>
 
+        <?php if (!empty($error)): ?>
+            <div class="error-msg"><?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
+
     </form>
 
-    <?php if (!empty($error))
-        echo "<p class='error-msg'>$error</p>"; ?>
+    <script>
+        const passwordInput = document.getElementById('password');
+        const togglePassword = document.getElementById('togglePassword');
+
+        togglePassword.addEventListener('click', function () {
+
+            const isHidden = passwordInput.type === 'password';
+
+            passwordInput.type = isHidden ? 'text' : 'password';
+
+            this.classList.toggle('ri-eye-line', !isHidden);
+            this.classList.toggle('ri-eye-off-line', isHidden);
+
+        });
+    </script>
 
 </body>
 

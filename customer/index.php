@@ -12,24 +12,32 @@ if (
 }
 
 $msg = "";
+$errors = [];
 
 // STEP 1: SEND OTP
 if (isset($_POST['send_otp'])) {
 
-    $mobile = $_POST['mobile'] ?? '';
+    $mobile = trim($_POST['mobile'] ?? '');
+    if (empty($mobile)) {
+        $errors['mobile'] = "Mobile number is required.";
+    } elseif (!preg_match('/^[0-9]{10}$/', $mobile)) {
+        $errors['mobile'] = "Please enter a valid 10-digit mobile number.";
+    }
+    if (empty($errors)) {
 
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE mobile = ? AND role = 'customer'");
-    $stmt->execute([$mobile]);
-    $user = $stmt->fetch();
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE mobile = ? AND role = 'customer'");
+        $stmt->execute([$mobile]);
+        $user = $stmt->fetch();
 
-    if (!$user) {
-        $msg = "Mobile not registered";
-    } else {
+        if (!$user) {
+            $msg = "Mobile not registered";
+        } else {
 
-        $_SESSION['otp'] = rand(100000, 999999);
-        $_SESSION['mobile'] = $mobile;
+            $_SESSION['otp'] = rand(100000, 999999);
+            $_SESSION['mobile'] = $mobile;
 
-        // (same as reference → no login here)
+            // (same as reference → no login here)
+        }
     }
 }
 
@@ -60,32 +68,47 @@ if (isset($_GET['action']) && $_GET['action'] == 'change_mobile') {
 // STEP 4: VERIFY OTP
 if (isset($_POST['verify_otp'])) {
 
-    if ($_SESSION['otp'] == $_POST['otp']) {
+    $otp = trim($_POST['otp'] ?? '');
 
-        // 🔥 IMPORTANT: FETCH USER AGAIN (REFERENCE STYLE)
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE mobile = ? AND role = 'customer'");
-        $stmt->execute([$_SESSION['mobile']]);
-        $user = $stmt->fetch();
+    if (empty($otp)) {
+        $errors['otp'] = "OTP is required.";
+    } elseif (!preg_match('/^[0-9]{6}$/', $otp)) {
+        $errors['otp'] = "Please enter a valid 6-digit OTP.";
+    }
 
-        if ($user) {
+    if (empty($errors)) {
 
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['role'] = 'customer';
-           
-            $_SESSION['customer_name'] = $user['username'];
+        if (!isset($_SESSION['otp'])) {
 
-            unset($_SESSION['otp']);
-            unset($_SESSION['mobile']);
+            $msg = "OTP session expired. Please request a new OTP.";
 
-            header("Location: dashboard.php");
-            exit();
+        } elseif ($_SESSION['otp'] == $otp) {
+
+            // 🔥 IMPORTANT: FETCH USER AGAIN (REFERENCE STYLE)
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE mobile = ? AND role = 'customer'");
+            $stmt->execute([$_SESSION['mobile']]);
+            $user = $stmt->fetch();
+
+            if ($user) {
+
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['role'] = 'customer';
+
+                $_SESSION['customer_name'] = $user['username'];
+
+                unset($_SESSION['otp']);
+                unset($_SESSION['mobile']);
+
+                header("Location: dashboard.php");
+                exit();
+
+            } else {
+                $msg = "User not found";
+            }
 
         } else {
-            $msg = "User not found";
+            $msg = "Wrong OTP";
         }
-
-    } else {
-        $msg = "Wrong OTP";
     }
 }
 ?>
@@ -157,7 +180,18 @@ if (isset($_POST['verify_otp'])) {
         }
 
         .input-group {
+            width: 100%;
+        }
+
+        .input-wrapper {
             position: relative;
+        }
+
+        .field-error {
+            color: #dc2626;
+            font-size: .85rem;
+            margin-top: .4rem;
+            margin-left: .2rem;
         }
 
         .input-icon {
@@ -295,8 +329,20 @@ if (isset($_POST['verify_otp'])) {
         <?php if (!isset($_SESSION['otp'])) { ?>
 
             <div class="input-group">
-                <i class="ri-phone-line input-icon"></i>
-                <input type="tel" name="mobile" class="form-input" placeholder="Mobile Number" required>
+
+                <div class="input-wrapper">
+                    <i class="ri-phone-line input-icon"></i>
+
+                    <input type="text" name="mobile" autocomplete="tel" class="form-input" placeholder="Mobile Number"
+                        value="<?= htmlspecialchars($mobile ?? '') ?>">
+                </div>
+
+                <?php if (!empty($errors['mobile'])): ?>
+                    <div class="field-error">
+                        <?= $errors['mobile'] ?>
+                    </div>
+                <?php endif; ?>
+
             </div>
 
             <button type="submit" name="send_otp" class="btn-login">Get OTP</button>
@@ -304,9 +350,20 @@ if (isset($_POST['verify_otp'])) {
         <?php } else { ?>
 
             <div class="input-group">
-                <i class="ri-key-line input-icon"></i>
-                <input type="text" name="otp" maxlength="6" class="form-input" placeholder="Enter OTP"
-                    value="<?php echo isset($_SESSION['otp']) ? $_SESSION['otp'] : ''; ?>" required>
+
+                <div class="input-wrapper">
+                    <i class="ri-key-line input-icon"></i>
+
+                    <input type="text" name="otp" autocomplete="one-time-code" maxlength="6" class="form-input"
+                        placeholder="Enter OTP" value="<?= htmlspecialchars($_SESSION['otp'] ?? '') ?>">
+                </div>
+
+                <?php if (!empty($errors['otp'])): ?>
+                    <div class="field-error">
+                        <?= $errors['otp'] ?>
+                    </div>
+                <?php endif; ?>
+
             </div>
             <button type="submit" name="verify_otp" class="btn-login">Verify OTP</button>
             <div class="otp-actions">
