@@ -238,22 +238,14 @@ foreach ($employees as &$row) {
     }
 
     // Read OT Percentage
-    $otStmt = $pdo->prepare("
+    $otStmt = $pdo->query("
     SELECT ot_percentage
     FROM ot_rate_settings
-    WHERE from_date <= ?
-      AND to_date >= ?
     ORDER BY id DESC
     LIMIT 1
-");
+    ");
 
-    $otStmt->execute([$to_date, $from_date]);
-
-    $otRate = $otStmt->fetchColumn();
-
-    if ($otRate === false || $otRate === null || $otRate === '') {
-        $otRate = 0;
-    }
+    $otRate = (float) $otStmt->fetchColumn();
 
     $otRate = floatval($otRate);
 
@@ -262,7 +254,7 @@ foreach ($employees as &$row) {
     $ot_rate_per_hour = $hourly_rate + $bonus_per_hour;
 
     $approved_ot_amount = $approved_ot_hours * $ot_rate_per_hour;
-   
+
     // Save values
     $row['approved_ot_hours'] = $approved_ot_hours;
     $row['approved_ot_amount'] = $approved_ot_amount;
@@ -297,19 +289,47 @@ foreach ($employees as &$row) {
         }
         $row['calculated_total'] = $row['outsource_balance'];
     } else {
+        // Salary already paid in this period
         $checkStmt = $pdo->prepare("
-        SELECT SUM(amount)
-        FROM employee_payments
-        WHERE employee_id = ?
-        AND payment_date BETWEEN ? AND ?
-        AND payment_type = 'Salary'
-    ");
+    SELECT COALESCE(SUM(amount),0)
+    FROM employee_payments
+    WHERE employee_id = ?
+    AND payment_date BETWEEN ? AND ?
+    AND payment_type = 'Salary'
+");
+
         $checkStmt->execute([$row['id'], $from_date, $to_date]);
-        $paidAmount = $checkStmt->fetchColumn();
+        $paidAmount = (float) $checkStmt->fetchColumn();
 
-        $payment_status = $paidAmount > 0 ? 'Paid' : 'Pending';
 
-        $row['calculated_total'] = max(0, $total);
+        // Advance recovered in this period
+        $advanceStmt = $pdo->prepare("
+            SELECT COALESCE(SUM(amount),0)
+            FROM employee_payments
+            WHERE employee_id = ?
+            AND payment_date BETWEEN ? AND ?
+            AND payment_type = 'Advance'
+            AND LOWER(status) = 'deducted'
+        ");
+
+        $advanceStmt->execute([$row['id'], $from_date, $to_date]);
+        $advanceRecovered = (float) $advanceStmt->fetchColumn();
+
+
+        // Same calculation used in pay-employee.php
+        $salaryPayable = max(0, $total - $advanceRecovered);
+
+        $remainingAmount = max(0, $salaryPayable - $paidAmount);
+
+        $row['calculated_total'] = $remainingAmount;
+
+        if ($paidAmount <= 0) {
+            $payment_status = 'Pending';
+        } elseif ($remainingAmount > 0) {
+            $payment_status = 'Partially Paid';
+        } else {
+            $payment_status = 'Paid';
+        }
     }
 
     $row['payment_status'] = $payment_status;
@@ -666,6 +686,8 @@ include 'includes/header.php';
 
                                     if ($row['payment_status'] == 'Paid') {
                                         $badgeClass = 'badge-active';
+                                    } elseif ($row['payment_status'] == 'Partially Paid') {
+                                        $badgeClass = 'badge-warning';
                                     } elseif (
                                         $employee_type == 'outsource' &&
                                         $row['payment_status'] == 'No Earnings'
@@ -748,6 +770,11 @@ include 'includes/header.php';
     .badge-neutral {
         background: #e2e8f0;
         color: #475569;
+    }
+
+    .badge-warning {
+        background: #fef3c7;
+        color: #b45309;
     }
 </style>
 

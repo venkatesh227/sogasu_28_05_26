@@ -69,19 +69,31 @@ $totalDeductions = 0;
 $totalUnpaidOT = 0;
 
 foreach ($payments as $p) {
-    if ($p['payment_type'] == 'Salary')
+
+    if ($p['payment_type'] == 'Salary') {
         $totalSalary += $p['amount'];
+    }
 
     if ($p['payment_type'] == 'Outsource Payment') {
         $totalSalary += $p['amount'];
     }
-    if ($p['payment_type'] == 'Overtime')
+
+    if ($p['payment_type'] == 'Overtime') {
         $totalOT += $p['amount'];
-    if ($p['payment_type'] == 'Bonus')
+    }
+
+    if ($p['payment_type'] == 'Bonus') {
         $totalBonus += $p['amount'];
-    if ($p['payment_type'] == 'Advance' || strtolower($p['status']) == 'deducted') {
+    }
+
+    // Count only actual deductions
+    if (
+        ($p['payment_type'] == 'Advance' && strtolower($p['status']) == 'deducted') ||
+        $p['payment_type'] == 'Fine'
+    ) {
         $totalDeductions += abs($p['amount']);
     }
+
 }
 
 foreach ($overtimes as $ot) {
@@ -90,7 +102,7 @@ foreach ($overtimes as $ot) {
     }
 }
 
-$netEarnings = ($totalSalary + $totalOT + $totalBonus) - $totalDeductions;
+$netEarnings = $totalSalary + $totalOT + $totalBonus;
 
 $pageTitle = "Payroll History - Sogasu";
 $activePage = "payroll";
