@@ -6,11 +6,16 @@ include '../includes/db.php';
 // Handle Process
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'process') {
 
-    $ot_id  = (int)$_POST['ot_id'];
-    $status = $_POST['status'];
+    $ot_id = (int) $_POST['ot_id'];
+    $status = ($_POST['status'] === 'Approved') ? 'Approved' : 'Rejected';
 
     // Get OT Request Details
-    $stmt = $pdo->prepare("SELECT * FROM employee_overtime WHERE id = ?");
+    $stmt = $pdo->prepare("
+    SELECT *
+    FROM employee_overtime
+    WHERE id = ?
+    AND status = 'Pending'
+    ");
     $stmt->execute([$ot_id]);
     $ot = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -91,27 +96,37 @@ include 'includes/header.php';
         </div>
 
         <?php if (empty($pending)): ?>
-            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 3rem; text-align: center; margin-bottom: 2rem;">
+            <div
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 3rem; text-align: center; margin-bottom: 2rem;">
                 <div style="font-size: 3rem; color: #e2e8f0; margin-bottom: 1rem;"><i class="ri-timer-line"></i></div>
                 <h3 style="color: #64748b; margin: 0;">No pending OT requests</h3>
             </div>
         <?php else: ?>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem; margin-bottom: 3rem;">
+            <div
+                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem; margin-bottom: 3rem;">
                 <?php foreach ($pending as $r): ?>
-                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                        <div style="padding: 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+                    <div
+                        style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div
+                            style="padding: 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
                             <div>
-                                <div style="font-weight: 700; color: #1e293b;"><?= htmlspecialchars($r['first_name'] . ' ' . $r['last_name']) ?></div>
+                                <div style="font-weight: 700; color: #1e293b;">
+                                    <?= htmlspecialchars($r['first_name'] . ' ' . $r['last_name']) ?>
+                                </div>
                                 <div style="font-size: 0.75rem; color: #94a3b8;"><?= htmlspecialchars($r['job_role']) ?></div>
                             </div>
                             <div style="text-align: right;">
-                                <div style="font-size: 1.1rem; font-weight: 800; color: #059669;"><?= $r['hours'] ?> <span style="font-size: 0.75rem; font-weight: 400;">Hrs</span></div>
-                                <div style="font-size: 0.7rem; color: #64748b;">₹<?= number_format($r['amount'], 0) ?></div>
+                                <div style="font-size: 1.1rem; font-weight: 800; color: #059669;"><?= $r['hours'] ?> <span
+                                        style="font-size: 0.75rem; font-weight: 400;">Hrs</span></div>
+                                <div style="font-size: 0.7rem; color: #64748b;">
+                                    Amount will be calculated after OT completion
+                                </div>
                             </div>
                         </div>
                         <div style="padding: 1.25rem;">
                             <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 1rem;">
-                                <i class="ri-calendar-line"></i> Date: <strong><?= date('d M, Y', strtotime($r['ot_date'])) ?></strong><br>
+                                <i class="ri-calendar-line"></i> Date:
+                                <strong><?= date('d M, Y', strtotime($r['ot_date'])) ?></strong><br>
                                 <i class="ri-chat-3-line"></i> Note: <?= htmlspecialchars($r['description']) ?>
                             </div>
                             <div style="display: flex; gap: 0.75rem;">
@@ -119,13 +134,15 @@ include 'includes/header.php';
                                     <input type="hidden" name="action" value="process">
                                     <input type="hidden" name="ot_id" value="<?= $r['id'] ?>">
                                     <input type="hidden" name="status" value="Approved">
-                                    <button type="submit" class="btn" style="width: 100%; background: #059669; color: white; border: none; padding: 0.6rem; border-radius: 6px; font-weight: 600;">Approve</button>
+                                    <button type="submit" class="btn"
+                                        style="width: 100%; background: #059669; color: white; border: none; padding: 0.6rem; border-radius: 6px; font-weight: 600;">Approve</button>
                                 </form>
                                 <form method="POST" style="flex: 1;">
                                     <input type="hidden" name="action" value="process">
                                     <input type="hidden" name="ot_id" value="<?= $r['id'] ?>">
                                     <input type="hidden" name="status" value="Rejected">
-                                    <button type="submit" class="btn" style="width: 100%; background: #e11d48; color: white; border: none; padding: 0.6rem; border-radius: 6px; font-weight: 600;">Reject</button>
+                                    <button type="submit" class="btn"
+                                        style="width: 100%; background: #e11d48; color: white; border: none; padding: 0.6rem; border-radius: 6px; font-weight: 600;">Reject</button>
                                 </form>
                             </div>
                         </div>
@@ -142,7 +159,8 @@ include 'includes/header.php';
             <div style="padding: 1.5rem; overflow-x: auto;">
                 <table id="otHistoryTable" class="display" style="width: 100%;">
                     <thead>
-                        <tr style="background: #f8fafc; text-align: left; color: #64748b; font-size: 0.85rem; font-weight: 600;">
+                        <tr
+                            style="background: #f8fafc; text-align: left; color: #64748b; font-size: 0.85rem; font-weight: 600;">
                             <th>Employee</th>
                             <th>Date</th>
                             <th>Hours</th>
@@ -154,14 +172,27 @@ include 'includes/header.php';
                         <?php foreach ($history as $h): ?>
                             <tr style="border-bottom: 1px solid #f1f5f9;">
                                 <td style="padding: 1rem 0;">
-                                    <div style="font-weight: 600; color: #1e293b;"><?= htmlspecialchars($h['first_name'] . ' ' . $h['last_name']) ?></div>
+                                    <div style="font-weight: 600; color: #1e293b;">
+                                        <?= htmlspecialchars($h['first_name'] . ' ' . $h['last_name']) ?>
+                                    </div>
                                 </td>
-                                <td style="font-size: 0.85rem; color: #475569;"><?= date('d M, Y', strtotime($h['ot_date'])) ?></td>
+                                <td style="font-size: 0.85rem; color: #475569;">
+                                    <?= date('d M, Y', strtotime($h['ot_date'])) ?>
+                                </td>
                                 <td style="font-weight: 700; color: #1e293b;"><?= $h['hours'] ?></td>
-                                <td style="font-weight: 700; color: #059669;">₹<?= number_format($h['amount'], 2) ?></td>
+                                <td style="font-weight: 700; color: #059669;">
+                                    <?php
+                                    if ($h['amount'] > 0) {
+                                        echo "₹" . number_format($h['amount'], 2);
+                                    } else {
+                                        echo "-";
+                                    }
+                                    ?>
+                                </td>
                                 <td>
                                     <?php $hColor = $h['status'] === 'Approved' ? '#059669' : '#e11d48'; ?>
-                                    <span style="font-size: 0.7rem; color: <?= $hColor ?>; font-weight: 800; text-transform: uppercase;"><?= $h['status'] ?></span>
+                                    <span
+                                        style="font-size: 0.7rem; color: <?= $hColor ?>; font-weight: 800; text-transform: uppercase;"><?= $h['status'] ?></span>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -174,14 +205,14 @@ include 'includes/header.php';
 
 <?php include __DIR__ . '/includes/datatable.php'; ?>
 <script>
-    $(document).ready(function() {
+    $(document).ready(function () {
         initializeDataTable('otHistoryTable', 'OT History');
     });
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <?php if (isset($_GET['success'])): ?>
-<script>Swal.fire({ icon: 'success', title: 'Processed', text: 'OT request updated successfully.', timer: 1500, showConfirmButton: false });</script>
+    <script>Swal.fire({ icon: 'success', title: 'Processed', text: 'OT request updated successfully.', timer: 1500, showConfirmButton: false });</script>
 <?php endif; ?>
 
 <?php include 'includes/footer.php'; ?>

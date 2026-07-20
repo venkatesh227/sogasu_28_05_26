@@ -78,6 +78,40 @@ if (!$today_shift) {
     $defaultShiftStmt->execute([$employee_id]);
     $today_shift = $defaultShiftStmt->fetch();
 }
+$approvedOT = false;
+
+$otStmt = $pdo->prepare("
+    SELECT id
+    FROM employee_overtime
+    WHERE employee_id = ?
+      AND ot_date = ?
+      AND status = 'Approved'
+    LIMIT 1
+");
+$otStmt->execute([$employee_id, $today]);
+$approvedOT = $otStmt->fetch() ? true : false;
+$canStartOT = false;
+
+if (
+    $approvedOT &&
+    $today_shift &&
+    !empty($today_att) &&
+    !empty($today_att['check_in']) &&
+    empty($today_att['ot_started'])
+) {
+
+    $currentDateTime = new DateTime();
+
+    $shiftEndDateTime = new DateTime($today . ' ' . $today_shift['end_time']);
+
+    if ($today_shift['end_time'] <= $today_shift['start_time']) {
+        $shiftEndDateTime->modify('+1 day');
+    }
+
+    if ($currentDateTime >= $shiftEndDateTime) {
+        $canStartOT = true;
+    }
+}
 
 // Handle Punch In/Out 
 if (isset($_POST['action'])) {
@@ -86,6 +120,42 @@ if (isset($_POST['action'])) {
     $time = date('H:i:s');
     $log_type = ($action === 'punch_in') ? 'In' : 'Out';
     $status = 'Present';
+    if ($action === 'start_ot') {
+        if (!$canStartOT) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'You are not allowed to start overtime.'
+            ]);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("
+            UPDATE attendance
+            SET
+                ot_started = 1,
+                ot_start_time = ?
+            WHERE employee_id = ?
+            AND attendance_date = ?
+            AND (ot_started IS NULL OR ot_started = 0)
+        ");
+
+        $stmt->execute([$time, $employee_id, $today]);
+        if ($stmt->rowCount() == 0) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Overtime has already been started.'
+            ]);
+            exit;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'time' => date('h:i A')
+        ]);
+
+        exit;
+    }
+
 
     // Check shift if punching in  
     if ($action === 'punch_in') {
@@ -178,17 +248,71 @@ if (isset($_POST['action'])) {
 
         // 2. Update/Insert Summary in attendance table   
         if ($action === 'punch_in') {
+
             $stmt = $pdo->prepare("
-                INSERT INTO attendance (employee_id, attendance_date, status, check_in, working_from) 
-                VALUES (?, ?, ?, ?, 'Office') 
-                ON DUPLICATE KEY UPDATE
-                status = VALUES(status),
-                check_in = VALUES(check_in)
-            ");
-            $stmt->execute([$employee_id, $today, $status, $time]);
-        } else {
-            $stmt = $pdo->prepare("UPDATE attendance SET check_out = ? WHERE employee_id = ? AND attendance_date = ?");
+        INSERT INTO attendance
+        (
+            employee_id,
+            attendance_date,
+            status,
+            check_in,
+            working_from,
+            is_late,
+            is_half_day
+        )
+        VALUES
+        (?, ?, ?, ?, 'Office', ?, ?)
+        ON DUPLICATE KEY UPDATE
+            status      = VALUES(status),
+            check_in    = VALUES(check_in),
+            working_from= VALUES(working_from),
+            is_late     = VALUES(is_late),
+            is_half_day = VALUES(is_half_day)
+    ");
+
+            $stmt->execute([
+                $employee_id,
+                $today,
+                $status,
+                $time,
+                ($status === 'Late') ? 1 : 0,
+                ($status === 'Half Day') ? 1 : 0
+            ]);
+
+        } elseif ($action === 'punch_out') {
+
+            $stmt = $pdo->prepare("
+        UPDATE attendance
+        SET check_out = ?
+        WHERE employee_id = ?
+        AND attendance_date = ?
+    ");
             $stmt->execute([$time, $employee_id, $today]);
+
+            if (!empty($today_att['ot_started'])) {
+
+                $otStart = strtotime($today_att['ot_start_time']);
+                $otEnd = strtotime($time);
+
+                $minutes = max(0, floor(($otEnd - $otStart) / 60));
+
+                $stmt = $pdo->prepare("
+            UPDATE attendance
+            SET
+                ot_end_time = ?,
+                ot_minutes  = ?
+            WHERE employee_id = ?
+              AND attendance_date = ?
+        ");
+
+                $stmt->execute([
+                    $time,
+                    $minutes,
+                    $employee_id,
+                    $today
+                ]);
+            }
+
         }
 
         $pdo->commit();
@@ -204,6 +328,19 @@ if (isset($_POST['action'])) {
 $stmt = $pdo->prepare("SELECT log_type FROM attendance_logs WHERE employee_id = ? AND log_date = ? ORDER BY id DESC LIMIT 1");
 $stmt->execute([$employee_id, $today]);
 $last_log = $stmt->fetchColumn();
+
+// -----------------------------
+// OT Status (NEW)
+// -----------------------------
+$otStarted = false;
+
+if (!empty($today_att)) {
+    $otStarted = (
+        !empty($today_att['ot_started']) &&
+        $today_att['ot_started'] == 1 &&
+        empty($today_att['ot_end_time'])
+    );
+}
 
 // Fetch recent history
 $stmt = $pdo->prepare("SELECT * FROM attendance WHERE employee_id = ? ORDER BY attendance_date DESC LIMIT 5");
@@ -263,11 +400,25 @@ include 'includes/header.php';
                     <i class="ri-login-circle-line"></i> PUNCH IN
                 </button>
             <?php else: ?>
-                <button onclick="punch('punch_out')" class="punch-btn"
-                    style="width: 100%; background: #e11d48; color: white; border: none; padding: 1.25rem; border-radius: 16px; font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; box-shadow: 0 10px 15px -3px rgba(225, 29, 72, 0.3);">
-                    <i class="ri-logout-circle-line"></i> PUNCH OUT
-                </button>
+
+                <?php if ($canStartOT && !$otStarted): ?>
+
+                    <button onclick="startOT()" class="punch-btn"
+                        style="width:100%;background:#2563eb;color:#fff;border:none;padding:1.25rem;border-radius:16px;font-weight:700;font-size:1.1rem;display:flex;align-items:center;justify-content:center;gap:.75rem;">
+                        <i class="ri-timer-line"></i> START OT
+                    </button>
+
+                <?php else: ?>
+
+                    <button onclick="punch('punch_out')" class="punch-btn"
+                        style="width:100%;background:#e11d48;color:#fff;border:none;padding:1.25rem;border-radius:16px;font-weight:700;font-size:1.1rem;display:flex;align-items:center;justify-content:center;gap:.75rem;box-shadow:0 10px 15px -3px rgba(225,29,72,.3);">
+                        <i class="ri-logout-circle-line"></i> PUNCH OUT
+                    </button>
+
+                <?php endif; ?>
+
             <?php endif; ?>
+
         <?php endif; ?>
     </div>
 
@@ -356,6 +507,61 @@ include 'includes/header.php';
                     });
             }
         });
+    }
+    function startOT() {
+
+        Swal.fire({
+            title: 'Start Overtime?',
+            text: 'Start your approved overtime now?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#2563eb'
+        }).then((result) => {
+
+            if (result.isConfirmed) {
+
+                fetch('attendance.php', {
+
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+
+                    body: 'action=start_ot'
+
+                })
+
+                    .then(r => r.json())
+
+                    .then(data => {
+
+                        if (data.success) {
+
+                            Swal.fire(
+                                'Success',
+                                'Overtime Started',
+                                'success'
+                            ).then(() => {
+                                location.reload();
+                            });
+
+                        } else {
+
+                            Swal.fire(
+                                'Error',
+                                data.error,
+                                'error'
+                            );
+
+                        }
+
+                    });
+
+            }
+
+        });
+
     }
 </script>
 

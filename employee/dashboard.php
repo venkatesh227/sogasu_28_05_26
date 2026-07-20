@@ -191,11 +191,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     // OT payout calculates hourly pay from monthly salary and adds the OT premium.
     $hourlyRate = $salaryAmount / 30 / 8;
-    $baseAmount = $hourlyRate * $hours;
-    $amount = $baseAmount + ($baseAmount * $rate / 100);
+    // Final OT amount will be calculated after employee completes OT.
+    $amount = 0;
 
-    $stmt = $pdo->prepare("INSERT INTO employee_overtime (employee_id, ot_date, hours, amount, description, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
-    if ($stmt->execute([$employee_id, $date, $hours, $amount, $desc])) {
+    // $stmt = $pdo->prepare("INSERT INTO employee_overtime (employee_id, ot_date, hours, amount, description, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
+
+    $stmt = $pdo->prepare("
+                            INSERT INTO employee_overtime
+                            (employee_id, ot_date, hours, amount, description, status)
+                            VALUES (?, ?, ?, 0, ?, 'Pending')
+                        ");
+    if (
+        $stmt->execute([
+            $employee_id,
+            $date,
+            $hours,
+            $desc
+        ])
+    ) {
         header("Location: dashboard.php?ot_success=1");
         exit;
     }
@@ -488,7 +501,7 @@ include 'includes/header.php';
             <div style="margin-bottom: 1rem;">
                 <label
                     style="display: block; font-size: 0.85rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem;">Hours
-                    Worked</label>
+                    I Want to Work</label>
                 <input type="number" name="hours" step="0.5" required placeholder="e.g. 2.0"
                     style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; outline: none;">
             </div>

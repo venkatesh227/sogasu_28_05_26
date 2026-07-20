@@ -58,10 +58,30 @@ $stmt = $pdo->prepare("
         WHERE employee_id = employees.id
         AND attendance_date BETWEEN :from_date7 AND :to_date7
         AND status = 'Late') AS late_days,
-        (SELECT SUM(hours) FROM employee_overtime WHERE employee_id = employees.id AND status = 'Approved' AND ot_date BETWEEN :from_date3 AND :to_date3) as approved_ot_hours,
-        (SELECT SUM(amount) FROM employee_overtime WHERE employee_id = employees.id AND status = 'Approved' AND ot_date BETWEEN :from_date4 AND :to_date4) as approved_ot_amount,
+        (
+        SELECT COALESCE(SUM(ot_minutes),0)
+        FROM attendance
+        WHERE employee_id = employees.id
+        AND attendance_date BETWEEN :from_date3 AND :to_date3
+        ) AS approved_ot_minutes,
         (SELECT SUM(hours) FROM employee_overtime WHERE employee_id = employees.id AND status = 'Pending' AND ot_date BETWEEN :from_date5 AND :to_date5) as pending_ot_hours,
-        (SELECT SUM(CASE WHEN status = 'Paid' THEN amount ELSE -amount END) FROM employee_payments WHERE employee_id = employees.id AND payment_type = 'Advance') as advance_dues
+        (SELECT SUM(CASE WHEN status = 'Paid' THEN amount ELSE -amount END) FROM employee_payments WHERE employee_id = employees.id AND payment_type = 'Advance') as advance_dues,
+        (
+            SELECT COALESCE(
+
+                (
+                    SELECT sr.shift_type_id
+                    FROM shift_roster sr
+                    WHERE sr.employee_id = employees.id
+                    AND sr.roster_date <= :to_date_shift
+                    ORDER BY sr.roster_date DESC
+                    LIMIT 1
+                ),
+
+                employees.default_shift_id
+
+            )
+        ) AS shift_type_id
     FROM employees
     LEFT JOIN users ON employees.user_id = users.id
     WHERE employees.is_deleted = 0
@@ -76,15 +96,14 @@ $stmt->execute([
     'to_date2' => $to_date,
     'from_date3' => $from_date,
     'to_date3' => $to_date,
-    'from_date4' => $from_date,
-    'to_date4' => $to_date,
     'from_date5' => $from_date,
     'to_date5' => $to_date,
     'from_date6' => $from_date,
     'to_date6' => $to_date,
     'from_date7' => $from_date,
     'to_date7' => $to_date,
-    'employee_type' => $employee_type
+    'employee_type' => $employee_type,
+    'to_date_shift' => $to_date
 ]);
 
 $employees = $stmt->fetchAll();
@@ -155,11 +174,103 @@ foreach ($employees as &$row) {
 
     $present_days = intval($row['present_days']);
     $half_days = intval($row['half_days']);
+    $late_days = intval($row['late_days']);
 
-    $approved_ot_amount = floatval($row['approved_ot_amount']);
+    // Late employees are paid as Present
+    $paid_present_days = $present_days + $late_days;
+    // ================= OT CALCULATION =================
+
+    $approved_ot_minutes = intval($row['approved_ot_minutes']);
+    $approved_ot_hours = $approved_ot_minutes / 60;
+    // Get Working Hours from Assigned Shift
+
+    $working_hours = 8; // fallback
+
+    if (!empty($row['shift_type_id'])) {
+
+        $shiftStmt = $pdo->prepare("
+        SELECT start_time, end_time
+        FROM shift_types
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+        $shiftStmt->execute([$row['shift_type_id']]);
+
+        $shift = $shiftStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($shift) {
+
+            $start = strtotime($shift['start_time']);
+            $end = strtotime($shift['end_time']);
+
+            if ($end < $start) {
+                $end += 86400;
+            }
+
+            $working_hours = ($end - $start) / 3600;
+
+            if ($working_hours <= 0) {
+                $working_hours = 8;
+            }
+        }
+    }
+
+    // Hourly Rate based ONLY on Pay Cycle
+
+    switch (strtolower(trim($row['pay_cycle']))) {
+
+        case 'daily':
+            $hourly_rate = $baseSalary / $working_hours;
+            break;
+
+        case 'weekly':
+            $hourly_rate = ($baseSalary / 7) / $working_hours;
+            break;
+
+        case 'monthly':
+            $hourly_rate = ($baseSalary / 30) / $working_hours;
+            break;
+
+        default:
+            $hourly_rate = ($baseSalary / 30) / $working_hours;
+            break;
+    }
+
+    // Read OT Percentage
+    $otStmt = $pdo->prepare("
+    SELECT ot_percentage
+    FROM ot_rate_settings
+    WHERE from_date <= ?
+      AND to_date >= ?
+    ORDER BY id DESC
+    LIMIT 1
+");
+
+    $otStmt->execute([$to_date, $from_date]);
+
+    $otRate = $otStmt->fetchColumn();
+
+    if ($otRate === false || $otRate === null || $otRate === '') {
+        $otRate = 0;
+    }
+
+    $otRate = floatval($otRate);
+
+    $bonus_per_hour = ($hourly_rate * $otRate) / 100;
+
+    $ot_rate_per_hour = $hourly_rate + $bonus_per_hour;
+
+    $approved_ot_amount = $approved_ot_hours * $ot_rate_per_hour;
+   
+    // Save values
+    $row['approved_ot_hours'] = $approved_ot_hours;
+    $row['approved_ot_amount'] = $approved_ot_amount;
+
+    // ================= END OT =================
 
     $attendance_salary =
-        ($present_days * $per_day)
+        ($paid_present_days * $per_day)
         +
         ($half_days * ($per_day / 2));
 
@@ -207,7 +318,7 @@ foreach ($employees as &$row) {
         $totalDue += $row['calculated_total'];
         $pendingCount++;
     }
-    $totalOT += floatval($row['approved_ot_hours']);
+    $totalOT += $approved_ot_hours;
 }
 unset($row);
 

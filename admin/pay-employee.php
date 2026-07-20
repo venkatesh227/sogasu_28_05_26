@@ -45,14 +45,48 @@ $stmt = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE employee_id = ? AND
 $stmt->execute([$id, $from_date, $to_date]);
 $half_days = $stmt->fetchColumn() ?: 0;
 
-// Fetch Approved OT Details
-$stmt = $pdo->prepare("SELECT * FROM employee_overtime WHERE employee_id = ? AND status = 'Approved' AND ot_date BETWEEN ? AND ? ORDER BY ot_date ASC");
-$stmt->execute([$id, $from_date, $to_date]);
-$approved_ots = $stmt->fetchAll();
+// Fetch Total Approved OT Minutes
+$stmt = $pdo->prepare("
+SELECT COALESCE(SUM(ot_minutes),0)
+FROM attendance
+WHERE employee_id = ?
+AND attendance_date BETWEEN ? AND ?
+AND ot_minutes > 0
+");
 
-$pending_ot = 0;
-foreach ($approved_ots as $ot)
-    $pending_ot += $ot['amount'];
+$stmt->execute([$id, $from_date, $to_date]);
+
+$total_ot_minutes = (int)$stmt->fetchColumn();
+
+
+// OT Percentage
+$stmt = $pdo->query("
+SELECT overtime_rate
+FROM ot_rate_settings
+LIMIT 1
+");
+
+$ot_percentage = (float)$stmt->fetchColumn();
+
+
+// Working Hours
+$working_hours = 9;   // Replace later with your dynamic shift logic if not already shared here.
+
+
+// Hourly Rate
+$hourly_rate = $daily_rate / $working_hours;
+
+
+// Bonus Per Hour
+$bonus_per_hour = ($hourly_rate * $ot_percentage) / 100;
+
+
+// OT Rate Per Hour
+$ot_rate_per_hour = $hourly_rate + $bonus_per_hour;
+
+
+// Total OT Amount
+$pending_ot = ($total_ot_minutes / 60) * $ot_rate_per_hour;
 
 $payCycle = strtolower(trim($employee['pay_cycle']));
 $baseSalary = (float) $employee['base_salary'];
