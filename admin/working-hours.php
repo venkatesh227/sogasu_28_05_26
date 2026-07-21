@@ -110,11 +110,11 @@ foreach ($daily_sessions as $emp_id => $dates) {
         $shiftEnd = null;
 
         if (
-    $meta['shift_start']
-    && $meta['shift_end']
-    && $daySessions[0]['in']
-    && end($daySessions)['out']
-) {
+            $meta['shift_start']
+            && $meta['shift_end']
+            && $daySessions[0]['in']
+            && end($daySessions)['out']
+        ) {
 
             $checkIn = strtotime($date . ' ' . $daySessions[0]['in']);
 

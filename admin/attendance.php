@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../includes/db.php';
+require_once 'attendance_calculator.php';
 
 $month = isset($_GET['month']) ? (int) $_GET['month'] : (int) date('m');
 $year = isset($_GET['year']) ? (int) $_GET['year'] : (int) date('Y');
@@ -246,6 +247,15 @@ $attendance = [];
 foreach ($att_data as $row) {
     $attendance[$row['employee_id']][$row['day']] = $row['status'];
 }
+$fromDate = sprintf('%04d-%02d-01', $year, $month);
+$toDate = date('Y-m-t', strtotime($fromDate));
+
+$calculatedAttendance = calculateAttendanceSummary(
+    $pdo,
+    $fromDate,
+    $toDate
+);
+
 
 $pageTitle = "Attendance Sheet - Sogasu";
 $activePage = "attendance";
@@ -524,7 +534,9 @@ include 'includes/header.php';
                                     </a>
                                 </td>
                                 <?php for ($d = 1; $d <= $days_in_month; $d++):
-                                    $status = $attendance[$emp['id']][$d] ?? null;
+                                    $status = $calculatedAttendance[$emp['id']][$d]
+                                        ?? $attendance[$emp['id']][$d]
+                                        ?? null;
                                     if ($status == 'Present')
                                         $present_count++;
                                     $is_sun = date('N', mktime(0, 0, 0, $month, $d, $year)) == 7;

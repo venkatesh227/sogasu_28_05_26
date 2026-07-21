@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../includes/db.php';
+require_once 'attendance_calculator.php';
 
 // Handle Status Toggle via AJAX (kept for compatibility)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'], $_POST['status'])) {
@@ -107,6 +108,11 @@ $stmt->execute([
 ]);
 
 $employees = $stmt->fetchAll();
+$attendanceSummary = calculateAttendanceSummary(
+    $pdo,
+    $from_date,
+    $to_date
+);
 
 // Paid in this period calculation
 
@@ -171,115 +177,163 @@ foreach ($employees as &$row) {
             $per_day = $baseSalary / 30;
             break;
     }
+    if ($employee_type == 'inhouse') {
 
-    $present_days = intval($row['present_days']);
-    $half_days = intval($row['half_days']);
-    $late_days = intval($row['late_days']);
+        $present_days = 0;
+        $half_days = 0;
+        $late_days = 0;
+        $absent_days = 0;
 
-    // Only Present days get full salary.
-    // Half Day gets half salary.
-    // Late is counted separately.
-    // Late (1st & 2nd) employees are also paid as Present
-    $paid_present_days = $present_days + $late_days;    
-    // ================= OT CALCULATION =================
+        $period = new DatePeriod(
+            new DateTime($from_date),
+            new DateInterval('P1D'),
+            (new DateTime($to_date))->modify('+1 day')
+        );
 
-    $approved_ot_minutes = intval($row['approved_ot_minutes']);
-    $approved_ot_hours = $approved_ot_minutes / 60;
-    // Get Working Hours from Assigned Shift
+        foreach ($period as $day) {
 
-    $working_hours = 8; // fallback
+            $dayNo = (int) $day->format('j');
 
-    if (!empty($row['shift_type_id'])) {
+            $status = $attendanceSummary[$row['id']][$dayNo] ?? null;
 
-        $shiftStmt = $pdo->prepare("
+            if ($status === null) {
+                continue;
+            }
+
+            switch ($status) {
+
+                case 'Present':
+                    $present_days++;
+                    break;
+
+                case 'Late':
+                    $late_days++;
+                    break;
+
+                case 'Half Day':
+                    $half_days++;
+                    break;
+
+                case 'Absent':
+                    $absent_days++;
+                    break;
+            }
+        }
+
+        $row['present_days'] = $present_days;
+        $row['half_days'] = $half_days;
+        $row['late_days'] = $late_days;
+        $row['absent_days'] = $absent_days;
+
+        // Only Present days get full salary.
+        // Half Day gets half salary.
+        // Late is counted separately.
+        // Late (1st & 2nd) employees are also paid as Present
+        $paid_present_days = $present_days + $late_days;
+        // ================= OT CALCULATION =================
+
+        $approved_ot_minutes = intval($row['approved_ot_minutes']);
+        $approved_ot_hours = $approved_ot_minutes / 60;
+        // Get Working Hours from Assigned Shift
+
+        $working_hours = 8; // fallback
+
+        if (!empty($row['shift_type_id'])) {
+
+            $shiftStmt = $pdo->prepare("
         SELECT start_time, end_time
         FROM shift_types
         WHERE id = ?
         LIMIT 1
     ");
 
-        $shiftStmt->execute([$row['shift_type_id']]);
+            $shiftStmt->execute([$row['shift_type_id']]);
 
-        $shift = $shiftStmt->fetch(PDO::FETCH_ASSOC);
+            $shift = $shiftStmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($shift) {
+            if ($shift) {
 
-            $start = strtotime($shift['start_time']);
-            $end = strtotime($shift['end_time']);
+                $start = strtotime($shift['start_time']);
+                $end = strtotime($shift['end_time']);
 
-            if ($end < $start) {
-                $end += 86400;
-            }
+                if ($end < $start) {
+                    $end += 86400;
+                }
 
-            $working_hours = ($end - $start) / 3600;
+                $working_hours = ($end - $start) / 3600;
 
-            if ($working_hours <= 0) {
-                $working_hours = 8;
+                if ($working_hours <= 0) {
+                    $working_hours = 8;
+                }
             }
         }
-    }
 
-    // Hourly Rate based ONLY on Pay Cycle
+        // Hourly Rate based ONLY on Pay Cycle
 
-    switch (strtolower(trim($row['pay_cycle']))) {
+        switch (strtolower(trim($row['pay_cycle']))) {
 
-        case 'daily':
-            $hourly_rate = $baseSalary / $working_hours;
-            break;
+            case 'daily':
+                $hourly_rate = $baseSalary / $working_hours;
+                break;
 
-        case 'weekly':
-            $hourly_rate = ($baseSalary / 7) / $working_hours;
-            break;
+            case 'weekly':
+                $hourly_rate = ($baseSalary / 7) / $working_hours;
+                break;
 
-        case 'monthly':
-            $hourly_rate = ($baseSalary / 30) / $working_hours;
-            break;
+            case 'monthly':
+                $hourly_rate = ($baseSalary / 30) / $working_hours;
+                break;
 
-        default:
-            $hourly_rate = ($baseSalary / 30) / $working_hours;
-            break;
-    }
+            default:
+                $hourly_rate = ($baseSalary / 30) / $working_hours;
+                break;
+        }
 
-    // Read OT Percentage
-    $otStmt = $pdo->query("
+        // Read OT Percentage
+        $otStmt = $pdo->query("
     SELECT ot_percentage
     FROM ot_rate_settings
     ORDER BY id DESC
     LIMIT 1
     ");
 
-    $otRate = (float) $otStmt->fetchColumn();
+        $otRate = (float) $otStmt->fetchColumn();
 
-    $otRate = floatval($otRate);
+        $otRate = floatval($otRate);
 
-    $bonus_per_hour = ($hourly_rate * $otRate) / 100;
+        $bonus_per_hour = ($hourly_rate * $otRate) / 100;
 
-    $ot_rate_per_hour = $hourly_rate + $bonus_per_hour;
+        $ot_rate_per_hour = $hourly_rate + $bonus_per_hour;
 
-    $approved_ot_amount = $approved_ot_hours * $ot_rate_per_hour;
+        $approved_ot_amount = $approved_ot_hours * $ot_rate_per_hour;
 
-    // Save values
-    $row['approved_ot_hours'] = $approved_ot_hours;
-    $row['approved_ot_amount'] = $approved_ot_amount;
+        // Save values
+        $row['approved_ot_hours'] = $approved_ot_hours;
+        $row['approved_ot_amount'] = $approved_ot_amount;
 
-    // ================= END OT =================
+        // ================= END OT =================
 
-    $attendance_salary =
-        ($paid_present_days * $per_day)
-        +
-        ($half_days * ($per_day / 2));
+        $attendance_salary =
+            ($paid_present_days * $per_day)
+            +
+            ($half_days * ($per_day / 2));
 
-    $total = $attendance_salary;
+        $total = $attendance_salary;
 
-    // Add approved OT
-    $total += $approved_ot_amount;
+        // Add approved OT
+        $total += $approved_ot_amount;
+        $row['attendance_salary'] = $attendance_salary;
+        $row['approved_ot_amount'] = $approved_ot_amount;
+    }
+    if ($employee_type == 'outsource') {
+        $total = $row['outsource_balance'];
+    }
 
     // Don't deduct advance here.
     // Don't deduct bonus here.
     // Don't deduct fines here.
 
-    $row['attendance_salary'] = $attendance_salary;
-    $row['approved_ot_amount'] = $approved_ot_amount;
+
 
     // Check if salary has already been paid for this exact period
     if ($employee_type == 'outsource') {
@@ -341,7 +395,9 @@ foreach ($employees as &$row) {
         $totalDue += $row['calculated_total'];
         $pendingCount++;
     }
-    $totalOT += $approved_ot_hours;
+    if ($employee_type == 'inhouse') {
+        $totalOT += $approved_ot_hours;
+    }
 }
 unset($row);
 
