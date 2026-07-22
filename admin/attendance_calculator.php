@@ -22,6 +22,20 @@ function calculateAttendanceSummary($pdo, $fromDate, $toDate)
 ";
 
     $params = [$fromDate, $toDate];
+    // Fetch manually marked attendance
+    $manualStmt = $pdo->prepare("
+    SELECT employee_id, attendance_date, status
+    FROM attendance
+    WHERE attendance_date BETWEEN ? AND ?
+");
+
+    $manualStmt->execute([$fromDate, $toDate]);
+
+    $manualAttendance = [];
+
+    while ($row = $manualStmt->fetch(PDO::FETCH_ASSOC)) {
+        $manualAttendance[$row['employee_id']][$row['attendance_date']] = $row['status'];
+    }
 
     $query .= " ORDER BY al.log_date ASC, al.employee_id ASC, al.log_time ASC";
     $stmt = $pdo->prepare($query);
@@ -58,6 +72,15 @@ function calculateAttendanceSummary($pdo, $fromDate, $toDate)
     foreach ($daily_sessions as $emp_id => $dates) {
         ksort($dates);
         foreach ($dates as $date => $daySessions) {
+            // If attendance was manually marked by admin,
+// use it directly instead of recalculating from logs.
+            if (isset($manualAttendance[$emp_id][$date])) {
+
+                $calculatedAttendance[$emp_id][date('j', strtotime($date))]
+                    = $manualAttendance[$emp_id][$date];
+
+                continue;
+            }
             if (empty($daySessions))
                 continue;
 
@@ -167,6 +190,20 @@ function calculateAttendanceSummary($pdo, $fromDate, $toDate)
 
         }
 
+    }
+    // Add manually marked attendance that has no biometric logs
+    foreach ($manualAttendance as $emp_id => $dates) {
+
+        foreach ($dates as $date => $status) {
+
+            $day = date('j', strtotime($date));
+
+            if (!isset($calculatedAttendance[$emp_id][$day])) {
+
+                $calculatedAttendance[$emp_id][$day] = $status;
+
+            }
+        }
     }
     return $calculatedAttendance;
 }

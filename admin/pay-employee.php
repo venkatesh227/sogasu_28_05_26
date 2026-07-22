@@ -306,17 +306,45 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     // Remaining salary after previous salary payments
     $remainingSalary = max(0, $salaryPayable - $totalSalaryPaid);
+    $maximumPayable = $remainingSalary + $overtime + $bonus;
 
-    if ($remainingSalary <= 0) {
+    if ($maximumPayable <= 0) {
+
+        $_SESSION['error'] = "Nothing is pending for payment.";
+
+        header("Location: " . $_SERVER['REQUEST_URI']);
+
+        exit;
+    }
+
+    if ($remainingSalary <= 0 && $overtime <= 0 && $bonus <= 0) {
 
         $_SESSION['error'] = "Salary already paid.";
 
-        header("Location: employee-history.php?id=" . $id);
+        header("Location: " . $_SERVER['REQUEST_URI']);
         exit;
     }
 
     // Insert Salary based on Attendance Salary only
     $paying_now = floatval($_POST['paying_now'] ?? 0);
+    if ($paying_now <= 0) {
+
+        $_SESSION['error'] = "Please enter a valid payment amount.";
+
+        header("Location: " . $_SERVER['REQUEST_URI']);
+
+        exit;
+    }
+    $maximumPayable = $remainingSalary + $overtime + $bonus;
+
+    if ($paying_now > $maximumPayable) {
+
+        $_SESSION['error'] = "Payment amount cannot exceed remaining payable amount.";
+
+        header("Location: " . $_SERVER['REQUEST_URI']);
+
+        exit;
+    }
 
     // Salary component only
     $salary_to_log = min($paying_now, $remainingSalary);
@@ -554,8 +582,8 @@ include 'includes/header.php';
                             <span
                                 style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #64748b;">₹</span>
                             <input type="number" step="0.01" name="advance_repay" <?= $salaryPaid ? 'disabled' : '' ?>
-                                <?= $outstanding_advance <= 0 ? 'readonly' : '' ?> min="0"
-                                max="<?= $outstanding_advance ?>" id="advance_repay" class="form-control"
+                                <?= $outstanding_advance <= 0 ? 'readonly' : '' ?> 
+                                 id="advance_repay" class="form-control"
                                 style="padding-left: 2rem;" placeholder="0.00" oninput="calculateNet()">
                         </div>
                     </div>

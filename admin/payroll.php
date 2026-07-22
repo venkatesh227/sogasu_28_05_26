@@ -163,19 +163,33 @@ foreach ($employees as &$row) {
     }
     $baseSalary = floatval($row['base_salary']);
 
-    switch (strtolower(trim($row['pay_cycle']))) {
+    $payCycle = strtolower(trim($row['pay_cycle']));
+
+    switch ($payCycle) {
 
         case 'daily':
+            $salary_type = 'daily';
             $per_day = $baseSalary;
             break;
 
-        case 'weekly':
+        case 'weekly (saturday)':
+            $salary_type = 'weekly';
             $per_day = $baseSalary / 7;
             break;
 
-        default:
-            $per_day = $baseSalary / 30;
+        case 'bi-weekly':
+            $salary_type = 'biweekly';
+            $per_day = $baseSalary / 14;
             break;
+
+        case 'monthly (1st)':
+            $salary_type = 'monthly';
+            $per_day = $baseSalary / date('t', strtotime($from_date));
+            break;
+
+        default:
+            $salary_type = 'monthly';
+            $per_day = $baseSalary / date('t', strtotime($from_date));
     }
     if ($employee_type == 'inhouse') {
 
@@ -270,7 +284,7 @@ foreach ($employees as &$row) {
 
         // Hourly Rate based ONLY on Pay Cycle
 
-        switch (strtolower(trim($row['pay_cycle']))) {
+        switch ($salary_type) {
 
             case 'daily':
                 $hourly_rate = $baseSalary / $working_hours;
@@ -280,8 +294,13 @@ foreach ($employees as &$row) {
                 $hourly_rate = ($baseSalary / 7) / $working_hours;
                 break;
 
+            case 'biweekly':
+                $hourly_rate = ($baseSalary / 14) / $working_hours;
+                break;
+
             case 'monthly':
-                $hourly_rate = ($baseSalary / 30) / $working_hours;
+                $daysInMonth = date('t', strtotime($from_date));
+                $hourly_rate = ($baseSalary / $daysInMonth) / $working_hours;
                 break;
 
             default:
@@ -313,15 +332,24 @@ foreach ($employees as &$row) {
 
         // ================= END OT =================
 
-        $attendance_salary =
-            ($paid_present_days * $per_day)
-            +
-            ($half_days * ($per_day / 2));
+        // Attendance salary
+        $attendance_salary = 0;
+
+        if ($present_days == 0 && $late_days == 0 && $half_days == 0) {
+            $attendance_salary = 0;
+        } else {
+            $attendance_salary =
+                ($paid_present_days * $per_day) +
+                ($half_days * ($per_day / 2));
+
+            $attendance_salary = round(max(0, $attendance_salary), 2);
+        }
 
         $total = $attendance_salary;
 
-        // Add approved OT
+        // Add OT only once
         $total += $approved_ot_amount;
+
         $row['attendance_salary'] = $attendance_salary;
         $row['approved_ot_amount'] = $approved_ot_amount;
     }
@@ -372,11 +400,12 @@ foreach ($employees as &$row) {
         $advanceStmt->execute([$row['id'], $from_date, $to_date]);
         $advanceRecovered = (float) $advanceStmt->fetchColumn();
 
-
         // Same calculation used in pay-employee.php
-        $salaryPayable = max(0, $total - $advanceRecovered);
+        $salaryPayable = round(max(0, $total - $advanceRecovered), 2);
 
-        $remainingAmount = max(0, $salaryPayable - $paidAmount);
+        $paidAmount = round($paidAmount, 2);
+
+        $remainingAmount = round(max(0, $salaryPayable - $paidAmount), 2);
 
         $row['calculated_total'] = $remainingAmount;
 
@@ -673,34 +702,33 @@ include 'includes/header.php';
                                 <?php else: ?>
 
                                     <td>
-                                        <div style="font-weight: 700; color: var(--text-dark);">₹
-                                            <?= number_format($row['base_salary'] ?: 0, 2) ?>
-                                        </div>
-                                        <div style="font-size:12px;margin-top:3px;line-height:1.5;">
 
-                                            <span style="color:#16a34a;font-weight:700;">
+                                        <div style="font-weight:700;">
+                                            ₹<?= number_format($row['base_salary'], 2) ?>
+                                        </div>
+
+                                        <div style="font-size:12px;margin-top:3px;line-height:1.5;">
+                                            <span style="color:#22c55e;font-weight:600;">
                                                 P : <?= $row['present_days'] ?>
                                             </span>
-
                                             |
 
-                                            <span style="color:#f59e0b;font-weight:700;">
+                                            <span style="color:#f59e0b;font-weight:600;">
                                                 H : <?= $row['half_days'] ?>
                                             </span>
 
                                             <br>
 
-                                            <span style="color:#ef4444;font-weight:700;">
+                                            <span style="color:#ef4444;font-weight:600;">
                                                 A : <?= $row['absent_days'] ?>
                                             </span>
-
                                             |
 
-                                            <span style="color:#0ea5e9;font-weight:700;">
+                                            <span style="color:#3b82f6;font-weight:600;">
                                                 L : <?= $row['late_days'] ?>
                                             </span>
-
                                         </div>
+
                                     </td>
 
                                     <td>
@@ -767,11 +795,22 @@ include 'includes/header.php';
                                             : "pay-employee.php";
                                         ?>
 
-                                        <a href="<?= $pay_url ?>?id=<?= $row['id'] ?>&from_date=<?= $from_date ?>&to_date=<?= $to_date ?>"
-                                            class="btn-premium"
-                                            style="padding: 0.4rem 1rem; font-size: 0.8rem; text-decoration: none;">
-                                            Pay Now
-                                        </a>
+                                        <?php if ($row['payment_status'] == 'Paid') { ?>
+
+                                            <button class="btn-premium" disabled
+                                                style="padding:0.4rem 1rem;font-size:0.8rem;opacity:.6;cursor:not-allowed;">
+                                                Paid
+                                            </button>
+
+                                        <?php } else { ?>
+
+                                            <a href="<?= $pay_url ?>?id=<?= $row['id'] ?>&from_date=<?= $from_date ?>&to_date=<?= $to_date ?>"
+                                                class="btn-premium"
+                                                style="padding:0.4rem 1rem;font-size:0.8rem;text-decoration:none;">
+                                                Pay Now
+                                            </a>
+
+                                        <?php } ?>
                                         <a href="give-advance.php?id=<?= $row['id'] ?>" class="btn-icon-p"
                                             title="Give Advance" style="color: var(--warning);"><i
                                                 class="ri-hand-coin-line"></i></a>
