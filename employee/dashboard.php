@@ -18,7 +18,7 @@ $t = $translations[$language] ?? $translations['en'];
 // Fetch employee data and job role
 $stmt = $pdo->prepare("
     SELECT e.id, e.first_name, e.last_name, e.preferred_language, 
-           e.job_role, e.pay_cycle, e.employee_type
+           e.job_role, e.pay_cycle, e.employee_type, e.base_salary, e.default_shift_id
     FROM employees e 
     WHERE e.user_id = ? AND e.is_deleted = 0
 ");
@@ -119,15 +119,183 @@ $active_tasks = $stmt->fetchAll();
 $currentMonth = date('Y-m');
 $totalEarned = 0;
 
-$dateClause = getCurrentPayCycleCondition('payment_date', $payCycle);
-$stmt = $pdo->prepare("SELECT SUM(amount) FROM employee_payments WHERE employee_id = ? AND status IN ('Paid', 'Approved') AND payment_type != 'Advance Deduction' AND $dateClause");
-$stmt->execute([$emp['id']]);
-$totalEarned += $stmt->fetchColumn() ?: 0;
+if (stripos($payCycle, 'Weekly') !== false) {
+    $from_date = date('Y-m-d', strtotime('monday this week'));
+    $to_date = date('Y-m-d', strtotime('sunday this week'));
+} elseif (stripos($payCycle, 'Daily') !== false) {
+    $from_date = date('Y-m-d');
+    $to_date = date('Y-m-d');
+} else {
+    $from_date = date('Y-m-01');
+    $to_date = date('Y-m-t');
+}
 
-$dateClause = getCurrentPayCycleCondition('payment_date', $payCycle);
-$stmt = $pdo->prepare("SELECT SUM(amount) FROM employee_payments WHERE employee_id = ? AND status IN ('Paid', 'Approved') AND payment_type = 'Advance Deduction' AND $dateClause");
-$stmt->execute([$emp['id']]);
-$totalEarned -= $stmt->fetchColumn() ?: 0;
+require_once '../admin/attendance_calculator.php';
+$attendanceSummary = calculateAttendanceSummary($pdo, $from_date, $to_date);
+
+$baseSalary = floatval($emp['base_salary']);
+$payCycle = strtolower(trim($emp['pay_cycle']));
+
+switch ($payCycle) {
+    case 'daily':
+        $salary_type = 'daily';
+        $per_day = $baseSalary;
+        break;
+
+    case 'weekly (saturday)':
+        $salary_type = 'weekly';
+        $per_day = $baseSalary / 7;
+        break;
+
+    case 'bi-weekly':
+        $salary_type = 'biweekly';
+        $per_day = $baseSalary / 14;
+        break;
+
+    case 'monthly (1st)':
+        $salary_type = 'monthly';
+        $per_day = $baseSalary / date('t', strtotime($from_date));
+        break;
+
+    default:
+        $salary_type = 'monthly';
+        $per_day = $baseSalary / date('t', strtotime($from_date));
+}
+
+$present_days = 0;
+$half_days = 0;
+$late_days = 0;
+$absent_days = 0;
+
+$period = new DatePeriod(
+    new DateTime($from_date),
+    new DateInterval('P1D'),
+    (new DateTime($to_date))->modify('+1 day')
+);
+
+foreach ($period as $day) {
+    $dayNo = (int) $day->format('j');
+    $status = $attendanceSummary[$employee_id][$dayNo] ?? null;
+
+    if ($status === null) {
+        continue;
+    }
+
+    switch ($status) {
+        case 'Present':
+            $present_days++;
+            break;
+
+        case 'Late':
+            $late_days++;
+            break;
+
+        case 'Half Day':
+            $half_days++;
+            break;
+
+        case 'Absent':
+            $absent_days++;
+            break;
+    }
+}
+
+$paid_present_days = $present_days + $late_days;
+
+$approved_ot_stmt = $pdo->prepare("\n    SELECT COALESCE(SUM(ot_minutes),0)\n    FROM attendance\n    WHERE employee_id = ?\n    AND attendance_date BETWEEN ? AND ?\n");
+$approved_ot_stmt->execute([$employee_id, $from_date, $to_date]);
+$approved_ot_minutes = intval($approved_ot_stmt->fetchColumn());
+$approved_ot_hours = $approved_ot_minutes / 60;
+
+$working_hours = 8;
+
+$shiftTypeStmt = $pdo->prepare("\n    SELECT COALESCE(\n        (\n            SELECT sr.shift_type_id\n            FROM shift_roster sr\n            WHERE sr.employee_id = ?\n            AND sr.roster_date <= ?\n            ORDER BY sr.roster_date DESC\n            LIMIT 1\n        ),\n        ?\n    ) AS shift_type_id\n");
+$shiftTypeStmt->execute([$employee_id, $to_date, $emp['default_shift_id']]);
+$shift_type_id = $shiftTypeStmt->fetchColumn();
+
+if (!empty($shift_type_id)) {
+    $shiftStmt = $pdo->prepare("\n        SELECT start_time, end_time\n        FROM shift_types\n        WHERE id = ?\n        LIMIT 1\n    ");
+    $shiftStmt->execute([$shift_type_id]);
+    $shift = $shiftStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($shift) {
+        $start = strtotime($shift['start_time']);
+        $end = strtotime($shift['end_time']);
+
+        if ($end < $start) {
+            $end += 86400;
+        }
+
+        $working_hours = ($end - $start) / 3600;
+
+        if ($working_hours <= 0) {
+            $working_hours = 8;
+        }
+    }
+}
+
+switch ($salary_type) {
+    case 'daily':
+        $hourly_rate = $baseSalary / $working_hours;
+        break;
+
+    case 'weekly':
+        $hourly_rate = ($baseSalary / 7) / $working_hours;
+        break;
+
+    case 'biweekly':
+        $hourly_rate = ($baseSalary / 14) / $working_hours;
+        break;
+
+    case 'monthly':
+        $daysInMonth = date('t', strtotime($from_date));
+        $hourly_rate = ($baseSalary / $daysInMonth) / $working_hours;
+        break;
+
+    default:
+        $hourly_rate = ($baseSalary / 30) / $working_hours;
+        break;
+}
+
+$otStmt = $pdo->query("\n    SELECT ot_percentage\n    FROM ot_rate_settings\n    ORDER BY id DESC\n    LIMIT 1\n");
+$otRate = (float) $otStmt->fetchColumn();
+$otRate = floatval($otRate);
+$bonus_per_hour = ($hourly_rate * $otRate) / 100;
+$ot_rate_per_hour = $hourly_rate + $bonus_per_hour;
+$approved_ot_amount = $approved_ot_hours * $ot_rate_per_hour;
+
+$attendance_salary = 0;
+
+if ($present_days == 0 && $late_days == 0 && $half_days == 0) {
+    $attendance_salary = 0;
+} else {
+    $attendance_salary =
+        ($paid_present_days * $per_day) +
+        ($half_days * ($per_day / 2));
+
+    $attendance_salary = round(max(0, $attendance_salary), 2);
+}
+
+$total = $attendance_salary + $approved_ot_amount;
+
+$checkStmt = $pdo->prepare("
+    SELECT COALESCE(SUM(amount),0)
+    FROM employee_payments
+    WHERE employee_id = ?
+    AND payment_type = 'Salary'
+");
+$checkStmt->execute([$employee_id]);
+$paidAmount = (float) $checkStmt->fetchColumn();
+
+$advanceStmt = $pdo->prepare("\n    SELECT COALESCE(SUM(amount),0)\n    FROM employee_payments\n    WHERE employee_id = ?\n    AND payment_date BETWEEN ? AND ?\n    AND payment_type = 'Advance'\n    AND LOWER(status) = 'deducted'\n");
+$advanceStmt->execute([$employee_id, $from_date, $to_date]);
+$advanceRecovered = (float) $advanceStmt->fetchColumn();
+
+$salaryPayable = round(max(0, $total - $advanceRecovered), 2);
+$paidAmount = round($paidAmount, 2);
+$remainingAmount = round(max(0, $salaryPayable - $paidAmount), 2);
+
+$totalEarned = $paidAmount;
 
 // Get Active Tasks Count
 $stmt = $pdo->prepare("
@@ -166,51 +334,76 @@ $activePage = "dashboard";
 
 // Handle OT Submission
 $message = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_ot') {
-    $date = $_POST['ot_date'];
-    $hours = (float) $_POST['hours'];
-    $desc = $_POST['description'];
+$errors = [];
 
-    // Fetch Rate for specific date range first (Prioritize specific/shorter ranges)
-    $stmt = $pdo->prepare("SELECT ot_percentage FROM ot_rate_settings 
+$ot_date_val = date('Y-m-d');
+$hours_val = '';
+$description_val = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_ot') {
+    $ot_date_val = trim($_POST['ot_date'] ?? '');
+    $hours_val = trim($_POST['hours'] ?? '');
+    $description_val = trim($_POST['description'] ?? '');
+
+    if ($ot_date_val == '') {
+        $errors['ot_date'] = 'Date is required.';
+    }
+
+    if ($hours_val == '') {
+        $errors['hours'] = 'Hours is required.';
+    } elseif (!is_numeric($hours_val) || (float) $hours_val <= 0) {
+        $errors['hours'] = 'Hours must be greater than 0.';
+    }
+
+    if ($description_val == '') {
+        $errors['description'] = 'Description is required.';
+    }
+
+    if (empty($errors)) {
+
+        $date = $ot_date_val;
+        $hours = (float) $hours_val;
+        $desc = $description_val;
+        // Fetch Rate for specific date range first (Prioritize specific/shorter ranges)
+        $stmt = $pdo->prepare("SELECT ot_percentage FROM ot_rate_settings 
                            WHERE ? BETWEEN from_date AND to_date 
                            ORDER BY (to_date - from_date) ASC, id DESC 
                            LIMIT 1");
-    $stmt->execute([$date]);
-    $rate = $stmt->fetchColumn();
+        $stmt->execute([$date]);
+        $rate = $stmt->fetchColumn();
 
-    if (!$rate) {
+        if (!$rate) {
 
-        // Fallback to Global OT Rate
-        $rate = $pdo->query("SELECT setting_value FROM global_settings WHERE setting_key = 'global_ot_rate'")->fetchColumn() ?: 100;
-    }
+            // Fallback to Global OT Rate
+            $rate = $pdo->query("SELECT setting_value FROM global_settings WHERE setting_key = 'global_ot_rate'")->fetchColumn() ?: 100;
+        }
 
-    $salaryStmt = $pdo->prepare("SELECT base_salary FROM employees WHERE id = ?");
-    $salaryStmt->execute([$employee_id]);
-    $salaryAmount = floatval($salaryStmt->fetchColumn() ?: 0);
+        $salaryStmt = $pdo->prepare("SELECT base_salary FROM employees WHERE id = ?");
+        $salaryStmt->execute([$employee_id]);
+        $salaryAmount = floatval($salaryStmt->fetchColumn() ?: 0);
 
-    // OT payout calculates hourly pay from monthly salary and adds the OT premium.
-    $hourlyRate = $salaryAmount / 30 / 8;
-    // Final OT amount will be calculated after employee completes OT.
-    $amount = 0;
+        // OT payout calculates hourly pay from monthly salary and adds the OT premium.
+        $hourlyRate = $salaryAmount / 30 / 8;
+        // Final OT amount will be calculated after employee completes OT.
+        $amount = 0;
 
-    // $stmt = $pdo->prepare("INSERT INTO employee_overtime (employee_id, ot_date, hours, amount, description, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
+        // $stmt = $pdo->prepare("INSERT INTO employee_overtime (employee_id, ot_date, hours, amount, description, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
 
-    $stmt = $pdo->prepare("
+        $stmt = $pdo->prepare("
                             INSERT INTO employee_overtime
                             (employee_id, ot_date, hours, amount, description, status)
                             VALUES (?, ?, ?, 0, ?, 'Pending')
                         ");
-    if (
-        $stmt->execute([
-            $employee_id,
-            $date,
-            $hours,
-            $desc
-        ])
-    ) {
-        header("Location: dashboard.php?ot_success=1");
-        exit;
+        if (
+            $stmt->execute([
+                $employee_id,
+                $date,
+                $hours,
+                $desc
+            ])
+        ) {
+            header("Location: dashboard.php?ot_success=1");
+            exit;
+        }
     }
 }
 
@@ -490,26 +683,45 @@ include 'includes/header.php';
             <button onclick="document.getElementById('add-ot-modal').style.display = 'none';"
                 style="border: none; background: #f1f5f9; width: 32px; height: 32px; border-radius: 50%; color: #64748b;">&times;</button>
         </div>
-        <form id="add-ot-form" method="POST">
+        <form id="add-ot-form" method="POST" novalidate>
             <input type="hidden" name="action" value="add_ot">
             <div style="margin-bottom: 1rem;">
                 <label
-                    style="display: block; font-size: 0.85rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem;">Date</label>
-                <input type="date" name="ot_date" value="<?= date('Y-m-d') ?>" required
+                    style="display: block; font-size: 0.85rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem;">Date
+                    <span style="color:red">*</span></label>
+                <input type="date" name="ot_date" value="<?= htmlspecialchars($ot_date_val) ?>"
                     style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; outline: none; background: #f8fafc;">
+                <?php if (isset($errors['ot_date'])): ?>
+                    <div style="color:red;font-size:12px;margin-top:4px;">
+                        <?= $errors['ot_date']; ?>
+                    </div>
+                <?php endif; ?>
             </div>
             <div style="margin-bottom: 1rem;">
                 <label
                     style="display: block; font-size: 0.85rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem;">Hours
-                    I Want to Work</label>
-                <input type="number" name="hours" step="0.5" required placeholder="e.g. 2.0"
+                    I Want to Work <span style="color:red">*</span></label>
+
+                <input type="number" name="hours" step="0.5" placeholder="e.g. 2.0"
+                    value="<?= htmlspecialchars($hours_val) ?>"
                     style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; outline: none;">
+                <?php if (isset($errors['hours'])): ?>
+                    <div style="color:red;font-size:12px;margin-top:4px;">
+                        <?= $errors['hours']; ?>
+                    </div>
+                <?php endif; ?>
             </div>
             <div style="margin-bottom: 1.5rem;">
                 <label
-                    style="display: block; font-size: 0.85rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem;">Description</label>
-                <textarea name="description" required placeholder="What did you work on?" rows="3"
-                    style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; outline: none; resize: none;"></textarea>
+                    style="display: block; font-size: 0.85rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem;">Description
+                    <span style="color:red">*</span></label>
+                <textarea name="description" placeholder="What did you work on?" rows="3"
+                    style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; outline: none; resize: none;"><?= htmlspecialchars($description_val) ?></textarea>
+                <?php if (isset($errors['description'])): ?>
+                    <div style="color:red;font-size:12px;margin-top:4px;">
+                        <?= $errors['description']; ?>
+                    </div>
+                <?php endif; ?>
             </div>
             <button type="submit"
                 style="width: 100%; background: #4338ca; color: white; border: none; padding: 1rem; border-radius: 12px; font-weight: 700; font-size: 1rem;">Submit
@@ -517,6 +729,13 @@ include 'includes/header.php';
         </form>
     </div>
 </div>
+<?php if (!empty($errors)): ?>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('add-ot-modal').style.display = 'flex';
+        });
+    </script>
+<?php endif; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <?php if (isset($_GET['ot_success'])): ?>
