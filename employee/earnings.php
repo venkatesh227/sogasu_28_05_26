@@ -37,7 +37,8 @@ if (!isset($_SESSION['language'])) {
     $t = $translations[$language] ?? $translations['en'];
 }
 
-function isInCurrentPayCycle($date, $payCycle) {
+function isInCurrentPayCycle($date, $payCycle)
+{
     $timestamp = strtotime($date);
     if (!$timestamp) {
         return false;
@@ -51,7 +52,8 @@ function isInCurrentPayCycle($date, $payCycle) {
     return date('Y-m', $timestamp) === date('Y-m');
 }
 
-function getPayCycleLabel($payCycle) {
+function getPayCycleLabel($payCycle)
+{
     if (stripos($payCycle, 'Weekly') !== false) {
         return 'This Week';
     }
@@ -61,28 +63,23 @@ function getPayCycleLabel($payCycle) {
     return date('F Y');
 }
 
-// 1. Fetch Payments (Salary, Advance Deductions, etc.)
-$stmt = $pdo->prepare("SELECT id, payment_date as date, description, payment_type as type, amount, status, 'payment' as source FROM employee_payments WHERE employee_id = ? ORDER BY payment_date DESC LIMIT 20");
+// 1. Fetch all payments (Salary, Advance Deductions, etc.)
+$stmt = $pdo->prepare("SELECT id, payment_date as date, description, payment_type as type, amount, status, 'payment' as source FROM employee_payments WHERE employee_id = ? ORDER BY payment_date DESC");
 $stmt->execute([$employee_id]);
 $payments = $stmt->fetchAll();
 
-// 3. Calculate Stats for Current Period
-$periodLabel = getPayCycleLabel($payCycle);
-$totalEarned = 0;
-$pendingAmount = 0;
+// 2. Calculate total salary paid directly from employee_payments
+$salaryTotalStmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS total_salary_paid FROM employee_payments WHERE employee_id = ? AND payment_type = 'Salary'");
+$salaryTotalStmt->execute([$employee_id]);
+$salaryTotal = $salaryTotalStmt->fetch(PDO::FETCH_ASSOC);
+$totalEarned = (float) ($salaryTotal['total_salary_paid'] ?? 0);
 
-$filteredHistory = array_values(array_filter($payments, function ($item) use ($payCycle) {
-    return isInCurrentPayCycle($item['date'], $payCycle);
-}));
+// 3. Calculate pending amount from the full payment history
+$pendingAmount = 0;
+$filteredHistory = $payments;
 
 foreach ($filteredHistory as $item) {
-    if (strtolower($item['status']) === 'paid' || strtolower($item['status']) === 'approved') {
-        if ($item['type'] === 'Advance Deduction') {
-            $totalEarned -= $item['amount'];
-        } else {
-            $totalEarned += $item['amount'];
-        }
-    } elseif (strtolower($item['status']) === 'pending') {
+    if (strtolower($item['status']) === 'pending') {
         $pendingAmount += $item['amount'];
     }
 }
@@ -94,95 +91,93 @@ include 'includes/header.php';
 ?>
 
 <div class="container" style="padding-bottom: 100px;">
-    
+
     <!-- Earnings Summary Card -->
-    <div class="card" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: white; border: none; padding: 2rem 1.5rem; border-radius: 24px; position: relative; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.4);">
-        <div style="position: absolute; right: -30px; top: -30px; font-size: 10rem; opacity: 0.05; transform: rotate(-15deg);">
+    <div class="card"
+        style="background: linear-gradient(135deg, #0f172a, #1e293b); color: white; border: none; padding: 2rem 1.5rem; border-radius: 24px; position: relative; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.4);">
+        <div
+            style="position: absolute; right: -30px; top: -30px; font-size: 10rem; opacity: 0.05; transform: rotate(-15deg);">
             <i class="ri-bank-card-line"></i>
         </div>
-        
+
         <div style="position: relative; z-index: 1;">
-            <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; margin-bottom: 0.5rem;"><?= htmlspecialchars($periodLabel) ?> Earnings</div>
-            <div style="font-size: 2.75rem; font-weight: 800; line-height: 1; margin-bottom: 1.5rem;">₹<?= number_format($totalEarned, 0) ?></div>
-            
+            <div
+                style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; margin-bottom: 0.5rem;">
+                Total Salary Paid</div>
+            <div style="font-size: 2.75rem; font-weight: 800; line-height: 1; margin-bottom: 1.5rem;">
+                ₹<?= number_format((float) $totalEarned, 2) ?></div>
+
             <div style="display: flex; gap: 0.75rem;">
-                <div style="background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.3); padding: 0.5rem 1rem; border-radius: 12px; display: flex; align-items: center; gap: 0.5rem;">
+                <div
+                    style="background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.3); padding: 0.5rem 1rem; border-radius: 12px; display: flex; align-items: center; gap: 0.5rem;">
                     <div style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%;"></div>
-<span style="font-size: 0.75rem; font-weight: 600;">
-<?php
-if (stripos($payCycle, 'Monthly') !== false) {
-    echo 'Monthly Salary';
-} elseif (stripos($payCycle, 'Weekly') !== false) {
-    echo 'Weekly Salary';
-} elseif (stripos($payCycle, 'Daily') !== false) {
-    echo 'Daily Salary';
-} else {
-    echo 'Salary Paid';
-}
-?>
-</span>                </div>
-                <?php if ($pendingAmount > 0): ?>
-                <div style="background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.3); padding: 0.5rem 1rem; border-radius: 12px; display: flex; align-items: center; gap: 0.5rem;">
-                    <div style="width: 8px; height: 8px; background: #f59e0b; border-radius: 50%;"></div>
-                    <span style="font-size: 0.75rem; font-weight: 600;">₹<?= number_format($pendingAmount, 0) ?> Pending</span>
+                    <span style="font-size: 0.75rem; font-weight: 600;">Salary Paid</span>
                 </div>
+                <?php if ($pendingAmount > 0): ?>
+                    <div
+                        style="background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.3); padding: 0.5rem 1rem; border-radius: 12px; display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 8px; height: 8px; background: #f59e0b; border-radius: 50%;"></div>
+                        <span style="font-size: 0.75rem; font-weight: 600;">₹<?= number_format((float) $pendingAmount, 2) ?>
+                            Pending</span>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
     </div>
     <!-- History List -->
-    <div class="section-title" style="margin-top: 2rem; display: flex; justify-content: space-between; align-items: center;">
+    <div class="section-title"
+        style="margin-top: 2rem; display: flex; justify-content: space-between; align-items: center;">
         <span>Recent Activity</span>
         <i class="ri-filter-3-line" style="color: #64748b;"></i>
     </div>
 
     <?php if (empty($filteredHistory)): ?>
         <div class="card" style="text-align: center; padding: 3rem 1.5rem; border-style: dashed;">
-            <div style="width: 60px; height: 60px; background: #f1f5f9; color: #94a3b8; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+            <div
+                style="width: 60px; height: 60px; background: #f1f5f9; color: #94a3b8; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
                 <i class="ri-history-line" style="font-size: 1.5rem;"></i>
             </div>
             <div style="color: #64748b; font-size: 0.9rem;">No payment history found.</div>
         </div>
     <?php else: ?>
         <div class="card" style="padding: 0; overflow: hidden; border-radius: 20px;">
-<?php
-foreach ($filteredHistory as $index => $item):
-?>                <div style="padding: 1.25rem; border-bottom: <?= ($index === count($filteredHistory)-1) ? 'none' : '1px solid #f1f5f9' ?>; display: flex; justify-content: space-between; align-items: center;">
+            <?php
+            foreach ($filteredHistory as $index => $item):
+                ?>
+                <div
+                    style="padding: 1.25rem; border-bottom: <?= ($index === count($filteredHistory) - 1) ? 'none' : '1px solid #f1f5f9' ?>; display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; gap: 1rem; align-items: center;">
-                        <div style="width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; 
+                        <div
+                            style="width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; 
                             background: <?= ($item['source'] === 'ot') ? '#f0f9ff' : ($item['type'] === 'Advance Deduction' ? '#fef2f2' : '#f0fdf4') ?>; 
                             color: <?= ($item['source'] === 'ot') ? '#0369a1' : ($item['type'] === 'Advance Deduction' ? '#b91c1c' : '#15803d') ?>;">
-                            <i class="<?= ($item['source'] === 'ot') ? 'ri-time-line' : ($item['type'] === 'Advance Deduction' ? 'ri-hand-coin-line' : 'ri-wallet-3-line') ?>" style="font-size: 1.4rem;"></i>
+                            <i class="<?= ($item['source'] === 'ot') ? 'ri-time-line' : ($item['type'] === 'Advance Deduction' ? 'ri-hand-coin-line' : 'ri-wallet-3-line') ?>"
+                                style="font-size: 1.4rem;"></i>
                         </div>
                         <div>
-                            <div style="font-weight: 700; font-size: 1rem; color: #1e293b;"><?= htmlspecialchars($item['description'] ?: ($item['source'] === 'ot' ? 'Overtime Pay' : 'Salary Payout')) ?></div>
-                            <div style="font-size: 0.75rem; color: #64748b; font-weight: 500;"><?= date('D, d M', strtotime($item['date'])) ?> •
+                            <div style="font-weight: 700; font-size: 1rem; color: #1e293b;">
+                                <?= htmlspecialchars($item['description'] ?: ($item['source'] === 'ot' ? 'Overtime Pay' : 'Salary Payout')) ?>
+                            </div>
+                            <div style="font-size: 0.75rem; color: #64748b; font-weight: 500;">
+                                <?= date('D, d M', strtotime($item['date'])) ?> •
 
-<?php
-if ($item['type'] == 'Salary') {
-
-    if (stripos($payCycle, 'Monthly') !== false) {
-        echo 'Monthly Salary';
-    } elseif (stripos($payCycle, 'Weekly') !== false) {
-        echo 'Weekly Salary';
-    } elseif (stripos($payCycle, 'Daily') !== false) {
-        echo 'Daily Salary';
-    } else {
-        echo 'Salary';
-    }
-
-} else {
-    echo $item['type'];
-}
-?>
-             </div>
+                                <?php
+                                if ($item['type'] == 'Salary') {
+                                    echo 'Salary';
+                                } else {
+                                    echo $item['type'];
+                                }
+                                ?>
+                            </div>
                         </div>
                     </div>
                     <div style="text-align: right;">
-                        <div style="font-weight: 800; font-size: 1.1rem; color: <?= ($item['type'] === 'Advance Deduction') ? '#ef4444' : '#22c55e' ?>;">
-                            <?= ($item['type'] === 'Advance Deduction') ? '- ' : '+ ' ?>₹<?= number_format($item['amount'], 0) ?>
+                        <div
+                            style="font-weight: 800; font-size: 1.1rem; color: <?= ($item['type'] === 'Advance Deduction') ? '#ef4444' : '#22c55e' ?>;">
+                            <?= ($item['type'] === 'Advance Deduction') ? '- ' : '+ ' ?>₹<?= number_format((float) $item['amount'], 2) ?>
                         </div>
-                        <div style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; 
+                        <div
+                            style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; 
                             color: <?= ($item['status'] === 'Paid' || $item['status'] === 'Approved') ? '#10b981' : '#f59e0b' ?>;">
                             <?= $item['status'] ?>
                         </div>
@@ -198,9 +193,17 @@ if ($item['type'] == 'Salary') {
     .container {
         animation: fadeIn 0.4s ease-out;
     }
+
     @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 </style>
 
