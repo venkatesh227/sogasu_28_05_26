@@ -363,12 +363,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $baseAmount = $hourlyRate * $hours;
     $amount = $baseAmount + ($baseAmount * $rate / 100);
 
-    $stmt = $pdo->prepare("INSERT INTO employee_overtime (employee_id, ot_date, hours, amount, description, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
+    $errors = [];
 
-    if ($stmt->execute([$employee_id, $date, $hours, $amount, $desc])) {
-        header("Location: dashboard.php?ot_success=1");
-        exit;
+    $date = trim($_POST['ot_date'] ?? '');
+    $hours = trim($_POST['hours'] ?? '');
+    $desc = trim($_POST['description'] ?? '');
+
+    if ($date == '') {
+        $errors['ot_date'] = 'Date is required.';
     }
+
+    if ($hours == '') {
+        $errors['hours'] = 'Hours worked is required.';
+    } elseif (!is_numeric($hours) || $hours <= 0 || $hours > 24) {
+        $errors['hours'] = 'Enter hours between 0.5 and 24.';
+    }
+
+    if ($desc == '') {
+        $errors['description'] = 'Description is required.';
+    }
+
+    if (empty($errors)) {
+
+        $stmt = $pdo->prepare("
+        INSERT INTO employee_overtime
+        (employee_id, ot_date, hours, amount, description, status)
+        VALUES (?, ?, ?, ?, ?, 'Pending')
+    ");
+
+        if ($stmt->execute([$employee_id, $date, $hours, $amount, $desc])) {
+            header("Location: dashboard.php?ot_success=1");
+            exit;
+        }
+
+    }
+
 }
 $currentMonth = date('Y-m');
 $totalEarned = 0;
@@ -1443,21 +1472,38 @@ $today_holiday = $h_stmt->fetch();
             <input type="hidden" name="action" value="add_ot">
 
             <div style="margin-bottom: 1rem;">
-                <label>Date</label>
-                <input type="date" name="ot_date" value="<?= date('Y-m-d') ?>" required
+                <label>Date <span style="color:red">*</span></label>
+                <input type="date" name="ot_date" value="<?= htmlspecialchars($date ?? '') ?>"
                     style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;">
+                <?php if (isset($errors['ot_date'])): ?>
+                    <div style="color:#dc2626 !important;font-size:13px;font-weight:500;margin-top:4px;">
+                        <?= htmlspecialchars($errors['ot_date']) ?>
+                    </div>
+                <?php endif; ?>
             </div>
 
             <div style="margin-bottom: 1rem;">
-                <label>Hours Worked</label>
-                <input type="number" name="hours" step="0.5" required placeholder="e.g. 2.0"
+                <label>Hours Worked <span style="color:red">*</span></label>
+                <input type="number" name="hours" step="0.5" placeholder="e.g. 2.0"
+                    value="<?= htmlspecialchars($hours ?? '') ?>"
                     style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;">
+                <?php if (isset($errors['hours'])): ?>
+                    <div style="color:#dc2626 !important;font-size:13px;font-weight:500;margin-top:4px;">
+                        <?= htmlspecialchars($errors['hours']) ?>
+                    </div>
+                <?php endif; ?>
             </div>
 
             <div style="margin-bottom: 1.5rem;">
-                <label>Description</label>
-                <textarea name="description" required rows="3" placeholder="What did you work on?"
-                    style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;"></textarea>
+                <label>Description <span style="color:red">*</span></label>
+                <textarea name="description" rows="3" placeholder="What did you work on?"
+                    style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;"><?= htmlspecialchars($desc ?? '') ?></textarea>
+                <?php if (isset($errors['description'])): ?>
+                <div style="color:#dc2626 !important;font-size:13px;font-weight:500;margin-top:4px;">
+                    <?= htmlspecialchars($errors['description']) ?>
+                </div>
+                <?php endif; ?>
+                
             </div>
 
             <button type="submit"
@@ -1469,4 +1515,11 @@ $today_holiday = $h_stmt->fetch();
 
     </div>
 </div>
+<?php if (!empty($errors)): ?>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('add-ot-modal').style.display = 'flex';
+        });
+    </script>
+<?php endif; ?>
 <?php include 'includes/bottom-nav.php'; ?>
