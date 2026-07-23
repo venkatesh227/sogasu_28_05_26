@@ -3,6 +3,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require_once '../includes/db.php';
+require_once '../admin/attendance_calculator.php';
 // supervisor-dashboard.php
 // This file is included in dashboard.php when role is Supervisor
 
@@ -372,72 +373,179 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 $currentMonth = date('Y-m');
 $totalEarned = 0;
 
-$stmt = $pdo->prepare("
-    SELECT pay_cycle
-    FROM employees
-    WHERE id = ?
-");
+$stmt = $pdo->prepare("SELECT pay_cycle, base_salary, default_shift_id FROM employees WHERE id = ?");
 $stmt->execute([$employee_id]);
-$payCycle = $stmt->fetchColumn();
+$payrollEmployee = $stmt->fetch(PDO::FETCH_ASSOC);
+$payCycle = $payrollEmployee['pay_cycle'] ?? '';
+$baseSalary = (float) ($payrollEmployee['base_salary'] ?? 0);
+$defaultShiftId = $payrollEmployee['default_shift_id'] ?? null;
 
-if (stripos($payCycle, 'Monthly') !== false) {
-
-    $stmt = $pdo->prepare("
-        SELECT payment_type, amount, status
-        FROM employee_payments
-        WHERE employee_id = ?
-        AND MONTH(payment_date) = MONTH(CURDATE())
-        AND YEAR(payment_date) = YEAR(CURDATE())
-    ");
-
-} elseif (stripos($payCycle, 'Weekly') !== false) {
-
-    $stmt = $pdo->prepare("
-        SELECT payment_type, amount, status
-        FROM employee_payments
-        WHERE employee_id = ?
-        AND YEARWEEK(payment_date,1) = YEARWEEK(CURDATE(),1)
-    ");
-
+if (stripos($payCycle, 'Weekly') !== false) {
+    $from_date = date('Y-m-d', strtotime('monday this week'));
+    $to_date = date('Y-m-d', strtotime('sunday this week'));
 } elseif (stripos($payCycle, 'Daily') !== false) {
-
-    $stmt = $pdo->prepare("
-        SELECT payment_type, amount, status
-        FROM employee_payments
-        WHERE employee_id = ?
-        AND DATE(payment_date) = CURDATE()
-    ");
-
+    $from_date = date('Y-m-d');
+    $to_date = date('Y-m-d');
 } else {
-
-    $stmt = $pdo->prepare("
-        SELECT payment_type, amount, status
-        FROM employee_payments
-        WHERE employee_id = ?
-    ");
-
+    $from_date = date('Y-m-01');
+    $to_date = date('Y-m-t');
 }
 
-$stmt->execute([$employee_id]);
-$allPayments = $stmt->fetchAll();
+$attendanceSummary = calculateAttendanceSummary($pdo, $from_date, $to_date);
 
-foreach ($allPayments as $row) {
+$payCycleKey = strtolower(trim($payCycle));
 
-    if ($row['status'] == 'Paid') {
+switch ($payCycleKey) {
+    case 'daily':
+        $salary_type = 'daily';
+        $per_day = $baseSalary;
+        break;
 
-        if (in_array($row['payment_type'], ['Salary', 'Overtime', 'Bonus', 'Bonus/Incentive'])) {
-            $totalEarned += $row['amount'];
-        }
+    case 'weekly (saturday)':
+        $salary_type = 'weekly';
+        $per_day = $baseSalary / 7;
+        break;
 
-        if ($row['payment_type'] == 'Advance') {
-            $totalEarned -= $row['amount'];
-        }
+    case 'bi-weekly':
+        $salary_type = 'biweekly';
+        $per_day = $baseSalary / 14;
+        break;
+
+    case 'monthly (1st)':
+        $salary_type = 'monthly';
+        $per_day = $baseSalary / date('t', strtotime($from_date));
+        break;
+
+    default:
+        $salary_type = 'monthly';
+        $per_day = $baseSalary / date('t', strtotime($from_date));
+}
+
+$present_days = 0;
+$half_days = 0;
+$late_days = 0;
+$absent_days = 0;
+
+$period = new DatePeriod(
+    new DateTime($from_date),
+    new DateInterval('P1D'),
+    (new DateTime($to_date))->modify('+1 day')
+);
+
+foreach ($period as $day) {
+    $dayNo = (int) $day->format('j');
+    $status = $attendanceSummary[$employee_id][$dayNo] ?? null;
+
+    if ($status === null) {
+        continue;
     }
 
-    if ($row['status'] == 'Deducted') {
-        $totalEarned -= $row['amount'];
+    switch ($status) {
+        case 'Present':
+            $present_days++;
+            break;
+
+        case 'Late':
+            $late_days++;
+            break;
+
+        case 'Half Day':
+            $half_days++;
+            break;
+
+        case 'Absent':
+            $absent_days++;
+            break;
     }
 }
+
+$paid_present_days = $present_days + $late_days;
+
+$approved_ot_stmt = $pdo->prepare("SELECT COALESCE(SUM(ot_minutes),0) FROM attendance WHERE employee_id = ? AND attendance_date BETWEEN ? AND ?");
+$approved_ot_stmt->execute([$employee_id, $from_date, $to_date]);
+$approved_ot_minutes = intval($approved_ot_stmt->fetchColumn());
+$approved_ot_hours = $approved_ot_minutes / 60;
+
+$working_hours = 8;
+
+$shiftTypeStmt = $pdo->prepare("SELECT COALESCE((SELECT sr.shift_type_id FROM shift_roster sr WHERE sr.employee_id = ? AND sr.roster_date <= ? ORDER BY sr.roster_date DESC LIMIT 1), ?) AS shift_type_id");
+$shiftTypeStmt->execute([$employee_id, $to_date, $defaultShiftId]);
+$shift_type_id = $shiftTypeStmt->fetchColumn();
+
+if (!empty($shift_type_id)) {
+    $shiftStmt = $pdo->prepare("SELECT start_time, end_time FROM shift_types WHERE id = ? LIMIT 1");
+    $shiftStmt->execute([$shift_type_id]);
+    $shift = $shiftStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($shift) {
+        $start = strtotime($shift['start_time']);
+        $end = strtotime($shift['end_time']);
+
+        if ($end < $start) {
+            $end += 86400;
+        }
+
+        $working_hours = ($end - $start) / 3600;
+
+        if ($working_hours <= 0) {
+            $working_hours = 8;
+        }
+    }
+}
+
+switch ($salary_type) {
+    case 'daily':
+        $hourly_rate = $baseSalary / $working_hours;
+        break;
+
+    case 'weekly':
+        $hourly_rate = ($baseSalary / 7) / $working_hours;
+        break;
+
+    case 'biweekly':
+        $hourly_rate = ($baseSalary / 14) / $working_hours;
+        break;
+
+    case 'monthly':
+        $daysInMonth = date('t', strtotime($from_date));
+        $hourly_rate = ($baseSalary / $daysInMonth) / $working_hours;
+        break;
+
+    default:
+        $hourly_rate = ($baseSalary / 30) / $working_hours;
+        break;
+}
+
+$otStmt = $pdo->query("SELECT ot_percentage FROM ot_rate_settings ORDER BY id DESC LIMIT 1");
+$otRate = (float) $otStmt->fetchColumn();
+$otRate = floatval($otRate);
+$bonus_per_hour = ($hourly_rate * $otRate) / 100;
+$ot_rate_per_hour = $hourly_rate + $bonus_per_hour;
+$approved_ot_amount = $approved_ot_hours * $ot_rate_per_hour;
+
+$attendance_salary = 0;
+
+if ($present_days == 0 && $late_days == 0 && $half_days == 0) {
+    $attendance_salary = 0;
+} else {
+    $attendance_salary = ($paid_present_days * $per_day) + ($half_days * ($per_day / 2));
+    $attendance_salary = round(max(0, $attendance_salary), 2);
+}
+
+$total = $attendance_salary + $approved_ot_amount;
+
+$checkStmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM employee_payments WHERE employee_id = ? AND payment_type = 'Salary'");
+$checkStmt->execute([$employee_id]);
+$paidAmount = (float) $checkStmt->fetchColumn();
+
+$advanceStmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM employee_payments WHERE employee_id = ? AND payment_date BETWEEN ? AND ? AND payment_type = 'Advance' AND LOWER(status) = 'deducted'");
+$advanceStmt->execute([$employee_id, $from_date, $to_date]);
+$advanceRecovered = (float) $advanceStmt->fetchColumn();
+
+$salaryPayable = round(max(0, $total - $advanceRecovered), 2);
+$paidAmount = round($paidAmount, 2);
+$remainingAmount = round(max(0, $salaryPayable - $paidAmount), 2);
+$totalEarned = $remainingAmount;
 $headerTitle = "Supervisor Panel";
 $activePage = "dashboard";
 include 'includes/header.php';
