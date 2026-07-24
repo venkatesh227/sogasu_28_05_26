@@ -176,8 +176,11 @@ foreach ($employees as &$row) {
     $half_days = intval($row['half_days']);
     $late_days = intval($row['late_days']);
 
-    // Late employees are paid as Present
-    $paid_present_days = $present_days + $late_days;
+    // Only Present days get full salary.
+    // Half Day gets half salary.
+    // Late is counted separately.
+    // Late (1st & 2nd) employees are also paid as Present
+    $paid_present_days = $present_days + $late_days;    
     // ================= OT CALCULATION =================
 
     $approved_ot_minutes = intval($row['approved_ot_minutes']);
