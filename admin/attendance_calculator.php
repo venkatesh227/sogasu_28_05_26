@@ -22,7 +22,10 @@ function calculateAttendanceSummary($pdo, $fromDate, $toDate)
 ";
 
     $params = [$fromDate, $toDate];
-    // Fetch manually marked attendance
+    // Fetch stored attendance.  Entries with no biometric logs are still shown
+    // as manually marked attendance below.  When a completed biometric session
+    // exists, its working-hours calculation is authoritative; device syncs also
+    // write provisional values such as "Late" into this table.
     $manualStmt = $pdo->prepare("
     SELECT employee_id, attendance_date, status
     FROM attendance
@@ -72,15 +75,6 @@ function calculateAttendanceSummary($pdo, $fromDate, $toDate)
     foreach ($daily_sessions as $emp_id => $dates) {
         ksort($dates);
         foreach ($dates as $date => $daySessions) {
-            // If attendance was manually marked by admin,
-// use it directly instead of recalculating from logs.
-            if (isset($manualAttendance[$emp_id][$date])) {
-
-                $calculatedAttendance[$emp_id][date('j', strtotime($date))]
-                    = $manualAttendance[$emp_id][$date];
-
-                continue;
-            }
             if (empty($daySessions))
                 continue;
 
@@ -125,29 +119,30 @@ function calculateAttendanceSummary($pdo, $fromDate, $toDate)
 
                 $graceEnd = $shiftStart + ($graceMinutes * 60);
 
+                // Keep this in sync with Working Hours: short completed
+                // sessions take precedence over a late check-in.
                 $minimumHalfDaySeconds = 4 * 3600;
+                $minimumFullDaySeconds = 8 * 3600;
 
                 $isGraceCrossed = ($checkIn > $graceEnd);
 
                 /*
                 ============================================
-                RULE 1
-                Less than 4 hours = Half_day
+                RULE 1 (same as Working Hours)
+                Less than 4 hours = Insufficient Hours
+                4 hours to 7 hours 59 minutes = Half Day
+                8 hours or more = existing Late / On Time logic
                 ============================================
                 */
 
                 // Default
                 $status = 'ON_TIME';
 
-                // Less than 4 hrs
                 if ($total_sec < $minimumHalfDaySeconds) {
-
+                    $status = 'INSUFFICIENT_HOURS';
+                } elseif ($total_sec < $minimumFullDaySeconds) {
                     $status = 'HALF_DAY';
-
-                }
-
-                // Worked full shift
-                else {
+                } else {
 
                     if (!$isGraceCrossed) {
 
@@ -182,6 +177,8 @@ function calculateAttendanceSummary($pdo, $fromDate, $toDate)
                     $status = 'Late';
                 } elseif ($status == 'HALF_DAY') {
                     $status = 'Half Day';
+                } elseif ($status == 'INSUFFICIENT_HOURS') {
+                    $status = 'Insufficient Hours';
                 }
 
                 $calculatedAttendance[$emp_id][date('j', strtotime($date))] = $status;
@@ -191,7 +188,7 @@ function calculateAttendanceSummary($pdo, $fromDate, $toDate)
         }
 
     }
-    // Add manually marked attendance that has no biometric logs
+    // Add stored/manual attendance only where there are no biometric logs.
     foreach ($manualAttendance as $emp_id => $dates) {
 
         foreach ($dates as $date => $status) {

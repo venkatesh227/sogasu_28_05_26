@@ -389,7 +389,14 @@ include 'includes/header.php';
                     <i class="ri-star-half-fill" style="color: #f59e0b;"></i>
                     <span>Half Day</span>
                 </div>
-                <div class="legend-item"><i class="ri-plane-fill" style="color: #7c3aed;"></i> <span>Leave</span></div>
+                <div class="legend-item">
+                    <i class="ri-time-line" style="color: #f59e0b;"></i>
+                    <span>Insufficient Hours</span>
+                </div>
+                <div class="legend-item">
+                    <i class="ri-plane-fill" style="color: #7c3aed;"></i>
+                    <span>Leave</span>
+                </div>
             </div>
         </div>
 
@@ -555,6 +562,9 @@ include 'includes/header.php';
                                             <?php elseif ($status == 'Half Day'): ?>
                                                 <i class="ri-star-half-fill att-icon" style="color: #f59e0b;"></i>
 
+                                            <?php elseif ($status == 'Insufficient Hours'): ?>
+                                                <i class="ri-time-line att-icon" style="color: #f59e0b;"></i>
+
                                             <?php elseif ($status == 'On Leave'): ?>
                                                 <i class="ri-plane-fill att-icon" style="color: #7c3aed;"></i>
                                             <?php endif; ?>
@@ -665,6 +675,7 @@ include 'includes/header.php';
                             <option value="Present">Present</option>
                             <option value="Late">Late Arrival</option>
                             <option value="Half Day">Half Day</option>
+                            <option value="Insufficient Hours">Insufficient Hours</option>
                             <option value="Absent">Absent</option>
                             <option value="On Leave">On Leave</option>
                         </select>

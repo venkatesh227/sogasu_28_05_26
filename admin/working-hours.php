@@ -389,7 +389,7 @@ include 'includes/header.php';
                                                 ?>
 
                                                 <span class="badge bg-success">
-                                                    ON TIME
+                                                    FULL DAY
                                                 </span>
 
                                                 <?php
@@ -408,7 +408,7 @@ include 'includes/header.php';
                                             case 'HALF_DAY':
                                                 ?>
 
-                                                <span class="badge bg-danger">
+                                                <span class="badge" style="background:#dc2626; color:#fff;">
                                                     HALF DAY
                                                 </span>
 
