@@ -1,19 +1,20 @@
 Array
 (
     [order_type] => inhouse
-    [customer_id] => 1
-    [mobile_number] => 7981242293
+    [customer_id] => 2
+    [mobile_number] => 8888888888
     [family_member_id] => 
     [delivery_address] => Nandulapet, Tenali
-    [category_id] => 4
-    [sub_category_id] => 2
+    [category_id] => 1
+    [sub_category_id] => 1
     [fabric_details] => cotton
-    [due_date] => 2026-07-17
+    [due_date] => 2026-07-27
     [measurement_unit] => CMS
     [measurements] => Array
         (
+            [Plain Blouse] => 12
             [Sholder] => 12
-            [hand] => 12
+            [Shoulder Strap] => 12
             [Chest] => 12
             [Front Length] => 12
             [Waist] => 12
@@ -21,16 +22,16 @@ Array
             [Arm Hole] => 12
         )
 
-    [design_notes] => suite
+    [design_notes] => Back Rope
     [selected_services] => Array
         (
             [0] => 2
         )
 
-    [base_price] => 500.00
-    [extra_charges] => 600
+    [base_price] => 800.00
+    [extra_charges] => 1000
     [outsource_credit] => 
-    [advance_amount] => 300
+    [advance_amount] => 200
     [advance_payment_mode] => Cash
     [transaction_reference] => 
     [submit_order] => 1

@@ -5,6 +5,24 @@ include '../includes/db.php';
 $pageTitle = "Reports - Sogasu";
 $activePage = "reports";
 
+// ==================== REPORT PERIOD FILTER ====================
+$selectedPeriod = $_GET['period'] ?? '1M';
+$allowedPeriods = ['1W', '1M', '1Y'];
+
+if (!in_array($selectedPeriod, $allowedPeriods, true)) {
+    $selectedPeriod = '1M';
+}
+
+$periodConfig = [
+    '1W' => ['start' => '-6 days', 'label' => 'Last 7 days'],
+    '1M' => ['start' => '-29 days', 'label' => 'Last 30 days'],
+    '1Y' => ['start' => '-364 days', 'label' => 'Last 12 months']
+];
+
+$filterStartDate = date('Y-m-d', strtotime($periodConfig[$selectedPeriod]['start']));
+$filterEndDate = date('Y-m-d');
+$selectedPeriodLabel = $periodConfig[$selectedPeriod]['label'];
+
 // ==================== CALCULATE METRICS ====================
 
 // 1. Separate Employees Count
@@ -20,51 +38,36 @@ $totalEmployees = $inhouseEmployees + $outsourceEmployees;
 $totalCustStmt = $pdo->query("SELECT COUNT(*) FROM customers WHERE is_deleted = 0");
 $totalCustomers = $totalCustStmt->fetchColumn();
 
-// 3. Orders Collected Today
-$todayDate = date('Y-m-d');
-$todayIncome = $pdo->query("
+// 3. Order collections for the selected dashboard period.
+$collectionTotalStmt = $pdo->prepare("
     SELECT COALESCE(SUM(payment_amount), 0)
     FROM bill_payments
-    WHERE is_deleted = 0 
-    AND DATE(payment_date) = '$todayDate'
-")->fetchColumn();
+    WHERE is_deleted = 0
+      AND DATE(payment_date) BETWEEN ? AND ?
+");
+$collectionTotalStmt->execute([$filterStartDate, $filterEndDate]);
+$periodIncome = $collectionTotalStmt->fetchColumn();
 
-// 4. Orders Collected This Month
-$monthStart = date('Y-m-01');
-$monthEnd = date('Y-m-d');
-$monthIncome = $pdo->query("
-    SELECT COALESCE(SUM(payment_amount), 0)
-    FROM bill_payments
-    WHERE is_deleted = 0 
-    AND DATE(payment_date) BETWEEN '$monthStart' AND '$monthEnd'
-")->fetchColumn();
-
-// 5. Total Expenses This Month
-$monthExpenses = $pdo->query("
-    SELECT COALESCE(SUM(amount), 0)
-    FROM expenses
-    WHERE DATE(expense_date) BETWEEN '$monthStart' AND '$monthEnd'
-")->fetchColumn();
-
-// 6. Net Profit This Month
-$netProfit = $monthIncome - $monthExpenses;
-
-// 7. Day-wise Attendance for Current Week (Last 7 days)
+// 4. Day-wise attendance for the selected period. Count each active in-house
+// employee once from their check-in, regardless of how many punches they have.
+// This remains accurate when the workforce grows beyond the current demo size.
 $dayWiseAttendance = [];
 $dayLabels = [];
+$presentStmt = $pdo->prepare("
+    SELECT COUNT(DISTINCT al.employee_id)
+    FROM attendance_logs al
+    INNER JOIN employees e ON e.id = al.employee_id
+    WHERE al.log_date = ?
+      AND al.log_type = 'In'
+      AND e.is_deleted = 0
+      AND e.employee_type = 'inhouse'
+");
 
-for ($i = 6; $i >= 0; $i--) {
-    $date = date('Y-m-d', strtotime("-$i days"));
-    $dayLabel = date('D', strtotime($date));
+for ($date = $filterStartDate; $date <= $filterEndDate; $date = date('Y-m-d', strtotime($date . ' +1 day'))) {
+    $dayLabel = date('d M', strtotime($date));
     $dayLabels[] = $dayLabel;
 
-    // Present employees (have check-in logs)
-    $presentStmt = $pdo->query("
-        SELECT COUNT(DISTINCT employee_id)
-        FROM attendance_logs
-        WHERE DATE(log_date) = '$date'
-        AND employee_id IN (SELECT id FROM employees WHERE is_deleted = 0 AND employee_type = 'inhouse')
-    ");
+    $presentStmt->execute([$date]);
     $presentCount = $presentStmt->fetchColumn();
 
     // Absent = Total inhouse - Present
@@ -76,45 +79,30 @@ for ($i = 6; $i >= 0; $i--) {
     ];
 }
 
-// 8. Monthly Revenue Data (last 12 months for graph)
-$monthlyRevenueData = [];
-$monthlyLabels = [];
+// 5. Day-wise order collections for the selected period. The report intentionally
+// stays day-wise for weekly, monthly, and yearly selections.
+$dailyCollectionsData = [];
+$dailyLabels = [];
 
-for ($i = 11; $i >= 0; $i--) {
-    $date = date('Y-m-01', strtotime("-$i months"));
-    $monthLabel = date('M', strtotime($date));
-    $monthStart = date('Y-m-01', strtotime($date));
-    $monthEnd = date('Y-m-t', strtotime($date));
-
-    $revenue = $pdo->query("
-        SELECT COALESCE(SUM(payment_amount), 0)
-        FROM bill_payments
-        WHERE is_deleted = 0 
-        AND DATE(payment_date) BETWEEN '$monthStart' AND '$monthEnd'
-    ")->fetchColumn();
-
-    $expense = $pdo->query("
-        SELECT COALESCE(SUM(amount), 0)
-        FROM expenses
-        WHERE DATE(expense_date) BETWEEN '$monthStart' AND '$monthEnd'
-    ")->fetchColumn();
-
-    $monthlyLabels[] = $monthLabel;
-    $monthlyRevenueData[] = [
-        'revenue' => (float) $revenue,
-        'expense' => (float) $expense
-    ];
-}
-
-// 9. Average Order Value This Month
-$totalOrders = $pdo->query("
-    SELECT COUNT(DISTINCT order_id)
+$collectionsStmt = $pdo->prepare("
+    SELECT DATE(payment_date) AS collection_date,
+           COALESCE(SUM(payment_amount), 0) AS total_collection
     FROM bill_payments
-    WHERE is_deleted = 0 
-    AND DATE(payment_date) BETWEEN '$monthStart' AND '$monthEnd'
-")->fetchColumn();
+    WHERE is_deleted = 0
+      AND DATE(payment_date) BETWEEN ? AND ?
+    GROUP BY DATE(payment_date)
+    ORDER BY collection_date ASC
+");
+$collectionsStmt->execute([$filterStartDate, $filterEndDate]);
+$collectionsByDay = $collectionsStmt->fetchAll(PDO::FETCH_KEY_PAIR);
 
-$avgOrderValue = $totalOrders > 0 ? $monthIncome / $totalOrders : 0;
+// Do not manufacture zero-value months. The chart's X and Y values should
+// represent only real payments recorded from order collections.
+foreach ($collectionsByDay as $dayKey => $collectionAmount) {
+    $dailyLabels[] = date('d M', strtotime($dayKey));
+    $dailyCollectionsData[] = (float) $collectionAmount;
+}
+$hasOrderCollections = !empty($dailyCollectionsData) && array_sum($dailyCollectionsData) > 0;
 
 include 'includes/header.php';
 ?>
@@ -128,21 +116,37 @@ include 'includes/header.php';
             <div>
                 <h2
                     style="font-size: 1.5rem; font-weight: 700; color: var(--text-dark); margin-bottom: 0.5rem; letter-spacing: -0.02em;">
-                    Business Intelligence</h1>
-                    <p style="color: var(--text-muted); font-size: 1rem; font-weight: 500;">Analyze your business
-                        performance with advanced visual analytics.</p>
+                    Business Intelligence</h2>
+                <p style="color: var(--text-muted); font-size: 1rem; font-weight: 500;">Analyze your business
+                    performance with advanced visual analytics.</p>
+                <form method="get" action="reports.php"
+                    style="display:flex; align-items:end; gap:0.65rem; flex-wrap:wrap; margin-top:1rem;">
+                    <div>
+                        <label for="period"
+                            style="display:block; margin-bottom:0.35rem; font-size:0.75rem; color:#64748b; font-weight:700;">REPORT
+                            PERIOD</label>
+                        <select id="period" name="period"
+                            style="background:white; border:1px solid #e2e8f0; padding:10px 12px; border-radius:8px; font-weight:600; color:#1e293b; cursor:pointer;">
+                            <option value="1W" <?= $selectedPeriod === '1W' ? 'selected' : '' ?>>Weekly (Last 7 days)
+                            </option>
+                            <option value="1M" <?= $selectedPeriod === '1M' ? 'selected' : '' ?>>Monthly (Last 30 days)
+                            </option>
+                            <option value="1Y" <?= $selectedPeriod === '1Y' ? 'selected' : '' ?>>Yearly (Last 12 months)
+                            </option>
+                        </select>
+                    </div>
+                    <button type="submit"
+                        style="background:#4f46e5; border:none; padding:10px 16px; border-radius:8px; font-weight:600; color:white; cursor:pointer;"><i
+                            class="ri-filter-3-line"></i> Apply Filter</button>
+                    <a href="reports.php"
+                        style="background:white; border:1px solid #e2e8f0; padding:10px 16px; border-radius:8px; font-weight:600; color:#1e293b; text-decoration:none;"><i
+                            class="ri-refresh-line"></i> Reset</a>
+                    <span style="font-size:0.8rem; color:#64748b; padding-bottom:0.6rem;">Showing: <strong
+                            style="color:#334155;"><?= htmlspecialchars($selectedPeriodLabel) ?></strong></span>
+                </form>
             </div>
 
             <div style="display:flex; align-items:center; gap:0.75rem;">
-                <button style="
-background:white;
-border:1px solid #e2e8f0;
-padding:10px 18px;
-border-radius:8px;
-font-weight:600;
-color:#1e293b;
-cursor:pointer;
-"><i class="ri-calendar-line"></i> Select Period</button>
                 <button style="
 background:#4f46e5;
 border:none;
@@ -254,18 +258,18 @@ cursor:pointer;
                 </div>
             </div>
 
-            <!-- Card 4: Orders This Month -->
+            <!-- Card 4: Order Collections for Selected Period -->
             <div class="table-container" style="padding:1.25rem; border-radius:16px;">
 
                 <div style="display:flex; justify-content:space-between; align-items:center;">
 
                     <div>
                         <div style="font-size:0.75rem; color:#64748b; font-weight:700; text-transform:uppercase;">
-                            Orders This Month
+                            Order Collections
                         </div>
 
                         <div style="font-size:1.8rem; font-weight:800; margin-top:0.5rem; color:#ef4444;">
-                            ₹ <?= number_format($monthIncome, 0) ?>
+                            ₹ <?= number_format($periodIncome, 0) ?>
                         </div>
                     </div>
 
@@ -289,41 +293,47 @@ cursor:pointer;
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-            <!-- Orders Revenue Graph -->
+            <!-- Order Collections Graph -->
             <div class="table-container" style="padding:1.5rem; border-radius:16px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
                     <div>
                         <h3
                             style="font-size: 1.25rem; font-weight: 800; color: var(--text-dark); margin-bottom: 0.25rem;">
-                            Orders Revenue</h3>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Monthly revenue and
-                            expenses trend</p>
+                            Order Collections</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Day-wise payments
+                            collected from orders &mdash; <?= htmlspecialchars($selectedPeriodLabel) ?></p>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
                         <div
                             style="display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.8rem; background: #f0fdf4; border-radius: 8px; font-size: 0.75rem; font-weight: 800; color: #16a34a;">
-                            Revenue
-                        </div>
-                        <div
-                            style="display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.8rem; background: #fff1f2; border-radius: 8px; font-size: 0.75rem; font-weight: 800; color: #e11d48;">
-                            Expense
+                            Order Collections
                         </div>
                     </div>
                 </div>
                 <div style="height: 350px;">
-                    <canvas id="revenueGraph"></canvas>
+                    <?php if ($hasOrderCollections): ?>
+                        <canvas id="orderCollectionsGraph"></canvas>
+                    <?php else: ?>
+                        <div
+                            style="height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.65rem; color:#64748b; text-align:center;">
+                            <i class="ri-file-list-3-line" style="font-size:2rem; color:#94a3b8;"></i>
+                            <strong style="color:#475569;">No order collections recorded</strong>
+                            <span style="font-size:0.85rem;">Payments collected for orders will appear here
+                                automatically.</span>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
 
-            <!-- Attendance This Week Graph -->
+            <!-- Attendance for Selected Period Graph -->
             <div class="table-container" style="padding:1.5rem; border-radius:16px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
                     <div>
                         <h3
                             style="font-size: 1.25rem; font-weight: 800; color: var(--text-dark); margin-bottom: 0.25rem;">
-                            Weekly Attendance</h3>
+                            Attendance</h3>
                         <p style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Daily present vs
-                            absent - Last 7 days</p>
+                            absent &mdash; <?= htmlspecialchars($selectedPeriodLabel) ?></p>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
                         <div
@@ -376,25 +386,21 @@ cursor:pointer;
             }
         };
 
-        // Revenue Graph - Dynamic Data
-        const ctxRevenue = document.getElementById('revenueGraph').getContext('2d');
-        const revenueGradient = ctxRevenue.createLinearGradient(0, 0, 0, 300);
-        revenueGradient.addColorStop(0, 'rgba(16, 185, 129, 0.1)');
-        revenueGradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+        // Only render a chart when the Payments source has real collections.
+        const collectionsCanvas = document.getElementById('orderCollectionsGraph');
+        if (collectionsCanvas) {
+            const ctxCollections = collectionsCanvas.getContext('2d');
+            const collectionsGradient = ctxCollections.createLinearGradient(0, 0, 0, 300);
+            collectionsGradient.addColorStop(0, 'rgba(16, 185, 129, 0.18)');
+            collectionsGradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
 
-        // Extract revenue and expense data from PHP
-        const monthlyData = <?= json_encode($monthlyRevenueData) ?>;
-        const revenueDataPoints = monthlyData.map(item => item.revenue);
-        const expenseDataPoints = monthlyData.map(item => item.expense);
-
-        new Chart(ctxRevenue, {
-            type: 'line',
-            data: {
-                labels: <?= json_encode($monthlyLabels) ?>,
-                datasets: [
-                    {
-                        label: 'Revenue',
-                        data: revenueDataPoints,
+            new Chart(ctxCollections, {
+                type: 'line',
+                data: {
+                    labels: <?= json_encode($dailyLabels) ?>,
+                    datasets: [{
+                        label: 'Order Collections',
+                        data: <?= json_encode($dailyCollectionsData) ?>,
                         borderColor: '#10b981',
                         borderWidth: 4,
                         pointBackgroundColor: 'white',
@@ -404,22 +410,12 @@ cursor:pointer;
                         pointHoverRadius: 6,
                         tension: 0.4,
                         fill: true,
-                        backgroundColor: revenueGradient
-                    },
-                    {
-                        label: 'Expenses',
-                        data: expenseDataPoints,
-                        borderColor: '#ef4444',
-                        borderWidth: 3,
-                        borderDash: [5, 5],
-                        pointRadius: 0,
-                        tension: 0.4,
-                        fill: false
-                    }
-                ]
-            },
-            options: sharedOptions
-        });
+                        backgroundColor: collectionsGradient
+                    }]
+                },
+                options: sharedOptions
+            });
+        }
 
         // Attendance Graph - Day-wise Attendance
         const ctxAttendance = document.getElementById('attendanceGraph').getContext('2d');
@@ -428,6 +424,7 @@ cursor:pointer;
 
         const presentData = dayWiseData.map(item => item.present);
         const absentData = dayWiseData.map(item => item.absent);
+        const activeInhouseEmployees = <?= (int) $inhouseEmployees ?>;
 
         new Chart(ctxAttendance, {
             type: 'bar',
@@ -439,14 +436,14 @@ cursor:pointer;
                         data: presentData,
                         backgroundColor: '#10b981',
                         borderRadius: 8,
-                        barThickness: 25
+                        maxBarThickness: 36
                     },
                     {
                         label: 'Absent',
                         data: absentData,
                         backgroundColor: '#ef4444',
                         borderRadius: 8,
-                        barThickness: 25
+                        maxBarThickness: 36
                     }
                 ]
             },
@@ -477,8 +474,13 @@ cursor:pointer;
                     },
                     y: {
                         grid: { color: '#f1f5f9', borderDash: [5, 5] },
-                        ticks: { font: { family: 'Outfit', size: 12, weight: '600' }, color: '#94a3b8' },
-                        beginAtZero: true
+                        ticks: {
+                            font: { family: 'Outfit', size: 12, weight: '600' },
+                            color: '#94a3b8',
+                            precision: 0
+                        },
+                        beginAtZero: true,
+                        max: activeInhouseEmployees || undefined
                     }
                 }
             }
