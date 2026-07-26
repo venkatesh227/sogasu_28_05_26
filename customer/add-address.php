@@ -27,6 +27,22 @@ $address = [
     'pincode' => '',
     'is_default' => 0
 ];
+$errors = [];
+$formValues = [
+    'full_name' => '',
+    'phone' => '',
+    'address_type' => 'Home',
+    'house_no' => '',
+    'apartment' => '',
+    'landmark' => '',
+    'area' => '',
+    'city' => '',
+    'state' => '',
+    'pincode' => '',
+    'is_default' => 0,
+    'latitude' => '',
+    'longitude' => ''
+];
 
 if (isset($_GET['id']) && is_numeric($_GET['id'])) {
 
@@ -54,128 +70,218 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
 
 }
 
+$formValues = [
+    'full_name' => $address['full_name'] ?? '',
+    'phone' => $address['phone'] ?? '',
+    'address_type' => $address['address_type'] ?? 'Home',
+    'house_no' => $address['house_no'] ?? '',
+    'apartment' => $address['apartment'] ?? '',
+    'landmark' => $address['landmark'] ?? '',
+    'area' => $address['area'] ?? '',
+    'city' => $address['city'] ?? '',
+    'state' => $address['state'] ?? '',
+    'pincode' => $address['pincode'] ?? '',
+    'is_default' => (int) ($address['is_default'] ?? 0),
+    'latitude' => $address['latitude'] ?? '',
+    'longitude' => $address['longitude'] ?? ''
+];
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
-    $full_name = trim($_POST['full_name']);
-    $phone = trim($_POST['phone']);
-    $address_type = $_POST['address_type'];
-    $house_no = trim($_POST['house_no']);
-    $apartment = trim($_POST['apartment']);
-    $landmark = trim($_POST['landmark']);
-    $area = trim($_POST['area']);
-    $city = trim($_POST['city']);
-    $state = trim($_POST['state']);
-    $pincode = trim($_POST['pincode']);
-    $latitude = $_POST['latitude'] ?? null;
-    $longitude = $_POST['longitude'] ?? null;
+    $full_name = trim((string) ($_POST['full_name'] ?? ''));
     $is_default = isset($_POST['is_default']) ? 1 : 0;
+    $phone = trim((string) ($_POST['phone'] ?? ''));
+    $address_type = trim((string) ($_POST['address_type'] ?? ''));
+    $house_no = trim((string) ($_POST['house_no'] ?? ''));
+    $apartment = trim((string) ($_POST['apartment'] ?? ''));
+    $landmark = trim((string) ($_POST['landmark'] ?? ''));
+    $area = trim((string) ($_POST['area'] ?? ''));
+    $city = trim((string) ($_POST['city'] ?? ''));
+    $state = trim((string) ($_POST['state'] ?? ''));
+    $pincode = trim((string) ($_POST['pincode'] ?? ''));
+    $latitude = trim((string) ($_POST['latitude'] ?? ''));
+    $longitude = trim((string) ($_POST['longitude'] ?? ''));
 
-    if ($is_default == 1) {
+    $formValues = [
+        'full_name' => $full_name,
+        'phone' => $phone,
+        'address_type' => $address_type !== '' ? $address_type : ($address['address_type'] ?? 'Home'),
+        'house_no' => $house_no,
+        'apartment' => $apartment,
+        'landmark' => $landmark,
+        'area' => $area,
+        'city' => $city,
+        'state' => $state,
+        'pincode' => $pincode,
+        'is_default' => $is_default,
+        'latitude' => $latitude,
+        'longitude' => $longitude
+    ];
 
-        $pdo->prepare("
-            UPDATE customer_addresses
-            SET is_default = 0
-            WHERE user_id = ?
-        ")->execute([$userId]);
-
+    if ($full_name == '') {
+        $errors['full_name'] = "Full Name is required";
+    } elseif (strlen($full_name) < 3 || strlen($full_name) > 100 || !preg_match('/^[A-Za-z ]+$/', $full_name)) {
+        $errors['full_name'] = "Enter a valid Full Name";
     }
 
-    if ($isEdit) {
-
-        $stmt = $pdo->prepare("
-            UPDATE customer_addresses
-            SET
-                full_name=?,
-                phone=?,
-                address_type=?,
-                house_no=?,
-                apartment=?,
-                landmark=?,
-                area=?,
-                city=?,
-                state=?,
-                pincode=?,
-                latitude=?,
-                longitude=?,
-                is_default=?,
-                updated_at=?
-            WHERE id=?
-            AND user_id=?
-        ");
-
-        $stmt->execute([
-            $full_name,
-            $phone,
-            $address_type,
-            $house_no,
-            $apartment,
-            $landmark,
-            $area,
-            $city,
-            $state,
-            $pincode,
-            $latitude,
-            $longitude,
-            $is_default,
-            date('Y-m-d H:i:s'),
-            $_GET['id'],
-            $userId
-        ]);
-
-    } else {
-
-        $stmt = $pdo->prepare("
-            INSERT INTO customer_addresses
-            (
-                user_id,
-                full_name,
-                phone,
-                address_type,
-                house_no,
-                apartment,
-                landmark,
-                area,
-                city,
-                state,
-                pincode,
-                latitude,
-                longitude,
-                is_default,
-                created_at
-            )
-            VALUES
-            (
-                ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
-            )
-        ");
-
-        $stmt->execute([
-            $userId,
-            $full_name,
-            $phone,
-            $address_type,
-            $house_no,
-            $apartment,
-            $landmark,
-            $area,
-            $city,
-            $state,
-            $pincode,
-            $latitude,
-            $longitude,
-            $is_default,
-            date('Y-m-d H:i:s')
-        ]);
-
+    if ($phone == '') {
+        $errors['phone'] = "Mobile Number is required";
+    } elseif (!preg_match('/^[0-9]{10}$/', $phone)) {
+        $errors['phone'] = "Mobile Number must contain exactly 10 digits";
+    } elseif (!preg_match('/^[6-9]/', $phone)) {
+        $errors['phone'] = "Mobile Number must start with 6, 7, 8 or 9";
     }
 
-    $_SESSION['success_message'] =
-        $isEdit
-        ? "Address updated successfully."
-        : "Address added successfully.";
+    if (empty($address_type)) {
+        $errors['address_type'] = "Select Address Type";
+    }
 
-    header("Location:manage-addresses.php");
-    exit();
+    if ($house_no == '') {
+        $errors['house_no'] = "House / Flat No is required";
+    }
+
+    if (strlen($apartment) > 150) {
+        $errors['apartment'] = "Apartment / Building is too long";
+    }
+
+    if (strlen($landmark) > 150) {
+        $errors['landmark'] = "Landmark is too long";
+    }
+
+    if ($area == '') {
+        $errors['area'] = "Area / Locality is required";
+    }
+
+    if ($city == '') {
+        $errors['city'] = "City is required";
+    } elseif (!preg_match('/^[A-Za-z ]+$/', $city)) {
+        $errors['city'] = "Enter a valid City";
+    }
+
+    if ($state == '') {
+        $errors['state'] = "State is required";
+    } elseif (!preg_match('/^[A-Za-z ]+$/', $state)) {
+        $errors['state'] = "Enter a valid State";
+    }
+
+    if (!preg_match('/^[0-9]{6}$/', $pincode)) {
+        $errors['pincode'] = "Enter a valid 6-digit Pincode";
+    }
+
+    if ($latitude == '' || $longitude == '') {
+        $errors['location'] = "Please select your location on the map";
+    }
+
+    if (empty($errors)) {
+
+        if ($is_default == 1) {
+
+            $pdo->prepare("
+                UPDATE customer_addresses
+                SET is_default = 0
+                WHERE user_id = ?
+            ")->execute([$userId]);
+
+        }
+
+        if ($isEdit) {
+
+            $stmt = $pdo->prepare("
+                UPDATE customer_addresses
+                SET
+                    full_name=?,
+                    phone=?,
+                    address_type=?,
+                    house_no=?,
+                    apartment=?,
+                    landmark=?,
+                    area=?,
+                    city=?,
+                    state=?,
+                    pincode=?,
+                    latitude=?,
+                    longitude=?,
+                    is_default=?,
+                    updated_at=?
+                WHERE id=?
+                AND user_id=?
+            ");
+
+            $stmt->execute([
+                $full_name,
+                $phone,
+                $address_type,
+                $house_no,
+                $apartment,
+                $landmark,
+                $area,
+                $city,
+                $state,
+                $pincode,
+                $latitude,
+                $longitude,
+                $is_default,
+                date('Y-m-d H:i:s'),
+                $_GET['id'],
+                $userId
+            ]);
+
+        } else {
+
+            $stmt = $pdo->prepare("
+                INSERT INTO customer_addresses
+                (
+                    user_id,
+                    full_name,
+                    phone,
+                    address_type,
+                    house_no,
+                    apartment,
+                    landmark,
+                    area,
+                    city,
+                    state,
+                    pincode,
+                    latitude,
+                    longitude,
+                    is_default,
+                    created_at
+                )
+                VALUES
+                (
+                    ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+                )
+            ");
+
+            $stmt->execute([
+                $userId,
+                $full_name,
+                $phone,
+                $address_type,
+                $house_no,
+                $apartment,
+                $landmark,
+                $area,
+                $city,
+                $state,
+                $pincode,
+                $latitude,
+                $longitude,
+                $is_default,
+                date('Y-m-d H:i:s')
+            ]);
+
+        }
+
+        $_SESSION['success_message'] =
+            $isEdit
+            ? "Address updated successfully."
+            : "Address added successfully.";
+
+        header("Location:manage-addresses.php");
+        exit();
+
+    }
 
 }
 
@@ -215,14 +321,25 @@ include 'includes/header.php';
                 </div>
 
             </div>
+            <?php if (!empty($errors['location'])): ?>
+                <span class="text-red">
+                    <?= htmlspecialchars($errors['location']) ?>
+                </span>
+            <?php endif; ?>
 
-            <label class="input-label">Full Name</label>
+            <label class="input-label">Full Name <span class="required">*</span></label>
             <input type="text" name="full_name" class="form-input"
-                value="<?= htmlspecialchars($address['full_name']) ?>">
+                value="<?= htmlspecialchars($formValues['full_name']) ?>">
+            <span class="text-red">
+                <?= $errors['full_name'] ?? '' ?>
+            </span>
 
-            <label class="input-label">Mobile Number</label>
+            <label class="input-label">Mobile Number <span class="required">*</span></label>
             <input type="tel" name="phone" class="form-input" maxlength="10"
-                value="<?= htmlspecialchars($address['phone']) ?>">
+                value="<?= htmlspecialchars($formValues['phone']) ?>">
+            <span class="text-red">
+                <?= $errors['phone'] ?? '' ?>
+            </span>
 
             <label class="input-label">Address Type</label>
 
@@ -238,7 +355,7 @@ include 'includes/header.php';
 
                     <label class="type-card">
 
-                        <input type="radio" name="address_type" value="<?= $type ?>" <?= $address['address_type'] == $type ? 'checked' : ''; ?>>
+                        <input type="radio" name="address_type" value="<?= $type ?>" <?= ($formValues['address_type'] == $type) ? 'checked' : ''; ?>>
 
                         <?php if ($type == 'Home'): ?>
                             <i class="ri-home-5-line"></i>
@@ -253,50 +370,77 @@ include 'includes/header.php';
                     </label>
 
                 <?php endforeach; ?>
+                <span class="text-red">
+                    <?= $errors['address_type'] ?? '' ?>
+                </span>
 
             </div>
 
-            <label class="input-label">House / Flat No</label>
+            <label class="input-label">House / Flat No <span class="required">*</span></label>
 
-            <input type="text" name="house_no" class="form-input" value="<?= htmlspecialchars($address['house_no']) ?>">
+            <input type="text" name="house_no" class="form-input"
+                value="<?= htmlspecialchars($formValues['house_no']) ?>">
+            <span class="text-red">
+                <?= $errors['house_no'] ?? '' ?>
+            </span>
 
             <label class="input-label">
                 Apartment / Building
             </label>
 
             <input type="text" name="apartment" class="form-input"
-                value="<?= htmlspecialchars($address['apartment']) ?>">
+                value="<?= htmlspecialchars($formValues['apartment']) ?>">
+            <span class="text-red">
+                <?= $errors['apartment'] ?? '' ?>
+            </span>
 
             <label class="input-label">
                 Landmark
             </label>
 
-            <input type="text" name="landmark" class="form-input" value="<?= htmlspecialchars($address['landmark']) ?>">
+            <input type="text" name="landmark" class="form-input"
+                value="<?= htmlspecialchars($formValues['landmark']) ?>">
+            <span class="text-red">
+                <?= $errors['landmark'] ?? '' ?>
+            </span>
 
             <label class="input-label">
-                Area / Locality
+                Area / Locality <span class="required">*</span>
             </label>
 
-            <input type="text" name="area" class="form-input" value="<?= htmlspecialchars($address['area']) ?>">
+            <input type="text" name="area" class="form-input" value="<?= htmlspecialchars($formValues['area']) ?>">
+            <span class="text-red">
+                <?= $errors['area'] ?? '' ?>
+            </span>
 
             <label class="input-label">
-                City
+
+                City <span class="required">*</span>
             </label>
 
-            <input type="text" name="city" class="form-input" value="<?= htmlspecialchars($address['city']) ?>">
+            <input type="text" name="city" class="form-input" value="<?= htmlspecialchars($formValues['city']) ?>">
+            <span class="text-red">
+                <?= $errors['city'] ?? '' ?>
+            </span>
 
             <label class="input-label">
-                State
+                State <span class="required">*</span>
             </label>
 
-            <input type="text" name="state" class="form-input" value="<?= htmlspecialchars($address['state']) ?>">
+            <input type="text" name="state" class="form-input" value="<?= htmlspecialchars($formValues['state']) ?>">
+            <span class="text-red">
+                <?= $errors['state'] ?? '' ?>
+            </span>
 
             <label class="input-label">
-                Pincode
+                Pincode <span class="required">*</span>
             </label>
 
             <input type="text" name="pincode" maxlength="6" class="form-input"
-                value="<?= htmlspecialchars($address['pincode']) ?>">
+                value="<?= htmlspecialchars($formValues['pincode']) ?>">
+            <span class="text-red">
+                <?= $errors['pincode'] ?? '' ?>
+            </span>
 
             <div style="
                     margin:20px 0;
@@ -305,18 +449,17 @@ include 'includes/header.php';
                     gap:10px;
                 ">
 
-                <input type="checkbox" id="default" name="is_default" <?= $address['is_default'] ? 'checked' : ''; ?>>
+                <input type="checkbox" id="default" name="is_default" <?= !empty($formValues['is_default']) ? 'checked' : ''; ?>>
 
                 <label for="default">
                     Make this my default address
                 </label>
 
             </div>
-            <input type="hidden" name="latitude" id="latitude"
-                value="<?= htmlspecialchars($address['latitude'] ?? '') ?>">
+            <input type="hidden" name="latitude" id="latitude" value="<?= htmlspecialchars($formValues['latitude']) ?>">
 
             <input type="hidden" name="longitude" id="longitude"
-                value="<?= htmlspecialchars($address['longitude'] ?? '') ?>">
+                value="<?= htmlspecialchars($formValues['longitude']) ?>">
 
             <button class="btn-primary" style="width:100%;">
 
@@ -408,20 +551,12 @@ include 'includes/header.php';
 
     }
 
-    #addressMap {
-
-        width: 100%;
-        height: 350px;
-        margin-top: 15px;
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid #ddd;
-
-    }
-
     #mapWrapper {
         position: relative;
         width: 100%;
+        overflow: hidden;
+        border-radius: 12px;
+        z-index: 1;
     }
 
     #addressMap {
@@ -438,7 +573,7 @@ include 'includes/header.php';
         left: 50%;
         top: 50%;
         transform: translate(-50%, -100%);
-        z-index: 9999;
+        z-index: 500;
         pointer-events: none;
     }
 
@@ -453,6 +588,17 @@ include 'includes/header.php';
 
         color: #e53935;
 
+    }
+
+    .required {
+        color: #dc2626;
+    }
+
+    .text-red {
+        color: #dc2626;
+        font-size: 13px;
+        margin-top: 4px;
+        display: block;
     }
 
     @media(max-width:600px) {
@@ -472,87 +618,6 @@ include 'includes/header.php';
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-
-    document.getElementById('addressForm').addEventListener('submit', function (e) {
-
-        let fullName = document.querySelector('[name=full_name]').value.trim();
-        let phone = document.querySelector('[name=phone]').value.trim();
-        let addressType = document.querySelector('input[name=address_type]:checked');
-        let houseNo = document.querySelector('[name=house_no]').value.trim();
-        let apartment = document.querySelector('[name=apartment]').value.trim();
-        let landmark = document.querySelector('[name=landmark]').value.trim();
-        let area = document.querySelector('[name=area]').value.trim();
-        let city = document.querySelector('[name=city]').value.trim();
-        let state = document.querySelector('[name=state]').value.trim();
-        let pincode = document.querySelector('[name=pincode]').value.trim();
-        let latitude = document.getElementById('latitude').value.trim();
-        let longitude = document.getElementById('longitude').value.trim();
-
-        const alphaRegex = /^[A-Za-z ]+$/;
-        const phoneRegex = /^[6-9][0-9]{9}$/;
-        const pinRegex = /^[0-9]{6}$/;
-
-        if (fullName === '') {
-            e.preventDefault();
-            return Swal.fire('Validation', 'Enter full name.', 'warning');
-        }
-
-        if (fullName.length < 3 || fullName.length > 100 || !alphaRegex.test(fullName)) {
-            e.preventDefault();
-            return Swal.fire('Validation', 'Enter a valid full name.', 'warning');
-        }
-
-        if (!phoneRegex.test(phone)) {
-            e.preventDefault();
-            return Swal.fire('Validation', 'Enter a valid 10-digit mobile number.', 'warning');
-        }
-
-        if (!addressType) {
-            e.preventDefault();
-            return Swal.fire('Validation', 'Please select address type.', 'warning');
-        }
-
-        if (houseNo === '') {
-            e.preventDefault();
-            return Swal.fire('Validation', 'Enter House / Flat No.', 'warning');
-        }
-
-        if (apartment.length > 150) {
-            e.preventDefault();
-            return Swal.fire('Validation', 'Apartment / Building is too long.', 'warning');
-        }
-
-        if (landmark.length > 150) {
-            e.preventDefault();
-            return Swal.fire('Validation', 'Landmark is too long.', 'warning');
-        }
-
-        if (area === '') {
-            e.preventDefault();
-            return Swal.fire('Validation', 'Enter Area / Locality.', 'warning');
-        }
-
-        if (city === '' || !alphaRegex.test(city)) {
-            e.preventDefault();
-            return Swal.fire('Validation', 'Enter a valid City.', 'warning');
-        }
-
-        if (state === '' || !alphaRegex.test(state)) {
-            e.preventDefault();
-            return Swal.fire('Validation', 'Enter a valid State.', 'warning');
-        }
-
-        if (!pinRegex.test(pincode)) {
-            e.preventDefault();
-            return Swal.fire('Validation', 'Enter a valid 6-digit Pincode.', 'warning');
-        }
-
-        if (latitude === '' || longitude === '') {
-            e.preventDefault();
-            return Swal.fire('Validation', 'Please select your location on the map.', 'warning');
-        }
-
-    });
     // =========================
     // Leaflet Map Initialization
     // =========================
@@ -562,6 +627,11 @@ include 'includes/header.php';
 
     const map = L.map('addressMap', {
         zoomControl: true
+    });
+    window.addEventListener('load', function () {
+        setTimeout(function () {
+            map.invalidateSize();
+        }, 200);
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
