@@ -109,12 +109,10 @@ foreach ($daily_sessions as $emp_id => $dates) {
         $shiftStart = null;
         $shiftEnd = null;
 
-        if (
-            $meta['shift_start']
-            && $meta['shift_end']
-            && $daySessions[0]['in']
-            && end($daySessions)['out']
-        ) {
+        $hasCheckIn = !empty($daySessions[0]['in']);
+        $hasCheckOut = !empty(end($daySessions)['out']);
+
+        if ($hasCheckIn && $hasCheckOut) {
 
             $checkIn = strtotime($date . ' ' . $daySessions[0]['in']);
 
@@ -122,8 +120,10 @@ foreach ($daily_sessions as $emp_id => $dates) {
 
             $shiftEnd = strtotime($date . ' ' . $meta['shift_end']);
 
-            if ($shiftEnd <= $shiftStart) {
-                $shiftEnd = strtotime('+1 day', $shiftEnd);
+            if ($meta['shift_start'] && $meta['shift_end']) {
+                if ($shiftEnd <= $shiftStart) {
+                    $shiftEnd = strtotime('+1 day', $shiftEnd);
+                }
             }
 
             $graceMinutes = !empty($meta['late_mark_after'])
@@ -132,36 +132,35 @@ foreach ($daily_sessions as $emp_id => $dates) {
 
             $graceEnd = $shiftStart + ($graceMinutes * 60);
 
+            $minimumInsufficientSeconds = 3600;
             $minimumHalfDaySeconds = 4 * 3600;
+            $minimumFullDaySeconds = 8 * 3600;
 
             $isGraceCrossed = ($checkIn > $graceEnd);
 
             /*
             ============================================
             RULE 1
-            Less than 4 hours = Half_day
+            Less than 1 hour = Absent
+            1 hour to 3 hours 59 min 59 sec = Insufficient Hours
+            4 hours to 7 hours 59 min 59 sec = Half Day
+            8 hours or more = Existing Late / On Time logic
             ============================================
             */
 
             // Default
             $status = 'ON_TIME';
 
-            // Less than 4 hrs
-            if ($total_sec < $minimumHalfDaySeconds) {
-
+            if ($total_sec < $minimumInsufficientSeconds) {
+                $status = 'ABSENT';
+            } elseif ($total_sec < $minimumHalfDaySeconds) {
+                $status = 'INSUFFICIENT_HOURS';
+            } elseif ($total_sec < $minimumFullDaySeconds) {
                 $status = 'HALF_DAY';
-
-            }
-           
-            // Worked full shift
-            else {
-
+            } else {
                 if (!$isGraceCrossed) {
-
                     $status = 'ON_TIME';
-
                 } else {
-
                     $monthKey = date('Y-m', strtotime($date));
 
                     if (!isset($lateCounts[$emp_id][$monthKey])) {
@@ -171,20 +170,14 @@ foreach ($daily_sessions as $emp_id => $dates) {
                     $lateCounts[$emp_id][$monthKey]++;
 
                     if ($lateCounts[$emp_id][$monthKey] <= 2) {
-
                         $status = 'LATE';
-
                     } else {
-
                         $status = 'HALF_DAY';
-
                     }
-
                 }
-    }
-
             }
-
+        } else {
+            $status = 'ABSENT';
         }
 
         $is_late = ($status === 'LATE');
@@ -207,6 +200,7 @@ foreach ($daily_sessions as $emp_id => $dates) {
             'status' => $status,
         ];
     }
+}
 
 // Sort records by date DESC
 
@@ -280,9 +274,9 @@ include 'includes/header.php';
                         style="width: 100%; padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: 6px; background: white;">
                         <option value="">All Employees</option>
                         <?php foreach ($empList as $emp): ?>
-                                                <option value="<?= $emp['id'] ?>" <?= $filter_employee == $emp['id'] ? 'selected' : '' ?>>
-                                                    <?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name']) ?>
-                                                </option>
+                            <option value="<?= $emp['id'] ?>" <?= $filter_employee == $emp['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name']) ?>
+                            </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -303,221 +297,245 @@ include 'includes/header.php';
                     <label style="display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 0.5rem;">From
                         Date</label>
                     <input type="date" name="from_date" value="<?= $filter_from ?>"
-style="width: 100%; padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px;">
-</div>
-<div>
-    <label style="display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 0.5rem;">To
-        Date</label>
-    <input type="date" name="to_date" value="<?= $filter_to ?>"
-        style="width: 100%; padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px;">
-</div>
-<div style="display: flex; gap: 0.5rem;">
-    <button type="submit" class="btn btn-primary" style="flex: 1; padding: 0.6rem;">Apply
-        Filters</button>
-    <a href="working-hours.php" class="btn"
-        style="background: #f1f5f9; color: #475569; padding: 0.6rem; text-decoration: none; display: flex; align-items: center; justify-content: center;"><i
-            class="ri-refresh-line"></i></a>
-</div>
-</form>
-</div>
-
-<div style="display: grid; grid-template-columns: 1fr 350px; gap: 2rem; align-items: start;">
-    <!-- Detailed Logs -->
-    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-        <div style="padding: 1rem 1.5rem; border-bottom: 1px solid #f1f5f9; background: #fff;">
-            <h3 style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 0;">Detailed Working Logs
-            </h3>
+                        style="width: 100%; padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 0.5rem;">To
+                        Date</label>
+                    <input type="date" name="to_date" value="<?= $filter_to ?>"
+                        style="width: 100%; padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1; padding: 0.6rem;">Apply
+                        Filters</button>
+                    <a href="working-hours.php" class="btn"
+                        style="background: #f1f5f9; color: #475569; padding: 0.6rem; text-decoration: none; display: flex; align-items: center; justify-content: center;"><i
+                            class="ri-refresh-line"></i></a>
+                </div>
+            </form>
         </div>
-        <div style="padding: 1.5rem; overflow-x: auto;">
-            <table id="hoursTable" class="display" style="width: 100%;">
-                <thead>
-                    <tr     style="background: #f8fafc; text-align: left; color: #64748b; font-size: 0.85rem;
+
+        <div style="display: grid; grid-template-columns: 1fr 350px; gap: 2rem; align-items: start;">
+            <!-- Detailed Logs -->
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                <div style="padding: 1rem 1.5rem; border-bottom: 1px solid #f1f5f9; background: #fff;">
+                    <h3 style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 0;">Detailed Working Logs
+                    </h3>
+                </div>
+                <div style="padding: 1.5rem; overflow-x: auto;">
+                    <table id="hoursTable" class="display" style="width: 100%;">
+                        <thead>
+                            <tr style="background: #f8fafc; text-align: left; color: #64748b; font-size: 0.85rem;
                         font-weight: 600;">
-                        <th>Date</th>
-                        <th>Employee</th>
-                        <th>Check In</th>
-                            <th>Check Out</th>
-                        <th>Duration</th>
-                        <th>Status</th>
-                        <th>Hrs (Dec)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($records as $r): ?>
-                        <tr style="border-bottom: 1px solid #f1f5f9;">
-                            <td style="padding: 1rem 0;">
+                                <th>Date</th>
+                                <th>Employee</th>
+                                <th>Check In</th>
+                                <th>Check Out</th>
+                                <th>Duration</th>
+                                <th>Status</th>
+                                <th>Hrs (Dec)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($records as $r): ?>
+                                <tr style="border-bottom: 1px solid #f1f5f9;">
+                                    <td style="padding: 1rem 0;">
                                         <?= date('d M, Y', strtotime($r['attendance_date'])) ?>
-                                </td>
-                                <td>
-                                    <div style=" font-weight: 600; color: #1e293b;">
-                                <?= htmlspecialchars($r['first_name'] . ' ' . $r['last_name']) ?>
-            </div>
-            <div style="font-size: 0.75rem; color: #94a3b8;">
-                <?= htmlspecialchars($r['job_role']) ?>
-            </div>
-            </td>
-            <td><span style="color: #059669; font-weight: 500;">
-                    <?= date('h:i A', strtotime($r['check_in'])) ?>
-                </span>
-            </td>
-            <td><span style=" color: #4338ca; font-weight: 500;">
-                    <?= $r['check_out'] ? date(
-                        'h:i A',
-                        strtotime($r['check_out'])
-                    ) : '--:--' ?>
-                </span>
-            </td>
-            <td>
-                <div
-                    style="background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-block; font-size: 0.85rem; font-weight: 600;">
-                    <?= $r['work_duration'] ?: 'N/A' ?>
-                </div>
-                <?php if ($r['session_count'] > 1): ?>
-                    <div style="font-size: 0.65rem; color: #94a3b8; margin-top: 2px;"><i class="ri-history-line"></i>
-                        <?= $r['session_count'] ?> sessions
-                    </div>
-                <?php endif; ?>
-            </td>
-            <td>
-                <?php
-                
-
-                switch ($r['status']) {
-                    case 'IN_PROGRESS':
-                    ?>
-                        <span class="badge bg-primary">
-                            IN PROGRESS
-                        </span>
-                    <?php
-                        break;
-
-                    case 'ON_TIME':
-                        ?>
-
-                        <span class="badge bg-success">
-                            ON TIME
-                        </span>
-
-                        <?php
-                        break;
-
-                    case 'LATE':
-                        ?>
-
-                        <span class="badge bg-warning">
-                            LATE
-                        </span>
-
-                        <?php
-                        break;
-
-                    case 'HALF_DAY':
-                        ?>
-
-                        <span class="badge bg-danger">
-                            HALF DAY
-                        </span>
-
-                        <?php
-                        break;
-
-                }
-
-                ?>
-            </td>
-            <td style="font-weight: 700; color: #1e293b;">
-                <?= number_format($r['total_hours'], 2) ?>
-                    </td>
-                    </tr>
-        <?php endforeach; ?>
-            </tbody>
-            </table>
-    </div>
-</div>
-
-<!-- Summary Sidebar -->
-
-<div style=" background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-                            <div style=" padding: 1.25rem 1.5rem; border-bottom: 1px solid #f1f5f9; background: #fff;">
-    <h3 style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 0;">Employee
-                Totals</h3>
-</div>
-<div style="padding: 1.5rem;">
-    <?php if (empty($summary)): ?>
-        <div style="text-align: center; color: #94a3b8; padding: 2rem 0;">No data found.</div>
-    <?php else: ?>
-        <?php foreach ($summary as $s): ?>
-            <div
-                style="padding: 1rem; border: 1px solid #f1f5f9; border-radius: 8px; margin-bottom: 1rem; background: #fdfdfd;">
-                <div style="font-weight: 700; color: #1e293b; font-size: 0.95rem;">
-                    <?= htmlspecialchars($s['name']) ?>
-                </div>
-                <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.75rem;">
-                                                <?= htmlspecialchars($s['role']) ?>
-                </div>
-                      
-                <div                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                    <div style="font-size: 0.85rem; color: #64748b;"><i class="ri-calendar-check-line"></i>
-                        <?= $s['days'] ?> Days
-                                    </div>
-                        <div style=" font-size: 1.1rem; font-weight: 800; color: #4338ca;">
-                            <?= number_format($s['total_hrs'], 1) ?> hrs
+                                    </td>
+                                    <td>
+                                        <div style=" font-weight: 600; color: #1e293b;">
+                                            <?= htmlspecialchars($r['first_name'] . ' ' . $r['last_name']) ?>
                                         </div>
-                        </div>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <div style=" flex: 1; background: #fff7ed; padding: 0.4rem; border-radius: 6px;
-                    text-align: center;">
+                                        <div style="font-size: 0.75rem; color: #94a3b8;">
+                                            <?= htmlspecialchars($r['job_role']) ?>
+                                        </div>
+                                    </td>
+                                    <td><span style="color: #059669; font-weight: 500;">
+                                            <?= date('h:i A', strtotime($r['check_in'])) ?>
+                                        </span>
+                                    </td>
+                                    <td><span style=" color: #4338ca; font-weight: 500;">
+                                            <?= $r['check_out'] ? date(
+                                                'h:i A',
+                                                strtotime($r['check_out'])
+                                            ) : '--:--' ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div
+                                            style="background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-block; font-size: 0.85rem; font-weight: 600;">
+                                            <?= $r['work_duration'] ?: 'N/A' ?>
+                                        </div>
+                                        <?php if ($r['session_count'] > 1): ?>
+                                            <div style="font-size: 0.65rem; color: #94a3b8; margin-top: 2px;"><i
+                                                    class="ri-history-line"></i>
+                                                <?= $r['session_count'] ?> sessions
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php
+
+
+                                        switch ($r['status']) {
+                                            case 'IN_PROGRESS':
+                                                ?>
+                                                <span class="badge bg-primary">
+                                                    IN PROGRESS
+                                                </span>
+                                                <?php
+                                                break;
+
+                                            case 'ON_TIME':
+                                                ?>
+
+                                                <span class="badge bg-success">
+                                                    ON TIME
+                                                </span>
+
+                                                <?php
+                                                break;
+
+                                            case 'LATE':
+                                                ?>
+
+                                                <span class="badge bg-warning">
+                                                    LATE
+                                                </span>
+
+                                                <?php
+                                                break;
+
+                                            case 'HALF_DAY':
+                                                ?>
+
+                                                <span class="badge bg-danger">
+                                                    HALF DAY
+                                                </span>
+
+                                                <?php
+                                                break;
+
+                                            case 'INSUFFICIENT_HOURS':
+                                                ?>
+
+                                                <span class="badge" style="background: #f59e0b; color: #fff;">
+                                                    INSUFFICIENT HOURS
+                                                </span>
+
+                                                <?php
+                                                break;
+
+                                            case 'ABSENT':
+                                                ?>
+
+                                                <span class="badge" style="background: #64748b; color: #fff;">
+                                                    ABSENT
+                                                </span>
+
+                                                <?php
+                                                break;
+
+                                        }
+
+                                        ?>
+                                    </td>
+                                    <td style="font-weight: 700; color: #1e293b;">
+                                        <?= number_format($r['total_hours'], 2) ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Summary Sidebar -->
+
+            <div style=" background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                <div style=" padding: 1.25rem 1.5rem; border-bottom: 1px solid #f1f5f9; background: #fff;">
+                    <h3 style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 0;">Employee
+                        Totals</h3>
+                </div>
+                <div style="padding: 1.5rem;">
+                    <?php if (empty($summary)): ?>
+                        <div style="text-align: center; color: #94a3b8; padding: 2rem 0;">No data found.</div>
+                    <?php else: ?>
+                        <?php foreach ($summary as $s): ?>
+                            <div
+                                style="padding: 1rem; border: 1px solid #f1f5f9; border-radius: 8px; margin-bottom: 1rem; background: #fdfdfd;">
+                                <div style="font-weight: 700; color: #1e293b; font-size: 0.95rem;">
+                                    <?= htmlspecialchars($s['name']) ?>
+                                </div>
+                                <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.75rem;">
+                                    <?= htmlspecialchars($s['role']) ?>
+                                </div>
+
                                 <div
-                                    style=" font-size: 0.65rem; color: #9a3412; text-transform: uppercase;     font-weight: 600;">
-                                    Lates</div>
-                                            <div style="font-weight: 700; color: #c2410c;">
-                                <?= $s['lates'] ?>
-                            </div>
-                        </div>
-                        <div style="flex: 1; background: #fef2f2; padding: 0.4rem; border-radius: 6px; text-align: center;">
-                            <div style=" font-size: 0.65rem; color: #991b1b; text-transform: uppercase; font-weight: 600;">
-                                Half Days</div>
-                            <div style=" font-weight: 700; color: #b91c1c;">
-                                                                    <?= $s['half_days'] ?>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                            <?php endforeach; ?>
-                                    <?php endif; ?>
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                    <div style="font-size: 0.85rem; color: #64748b;"><i class="ri-calendar-check-line"></i>
+                                        <?= $s['days'] ?> Days
+                                    </div>
+                                    <div style=" font-size: 1.1rem; font-weight: 800; color: #4338ca;">
+                                        <?= number_format($s['total_hrs'], 1) ?> hrs
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <div style=" flex: 1; background: #fff7ed; padding: 0.4rem; border-radius: 6px;
+                    text-align: center;">
+                                        <div
+                                            style=" font-size: 0.65rem; color: #9a3412; text-transform: uppercase;     font-weight: 600;">
+                                            Lates</div>
+                                        <div style="font-weight: 700; color: #c2410c;">
+                                            <?= $s['lates'] ?>
+                                        </div>
+                                    </div>
+                                    <div
+                                        style="flex: 1; background: #fef2f2; padding: 0.4rem; border-radius: 6px; text-align: center;">
+                                        <div
+                                            style=" font-size: 0.65rem; color: #991b1b; text-transform: uppercase; font-weight: 600;">
+                                            Half Days</div>
+                                        <div style=" font-weight: 700; color: #b91c1c;">
+                                            <?= $s['half_days'] ?>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
-        </main>
+    </div>
+</main>
 
-        <?php include __DIR__ . '/includes/datatable.php'; ?>
-        <script>
-            $(document).ready(function () {
-                initializeDataTable('hoursTable', 'Working Hours Report');
-            });
+<?php include __DIR__ . '/includes/datatable.php'; ?>
+<script>
+    $(document).ready(function () {
+        initializeDataTable('hoursTable', 'Working Hours Report');
+    });
 
-            function exportReport() {
-                // Simple CSV export logic
+    function exportReport() {
+        // Simple CSV export logic
 
-                let csv = 'Date,Employee,Role,Check In,Check Out,Duration,Hours\n';
-                const rows = document.querySelectorAll('#hoursTable tbody tr');
-                rows.forEach(row => {
-                    const cols = row.querySelectorAll('td');
-                    let rowData = [];
-                    cols.forEach(col => r owData.push('"' + col.innerText.replace(/\n/g, ' ') + '"'));
-                    csv += rowData.join(',') + '\n';
-                });
-                const blob = new Blob([csv], { type: 'text/csv' });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-     a.setAttribute('hidden', '');
-                    a.setAttribute('href', url);
-                a.setAttribute('download', 'working_hours_report.csv');
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            }
-        </script>
+        let csv = 'Date,Employee,Role,Check In,Check Out,Duration,Hours\n';
+        const rows = document.querySelectorAll('#hoursTable tbody tr');
+        rows.forEach(row => {
+            const cols = row.querySelectorAll('td');
+            let rowData = [];
+            cols.forEach(col => r owData.push('"' + col.innerText.replace(/\n/g, ' ') + '"'));
+            csv += rowData.join(',') + '\n';
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('hidden', '');
+        a.setAttribute('href', url);
+        a.setAttribute('download', 'working_hours_report.csv');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+</script>
 
-        <?php include 'includes/footer.php'; ?>
+<?php include 'includes/footer.php'; ?>

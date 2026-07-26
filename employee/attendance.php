@@ -65,9 +65,13 @@ $today_shift = $shiftStmt->fetch();
 /*
 Priority:
 1. Manual roster / approved request
-2. Default employee shift fallback
+2. Default employee shift fallback (Monday–Saturday only)
+3. Sunday requires an explicit roster assignment
 */
-if (!$today_shift) {
+
+$isSunday = (date('w', strtotime($today)) == 0);
+
+if (!$today_shift && !$isSunday) {
     $defaultShiftStmt = $pdo->prepare("
         SELECT st.*
         FROM employees e

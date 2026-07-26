@@ -92,6 +92,7 @@ $stmt = $pdo->prepare("
     FROM employees
     WHERE is_deleted = 0
     AND status = 1
+    AND employee_type = 'inhouse'
     AND id != ?
     AND (supervisor_id = ? OR id = ?)
     ORDER BY first_name
