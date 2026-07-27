@@ -18,50 +18,15 @@ $currentYear = date('Y');
 $from_date = $_GET['from_date'] ?? date('Y-m-01');
 $to_date = $_GET['to_date'] ?? date('Y-m-t');
 
-if ($payCycle == 'daily') {
-
-    $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(amount),0)
-        FROM employee_payments
-        WHERE employee_id=?
-        AND payment_type='Salary'
-        AND payment_date BETWEEN ? AND ?
-    ");
-
-    $stmt->execute([$id, $from_date, $to_date]);
-
-    $salaryPaidAmount = (float) $stmt->fetchColumn();
-
-} elseif ($payCycle == 'weekly') {
-
-    $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(amount),0)
-        FROM employee_payments
-        WHERE employee_id=?
-        AND payment_type='Salary'
-        AND payment_date BETWEEN ? AND ?
-    ");
-
-    $stmt->execute([$id, $from_date, $to_date]);
-
-    $salaryPaidAmount = (float) $stmt->fetchColumn();
-
-} else {
-
-    $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(amount),0)
-        FROM employee_payments
-        WHERE employee_id=?
-        AND payment_type='Salary'
-        AND MONTH(payment_date)=?
-        AND YEAR(payment_date)=?
-    ");
-
-    $stmt->execute([$id, $currentMonth, $currentYear]);
-
-    $salaryPaidAmount = (float) $stmt->fetchColumn();
-
-}
+$stmt = $pdo->prepare("
+    SELECT COALESCE(SUM(amount), 0)
+    FROM employee_payments
+    WHERE employee_id = ?
+    AND payment_type = 'Salary'
+    AND payment_date BETWEEN ? AND ?
+");
+$stmt->execute([$id, $from_date, $to_date]);
+$salaryPaidAmount = (float) $stmt->fetchColumn();
 
 if (!$employee) {
     header("Location: payroll.php");
@@ -110,40 +75,31 @@ $ot_percentage = (float) $stmt->fetchColumn();
 switch ($payCycle) {
 
     case 'daily':
-
-        // Base salary itself is one day's salary
         $daily_rate = $baseSalary;
         break;
 
-    case 'weekly':
-
-        // Weekly salary -> daily salary
+    case 'weekly (saturday)':
         $daily_rate = $baseSalary / 7;
         break;
 
-    case 'monthly':
+    case 'bi-weekly':
+        $daily_rate = $baseSalary / 14;
+        break;
 
-        // Monthly salary -> daily salary
-        // Keep 30 because your current system already follows this rule
-        $daily_rate = $baseSalary / 30;
+    case 'monthly (1st)':
+        $daily_rate = $baseSalary / date('t', strtotime($from_date));
         break;
 
     default:
-
-        // Safe fallback
-        $daily_rate = $baseSalary / 30;
+        $daily_rate = $baseSalary / date('t', strtotime($from_date));
         break;
 }
 
-$attendance_pay =
-    ($present_days * $daily_rate) +
-    ($half_days * ($daily_rate / 2));
-$salaryPaid = ($salaryPaidAmount >= $attendance_pay);
 // =========================
 // Calculate Working Hours Dynamically
 // =========================
 
-// 1. Check if employee has a roster shift in the selected period
+// Use the same latest assigned shift as the Payroll dashboard.
 $stmt = $pdo->prepare("
 SELECT st.start_time,
        st.end_time
@@ -151,12 +107,12 @@ FROM shift_roster sr
 JOIN shift_types st
 ON st.id = sr.shift_type_id
 WHERE sr.employee_id = ?
-AND sr.roster_date BETWEEN ? AND ?
+AND sr.roster_date <= ?
 ORDER BY sr.roster_date DESC
 LIMIT 1
 ");
 
-$stmt->execute([$id, $from_date, $to_date]);
+$stmt->execute([$id, $to_date]);
 
 $shift = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -196,6 +152,31 @@ if ($shift) {
 // Hourly Rate
 $hourly_rate = $daily_rate / $working_hours;
 
+// Pay every recorded working minute, using the same calculation as Payroll.
+// check-in/check-out data already exists in attendance; no attendance page is created or changed here.
+$stmt = $pdo->prepare("
+    SELECT COALESCE(SUM(
+        CASE
+            WHEN status IN ('Present', 'Late', 'Half Day')
+                 AND check_in IS NOT NULL
+                 AND check_out IS NOT NULL
+            THEN CASE
+                WHEN check_out >= check_in
+                    THEN TIME_TO_SEC(TIMEDIFF(check_out, check_in)) / 60
+                ELSE (TIME_TO_SEC(TIMEDIFF(check_out, check_in)) / 60) + 1440
+            END
+            ELSE 0
+        END
+    ), 0)
+    FROM attendance
+    WHERE employee_id = ?
+    AND attendance_date BETWEEN ? AND ?
+");
+$stmt->execute([$id, $from_date, $to_date]);
+$worked_minutes = max(0, (int) $stmt->fetchColumn());
+$attendance_pay = round(($worked_minutes / 60) * $hourly_rate, 2);
+$salaryPaid = ($salaryPaidAmount >= $attendance_pay);
+
 // Bonus Per Hour
 $bonus_per_hour = ($hourly_rate * $ot_percentage) / 100;
 
@@ -215,6 +196,18 @@ $stmt->execute([$id]);
 $adv_repaid = $stmt->fetchColumn() ?: 0;
 
 $outstanding_advance = $adv_given - $adv_repaid;
+
+// The dashboard deducts only advance recovery made in the selected pay period.
+$stmt = $pdo->prepare("
+    SELECT COALESCE(SUM(amount), 0)
+    FROM employee_payments
+    WHERE employee_id = ?
+    AND payment_date BETWEEN ? AND ?
+    AND payment_type = 'Advance'
+    AND LOWER(status) = 'deducted'
+");
+$stmt->execute([$id, $from_date, $to_date]);
+$advance_recovered_in_period = (float) $stmt->fetchColumn();
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $currentMonth = date('m');
@@ -530,8 +523,8 @@ include 'includes/header.php';
                             <?= number_format($attendance_pay, 2) ?>
                         </span>
                     </div>
-                    <div style="font-size: 0.7rem; color: #94a3b8;">Based on <?= $present_days ?> full days and
-                        <?= $half_days ?> half days.
+                    <div style="font-size: 0.7rem; color: #94a3b8;">Based on <?= intdiv($worked_minutes, 60) ?>h
+                        <?= $worked_minutes % 60 ?>m of recorded work time.
                     </div>
                 </div>
 
@@ -653,7 +646,7 @@ include 'includes/header.php';
 
                     $gross_salary = $attendance_pay + $pending_ot;
 
-                    $salary_payable = $gross_salary - $adv_repaid;
+                    $salary_payable = $gross_salary - $advance_recovered_in_period;
 
                     $remaining_payable = max(0, $salary_payable - $salaryPaidAmount);
 
@@ -676,7 +669,7 @@ include 'includes/header.php';
 
                             $gross_salary = $attendance_pay + $pending_ot;
 
-                            $salary_payable = $gross_salary - $adv_repaid;
+                            $salary_payable = $gross_salary - $advance_recovered_in_period;
 
                             $remaining_payable = max(0, $salary_payable - $salaryPaidAmount);
 
@@ -817,7 +810,7 @@ include 'includes/header.php';
         const gross = base + ot + bonus;
 
         // Already recovered advance from previous payments
-        const recoveredAdvance = <?= $adv_repaid ?>;
+        const recoveredAdvance = <?= $advance_recovered_in_period ?>;
 
         // Salary payable after all recovered advances
         const salaryPayable = gross - recoveredAdvance - deductions;

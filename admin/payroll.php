@@ -60,6 +60,25 @@ $stmt = $pdo->prepare("
         AND attendance_date BETWEEN :from_date7 AND :to_date7
         AND status = 'Late') AS late_days,
         (
+            SELECT COALESCE(SUM(
+                CASE
+                    WHEN status IN ('Present', 'Late', 'Half Day')
+                         AND check_in IS NOT NULL
+                         AND check_out IS NOT NULL
+                    THEN CASE
+                        -- Supports overnight shifts as well as normal same-day shifts.
+                        WHEN check_out >= check_in
+                            THEN TIME_TO_SEC(TIMEDIFF(check_out, check_in)) / 60
+                        ELSE (TIME_TO_SEC(TIMEDIFF(check_out, check_in)) / 60) + 1440
+                    END
+                    ELSE 0
+                END
+            ), 0)
+            FROM attendance
+            WHERE employee_id = employees.id
+            AND attendance_date BETWEEN :from_date_worked1 AND :to_date_worked1
+        ) AS worked_minutes,
+        (
         SELECT COALESCE(SUM(ot_minutes),0)
         FROM attendance
         WHERE employee_id = employees.id
@@ -95,6 +114,8 @@ $stmt->execute([
     'to_date1' => $to_date,
     'from_date2' => $from_date,
     'to_date2' => $to_date,
+    'from_date_worked1' => $from_date,
+    'to_date_worked1' => $to_date,
     'from_date3' => $from_date,
     'to_date3' => $to_date,
     'from_date5' => $from_date,
@@ -332,18 +353,15 @@ foreach ($employees as &$row) {
 
         // ================= END OT =================
 
+        // Attendance salary is paid for the exact recorded check-in/check-out minutes.
+        // The hourly rate above remains the single source of the pay rate.
+        $worked_minutes = max(0, (int) $row['worked_minutes']);
+        $worked_hours = $worked_minutes / 60;
+
         // Attendance salary
         $attendance_salary = 0;
 
-        if ($present_days == 0 && $late_days == 0 && $half_days == 0) {
-            $attendance_salary = 0;
-        } else {
-            $attendance_salary =
-                ($paid_present_days * $per_day) +
-                ($half_days * ($per_day / 2));
-
-            $attendance_salary = round(max(0, $attendance_salary), 2);
-        }
+        $attendance_salary = round($worked_hours * $hourly_rate, 2);
 
         $total = $attendance_salary;
 
@@ -351,6 +369,7 @@ foreach ($employees as &$row) {
         $total += $approved_ot_amount;
 
         $row['attendance_salary'] = $attendance_salary;
+        $row['worked_minutes'] = $worked_minutes;
         $row['approved_ot_amount'] = $approved_ot_amount;
     }
     if ($employee_type == 'outsource') {
