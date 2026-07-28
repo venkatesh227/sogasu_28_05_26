@@ -44,6 +44,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
 
             $upd_stmt->execute([$assign_employee_id, $appointment_id, $employee_id]);
+            // Get assigned employee's user_id
+            $userStmt = $pdo->prepare("
+    SELECT user_id, first_name, last_name
+    FROM employees
+    WHERE id = ?
+");
+            $userStmt->execute([$assign_employee_id]);
+            $assignedEmployee = $userStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($assignedEmployee) {
+
+                $notifyStmt = $pdo->prepare("
+                INSERT INTO notifications
+                (
+                    employee_id,
+                    title,
+                    message,
+                    is_read,
+                    created_at
+                )
+                VALUES (?, ?, ?, 0, NOW())
+            ");
+
+                $notifyStmt->execute([
+                    $assign_employee_id,
+                    'New Appointment Assigned',
+                    'A new customer appointment has been assigned to you by your supervisor.'
+                ]);
+            }
             $_SESSION['success'] = "Employee assigned successfully";
         } catch (PDOException $e) {
             $_SESSION['error'] = "Error assigning employee";

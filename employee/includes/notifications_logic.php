@@ -6,19 +6,19 @@
         if ('speechSynthesis' in window) {
             // Cancel any current speech
             window.speechSynthesis.cancel();
-            
+
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.rate = 0.9;
             utterance.pitch = 1;
             utterance.volume = 1;
-            
+
             // Try to find a female/boutique-style voice if possible
             const voices = window.speechSynthesis.getVoices();
             if (voices.length > 0) {
                 // Prefer local or high quality voices
                 utterance.voice = voices.find(v => v.name.includes('Female') || v.name.includes('Google')) || voices[0];
             }
-            
+
             window.speechSynthesis.speak(utterance);
         }
     }
@@ -62,6 +62,25 @@
                         iconColor: data.shift_status === 'Approved' ? '#166534' : '#92400e'
                     });
                 }
+                if (data.appointment_notifications > 0) {
+
+                    speakText(data.appointment_message);
+
+                    Swal.fire({
+                        title: data.appointment_title,
+                        text: data.appointment_message,
+                        icon: 'info',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 5000,
+                        timerProgressBar: true,
+                        background: '#eef2ff',
+                        color: '#4338ca',
+                        iconColor: '#4338ca'
+                    });
+
+                }
             })
             .catch(err => console.error('Notification check failed:', err));
     }
@@ -73,7 +92,7 @@
     setInterval(checkNewOrders, 30000);
 
     // Handle browser speech synthesis initialization on first click
-    document.addEventListener('click', function() {
+    document.addEventListener('click', function () {
         if (window.speechSynthesis.paused) {
             window.speechSynthesis.resume();
         }

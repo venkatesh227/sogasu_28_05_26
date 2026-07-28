@@ -33,6 +33,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 date('Y-m-d H:i:s'),
                 $appointment_id
             ]);
+            $userStmt = $pdo->prepare("
+            SELECT user_id
+            FROM employees
+            WHERE id=?
+            LIMIT 1
+            ");
+
+            $userStmt->execute([$supervisor_id]);
+            $supervisorUserId = $userStmt->fetchColumn();
+
+            if ($supervisorUserId) {
+                $pdo->prepare("
+        INSERT INTO appointment_notifications
+        (
+            user_id,
+            order_id,
+            notification_type,
+            title,
+            message,
+            status,
+            created_by,
+            created_at
+        )
+        VALUES
+        (?, ?, 'supervisor_assignment', ?, ?, 'pending', ?, NOW())
+    ")->execute([
+                            $supervisorUserId,
+                            $appointment_id,
+                            'New Appointment Assigned',
+                            'You have been assigned a new appointment. Please review and assign an employee.',
+                            $_SESSION['user_id']
+                        ]);
+            }
+
             $_SESSION['success'] = "Supervisor assigned successfully";
         } catch (PDOException $e) {
             $_SESSION['error'] = "Error: " . $e->getMessage();
