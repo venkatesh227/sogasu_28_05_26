@@ -141,8 +141,7 @@ foreach ($daily_sessions as $emp_id => $dates) {
             /*
             ============================================
             RULE 1
-            Less than 1 hour = Absent
-            1 hour to 3 hours 59 min 59 sec = Insufficient Hours
+            Less than 4 hours = Insufficient Hours
             4 hours to 7 hours 59 min 59 sec = Half Day
             8 hours or more = Existing Late / On Time logic
             ============================================
@@ -151,9 +150,7 @@ foreach ($daily_sessions as $emp_id => $dates) {
             // Default
             $status = 'ON_TIME';
 
-            if ($total_sec < $minimumInsufficientSeconds) {
-                $status = 'ABSENT';
-            } elseif ($total_sec < $minimumHalfDaySeconds) {
+            if ($total_sec < $minimumHalfDaySeconds) {
                 $status = 'INSUFFICIENT_HOURS';
             } elseif ($total_sec < $minimumFullDaySeconds) {
                 $status = 'HALF_DAY';
@@ -176,6 +173,8 @@ foreach ($daily_sessions as $emp_id => $dates) {
                     }
                 }
             }
+        } elseif ($hasCheckIn && !$hasCheckOut) {
+            $status = 'IN_PROGRESS';
         } else {
             $status = 'ABSENT';
         }

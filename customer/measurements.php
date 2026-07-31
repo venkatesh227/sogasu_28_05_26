@@ -522,7 +522,9 @@ include 'includes/header.php';
                 </select>
             </div>
             <div id="deliveryError" class="error"></div>
-            <div class="section-title">Delivery Method</div>
+            <div class="section-title">
+                Delivery Method <span style="color:red;">*</span>
+            </div>
 
             <div style="margin-bottom:2rem;">
                 <select name="delivery_method" class="form-input">
