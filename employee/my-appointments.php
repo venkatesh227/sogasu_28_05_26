@@ -38,6 +38,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmt = $pdo->prepare("UPDATE appointments SET appointment_date = ?, appointment_time = ?, updated_at = NOW() WHERE id = ? AND assigned_employee_id = ?");
                 $stmt->execute([$newDate, $newTime, $appointmentId, $employee_id]);
                 $_SESSION['success'] = 'Appointment schedule updated successfully.';
+            } elseif ($action === 'confirm_appointment') {
+
+                $stmt = $pdo->prepare("UPDATE appointments SET status = 'confirmed', workflow_status = 'appointment_confirmed', updated_at = NOW() WHERE id = ? AND assigned_employee_id = ? AND workflow_status = 'employee_assigned'");
+                $stmt->execute([$appointmentId, $employee_id]);
+
+                if ($stmt->rowCount() !== 1) {
+                    throw new Exception('Appointment is no longer available for confirmation.');
+                }
+
+                $_SESSION['success'] = 'Appointment confirmed successfully.';
             } elseif ($action === 'cancel') {
 
                 $reason = trim($_POST['cancel_reason']);
@@ -80,14 +90,15 @@ SELECT
     a.id,
     a.visit_type,
     a.appointment_date,
-    a.appointment_time,
+a.appointment_time,
 a.status,
+a.workflow_status,
 a.cancel_reason,
     a.notes,
     a.order_id,
-    c.first_name AS cust_first,
-    c.last_name AS cust_last,
-    c.phone AS cust_phone,
+    a.customer_name AS cust_first,
+    '' AS cust_last,
+    a.customer_phone AS cust_phone,
     c.email AS cust_email,
     sc.name AS garment,
     sc.image AS garment_img,
@@ -261,16 +272,27 @@ include 'includes/header.php';
                                             style="background: #f8fafc; color: #4f46e5; border: 1px solid #e2e8f0; padding: 0.45rem 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.78rem; transition: all 0.2s;">
                                             <i class="ri-eye-line"></i> View
                                         </button>
+                                        <?php if (($apt['workflow_status'] ?? '') === 'employee_assigned'): ?>
+                                            <button onclick="openConfirmAppointmentModal(
+                                            <?= $apt['id'] ?>,
+                                            '<?= htmlspecialchars(json_encode($apt), ENT_QUOTES) ?>'
+                                        )"
+                                                style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 0.45rem 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.78rem;">
+                                                <i class="ri-checkbox-circle-line"></i> Confirm Appointment
+                                            </button>
+                                        <?php endif; ?>
                                         <button
                                             onclick="openScheduleModal(<?= $apt['id'] ?>, '<?= $apt['appointment_date'] ?>', '<?= substr($apt['appointment_time'], 0, 5) ?>')"
                                             style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 0.45rem 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.78rem;">
                                             <i class="ri-calendar-event-line"></i> Schedule
                                         </button>
-                                        <button
-                                            onclick="window.location.href='add-measurement.php?appointment_id=<?= $apt['id'] ?>'"
-                                            style="background: #fce7f3; color: #be185d; border: 1px solid #fecdd3; padding: 0.45rem 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.78rem;">
-                                            <i class="ri-ruler-line"></i> Measurements
-                                        </button>
+                                        <?php if (($apt['status'] ?? '') === 'confirmed'): ?>
+                                            <button
+                                                onclick="window.location.href='add-measurement.php?appointment_id=<?= $apt['id'] ?>'"
+                                                style="background: #fce7f3; color: #be185d; border: 1px solid #fecdd3; padding: 0.45rem 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.78rem;">
+                                                <i class="ri-ruler-line"></i> Measurements
+                                            </button>
+                                        <?php endif; ?>
                                         <button onclick="confirmCancel(<?= $apt['id'] ?>)"
                                             style="background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 0.45rem 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.78rem;">
                                             <i class="ri-close-circle-line"></i> Cancel
@@ -506,6 +528,20 @@ include 'includes/header.php';
         document.getElementById('scheduleModal').style.display = 'none';
     }
 
+    function openConfirmAppointmentModal(appointmentId, appointmentJson) {
+        const apt = JSON.parse(appointmentJson);
+        document.getElementById('confirmAppointmentId').value = appointmentId;
+        document.getElementById('confirmCustomerName').textContent = `${apt.cust_first} ${apt.cust_last || ''}`;
+        document.getElementById('confirmAppointmentDate').textContent = new Date(apt.appointment_date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: '2-digit' });
+        document.getElementById('confirmAppointmentTime').textContent = apt.appointment_time.substring(0, 5);
+        document.getElementById('confirmVisitType').textContent = apt.visit_type || 'N/A';
+        document.getElementById('confirmAppointmentModal').style.display = 'flex';
+    }
+
+    function closeConfirmAppointmentModal() {
+        document.getElementById('confirmAppointmentModal').style.display = 'none';
+    }
+
     function confirmCancel(appointmentId) {
 
         Swal.fire({
@@ -576,6 +612,35 @@ include 'includes/header.php';
                         style="padding: 0.75rem 1rem; border: 1px solid #e2e8f0; background: white; color: #475569; border-radius: 8px; cursor: pointer;">Cancel</button>
                     <button type="submit"
                         style="padding: 0.75rem 1rem; border: none; background: #4f46e5; color: white; border-radius: 8px; cursor: pointer;">Save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- Confirm Appointment Modal -->
+<div id="confirmAppointmentModal"
+    style="display: none; position: fixed; inset: 0; z-index: 9998; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center; overflow-y: auto;">
+    <div
+        style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 440px; width: 90%; margin: 2rem auto; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0;">Confirm Appointment</h3>
+            <button type="button" onclick="closeConfirmAppointmentModal()"
+                style="border: none; background: transparent; color: #64748b; font-size: 1.2rem; cursor: pointer;"><i
+                    class="ri-close-line"></i></button>
+        </div>
+        <form method="post">
+            <input type="hidden" name="action" value="confirm_appointment">
+            <input type="hidden" name="appointment_id" id="confirmAppointmentId">
+            <div style="display: grid; gap: 0.85rem; color: #475569;">
+                <div><strong style="color: #1e293b;">Customer Name:</strong> <span id="confirmCustomerName"></span></div>
+                <div><strong style="color: #1e293b;">Appointment Date:</strong> <span id="confirmAppointmentDate"></span></div>
+                <div><strong style="color: #1e293b;">Appointment Time:</strong> <span id="confirmAppointmentTime"></span></div>
+                <div><strong style="color: #1e293b;">Visit Type:</strong> <span id="confirmVisitType"></span></div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
+                    <button type="button" onclick="closeConfirmAppointmentModal()"
+                        style="padding: 0.75rem 1rem; border: 1px solid #e2e8f0; background: white; color: #475569; border-radius: 8px; cursor: pointer;">Cancel</button>
+                    <button type="submit"
+                        style="padding: 0.75rem 1rem; border: none; background: #059669; color: white; border-radius: 8px; cursor: pointer;">Confirm Appointment</button>
                 </div>
             </div>
         </form>

@@ -9,9 +9,9 @@ if (!preg_match("/^\d{4}-\d{2}-\d{2}$/", $selected_date)) {
 }
 
 // prevent past date
-if (strtotime($selected_date) < strtotime(date('Y-m-d'))) {
-    $selected_date = date('Y-m-d');
-}
+// if (strtotime($selected_date) < strtotime(date('Y-m-d'))) {
+//     $selected_date = date('Y-m-d');
+// }
 
 // Handle supervisor assignment to appointment
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'assign_supervisor') {
@@ -85,6 +85,11 @@ $supervisors = $pdo->query("
 
 // Get selected supervisor
 $selected_supervisor = $_GET['supervisor'] ?? null;
+$currentMonth = date('Y-m-01', strtotime($selected_date));
+
+$prevMonth = date('Y-m-d', strtotime('-1 month', strtotime($currentMonth)));
+
+$nextMonth = date('Y-m-d', strtotime('+1 month', strtotime($currentMonth)));
 $query = "
 SELECT
     a.id,
@@ -432,9 +437,16 @@ include 'includes/header.php';
                     <h3 style="font-size: 1rem; font-weight: 700; color: #1e293b;">
                         <?= date('F Y', strtotime($selected_date)) ?>
                     </h3>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <i class="ri-arrow-left-s-line" style="cursor: pointer;"></i>
-                        <i class="ri-arrow-right-s-line" style="cursor: pointer;"></i>
+                    <div style="display:flex;gap:0.5rem;">
+
+                        <i class="ri-arrow-left-s-line" style="cursor:pointer;"
+                            onclick="window.location.href='appointments.php?date=<?= $prevMonth ?><?= $selected_supervisor ? '&supervisor=' . $selected_supervisor : '' ?>'">
+                        </i>
+
+                        <i class="ri-arrow-right-s-line" style="cursor:pointer;"
+                            onclick="window.location.href='appointments.php?date=<?= $nextMonth ?><?= $selected_supervisor ? '&supervisor=' . $selected_supervisor : '' ?>'">
+                        </i>
+
                     </div>
                 </div>
                 <div class="calendar-grid">
@@ -467,10 +479,11 @@ include 'includes/header.php';
                         $isPast = false;
                         ?>
 
-                        <div class="day 
-                        <?= ($date == $selected_date) ? 'active' : '' ?> 
-                        <?= in_array($date, $bookedDates) ? 'has-booking' : '' ?>
-                        <?= $isPast ? 'empty' : '' ?>" onclick="window.location.href='?date=<?= $date ?>'">
+                        <div class="day
+                        <?= ($date == $selected_date) ? 'active' : '' ?>
+                        <?= in_array($date, $bookedDates) ? 'has-booking' : '' ?>"
+                            onclick="window.location.href='appointments.php?date=<?= $date ?><?= $selected_supervisor ? '&supervisor=' . $selected_supervisor : '' ?>'">
+
                             <?= $d ?>
                         </div>
 

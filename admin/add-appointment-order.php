@@ -65,6 +65,39 @@ function getOrCreateCustomer(PDO $pdo, string $customerName, string $customerPho
     $customer = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($customer) {
+
+        // Check whether customer profile already exists
+        $checkCustomer = $pdo->prepare("
+        SELECT id
+        FROM customers
+        WHERE user_id = ?
+        LIMIT 1
+    ");
+        $checkCustomer->execute([$customer['id']]);
+
+        // If customer profile is missing, create it
+        if (!$checkCustomer->fetch()) {
+
+            $insertCustomer = $pdo->prepare("
+            INSERT INTO customers
+            (
+                user_id,
+                first_name,
+                phone,
+                address,
+                city,
+                status
+            )
+            VALUES (?, ?, ?, '', '', 1)
+        ");
+
+            $insertCustomer->execute([
+                $customer['id'],
+                $customer['username'],
+                $customer['mobile']
+            ]);
+        }
+
         return $customer;
     }
 

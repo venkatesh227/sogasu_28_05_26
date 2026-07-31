@@ -35,7 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         try {
             if ($source === 'appointments') {
                 $upd_stmt = $pdo->prepare(
-                    "UPDATE appointments SET assigned_employee_id = ? WHERE id = ? AND supervisor_id = ?"
+                    "UPDATE appointments
+                        SET
+                            assigned_employee_id = ?,
+                            workflow_status = 'employee_assigned'
+                        WHERE id = ?
+                        AND supervisor_id = ?"
                 );
             } else {
                 $upd_stmt = $pdo->prepare(

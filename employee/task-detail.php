@@ -79,71 +79,14 @@ $stmt = $pdo->prepare("
 
         WHERE o.id = ?
         AND o.is_deleted = 0
-
-        UNION ALL
-
-        SELECT 
-            co.id,
-            co.order_code,
-            co.user_id as customer_id,
-            NULL as family_member_id,
-            co.category_id,
-            co.sub_category_id,
-            NULL as fabric_details,
-            co.additional_notes as notes,
-            co.status as order_status,
-            NULL as payment_status,
-            NULL as razorpay_payment_link_id,
-            NULL as payment_link,
-            NULL as razorpay_payment_id,
-            NULL as paid_at,
-            NULL as payment_response,
-            co.supervisor_id,
-            co.assigned_employee_id,
-            NULL as employee_taken_at,
-            co.rack_id,
-            co.base_price,
-            co.extra_charges,
-            co.total_amount,
-            0 as advance_amount,
-            0 as paid_amount,
-            NULL as advance_payment_mode,
-            NULL as transaction_reference,
-            co.appointment_date as due_date,
-            'CMS' as measurement_unit,
-            co.is_deleted,
-            co.created_at,
-            cu.first_name as cust_first,
-            cu.last_name as cust_last,
-            cu.phone as cust_phone,
-            sc.name as garment,
-            r.rack_name,
-            r.description as rack_desc,
-            e.first_name as emp_first,
-            e.last_name as emp_last
-
-        FROM customer_orders co
-
-        LEFT JOIN customers cu 
-            ON co.user_id = cu.user_id
-
-        LEFT JOIN sub_categories sc 
-            ON co.sub_category_id = sc.id
-
-        LEFT JOIN racks r 
-            ON co.rack_id = r.id
-
-        LEFT JOIN employees e 
-            ON co.assigned_employee_id = e.id
-
-        WHERE co.id = ?
-        AND co.is_deleted = 0
+     
 ");
-$stmt->execute([
-    $order_id,
-    $order_id
-]);
+$stmt->execute([$order_id]);
 $order = $stmt->fetch();
+if (!$order) {
+    echo "Order not found.";
+    exit();
+}
 
 // Fetch measurements dynamically
 $measurements = [];
@@ -192,11 +135,6 @@ if ($customerMeasurement) {
     $stmt->execute([$order_id]);
 
     $measurements = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
-}
-
-if (!$order) {
-    echo "Order not found.";
-    exit();
 }
 
 // Fetch order images

@@ -69,6 +69,7 @@ $categoryId = $appointment['category_id'];
 $subCategoryId = $appointment['sub_category_id'];
 $measurementId = $appointment['measurement_id'];
 $orderId = $appointment['order_id'];
+$workflowStatus = $appointment['workflow_status'] ?? '';
 
 $isEditMode = !empty($orderId);
 
@@ -233,6 +234,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         $allowedActions = [
             'create_order',
+            'save_measurements',
+            'visit_completed',
+            'select_fabric_source',
             'update_measurements',
             'change_rack'
         ];
@@ -242,6 +246,132 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         $rackId = intval($_POST['rack_id'] ?? 0);
+        $fabricSource = $_POST['fabric_source'] ?? '';
+
+        if ($action === 'visit_completed' || $action === 'select_fabric_source') {
+
+            $stmt = $pdo->prepare("
+                SELECT measurement_id, order_id, workflow_status, material_image
+                FROM appointments
+                WHERE id = ?
+                AND assigned_employee_id = ?
+                AND is_deleted = 0
+                FOR UPDATE
+            ");
+
+            $stmt->execute([
+                $appointmentId,
+                $employeeId
+            ]);
+
+            $lockedAppointment = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$lockedAppointment) {
+                throw new Exception('Appointment not found.');
+            }
+
+            if (empty($lockedAppointment['measurement_id'])) {
+                throw new Exception('Measurements must be saved before completing the visit.');
+            }
+
+            if (!empty($lockedAppointment['order_id'])) {
+                throw new Exception('Order has already been created for this appointment.');
+            }
+
+            if ($action === 'visit_completed') {
+
+                if (
+                    !in_array(
+                        $lockedAppointment['workflow_status'],
+                        [
+                            'employee_assigned',
+                            'appointment_confirmed',
+                            'visit_completed'
+                        ],
+                        true
+                    )
+                ) {
+                    throw new Exception(
+                        'This appointment cannot be marked as visit completed at its current workflow stage.'
+                    );
+                }
+
+                $stmt = $pdo->prepare("
+                    UPDATE appointments
+                    SET workflow_status = 'visit_completed', updated_at = NOW()
+                    WHERE id = ?
+                ");
+
+                $stmt->execute([$appointmentId]);
+
+            } else {
+
+                if ($lockedAppointment['workflow_status'] !== 'visit_completed') {
+                    throw new Exception('Please complete the visit before selecting fabric source.');
+                }
+
+                if ($fabricSource !== 'customer') {
+                    throw new Exception('Please select Customer Fabric to continue with rack assignment.');
+                }
+
+                $hasNewFabricImage = isset($_FILES['fabric_image']) &&
+                    $_FILES['fabric_image']['error'] === UPLOAD_ERR_OK;
+
+                if (empty($lockedAppointment['material_image']) && !$hasNewFabricImage) {
+                    throw new Exception('FABRIC_IMAGE_REQUIRED|Please upload the customer fabric image.');
+                }
+
+                $materialImage = null;
+
+                if ($hasNewFabricImage) {
+
+                    $fabricImageExtension = strtolower(pathinfo($_FILES['fabric_image']['name'], PATHINFO_EXTENSION));
+                    $allowedFabricImageExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+
+                    if (!in_array($fabricImageExtension, $allowedFabricImageExtensions, true)) {
+                        throw new Exception('INVALID_FABRIC_IMAGE|Please upload a JPG, JPEG, PNG, or WEBP image.');
+                    }
+
+                    $fabricUploadDirectory = __DIR__ . '/../uploads/fabrics/';
+
+                    if (!is_dir($fabricUploadDirectory) && !mkdir($fabricUploadDirectory, 0777, true)) {
+                        throw new Exception('Unable to prepare the fabric image upload directory.');
+                    }
+
+                    $fabricImageName = 'fabric_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $fabricImageExtension;
+
+                    if (!move_uploaded_file($_FILES['fabric_image']['tmp_name'], $fabricUploadDirectory . $fabricImageName)) {
+                        throw new Exception('Unable to upload the fabric image.');
+                    }
+
+                    $materialImage = 'uploads/fabrics/' . $fabricImageName;
+                }
+
+                $stmt = $pdo->prepare("
+                    UPDATE appointments
+                    SET
+                        fabric_source = 'customer',
+                        material_image = COALESCE(?, material_image),
+                        workflow_status = 'fabric_received',
+                        updated_at = NOW()
+                    WHERE id = ?
+                ");
+
+                $stmt->execute([
+                    $materialImage,
+                    $appointmentId
+                ]);
+            }
+
+            $pdo->commit();
+
+            echo json_encode([
+                "success" => true,
+                "action" => $action
+            ]);
+
+            exit;
+        }
         /*
 |--------------------------------------------------------------------------
 | Change Rack Only
@@ -553,15 +683,40 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             exit;
         }
+
+        if ($action === 'save_measurements') {
+
+            if ($isEditMode) {
+                throw new Exception(
+                    'Measurements have already been saved for this order.'
+                );
+            }
+
+            $pdo->commit();
+
+            echo json_encode([
+                "success" => true,
+                "action" => "measurements_saved"
+            ]);
+
+            exit;
+        }
         /*
         |--------------------------------------------------------------------------
         | Assign Rack And Create Order
         |--------------------------------------------------------------------------
         */
-        if ($action === 'create_order' && $rackId <= 0) {
+        if ($action === 'create_order' && !in_array($fabricSource, ['customer', 'boutique'], true)) {
 
             throw new Exception(
-                'RACK_REQUIRED|Please choose a rack.'
+                'FABRIC_SOURCE_REQUIRED|Please select a fabric source.'
+            );
+        }
+
+        if ($action === 'create_order' && $fabricSource === 'customer' && $rackId <= 0) {
+
+            throw new Exception(
+                'RACK_REQUIRED|Please select a rack.'
             );
         }
 
@@ -591,25 +746,48 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             );
         }
 
-        $stmt = $pdo->prepare("
+        if ($fabricSource === 'customer' && $lockedAppointment['workflow_status'] !== 'fabric_received') {
+            throw new Exception('Please select Customer Fabric before assigning a rack.');
+        }
+
+        if ($fabricSource === 'boutique' && $lockedAppointment['workflow_status'] !== 'visit_completed') {
+            throw new Exception('Please complete the visit before creating the order.');
+        }
+
+        if ($fabricSource === 'boutique') {
+
+            $stmt = $pdo->prepare("
+                UPDATE appointments
+                SET fabric_source = 'boutique', updated_at = NOW()
+                WHERE id = ?
+            ");
+
+            $stmt->execute([$appointmentId]);
+        }
+
+        if ($fabricSource === 'customer') {
+
+            $stmt = $pdo->prepare("
             SELECT id, status
             FROM racks
             WHERE id = ?
             FOR UPDATE
         ");
 
-        $stmt->execute([$rackId]);
+            $stmt->execute([$rackId]);
 
-        $rack = $stmt->fetch(PDO::FETCH_ASSOC);
+            $rack = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$rack) {
-            throw new Exception('Rack not found.');
-        }
+            if (!$rack) {
+                throw new Exception('Rack not found.');
+            }
 
-        if ($rack['status'] !== 'Available') {
-            throw new Exception(
-                'Selected rack is no longer available.'
-            );
+            if ($rack['status'] !== 'Available') {
+                throw new Exception(
+                    'Selected rack is no longer available.'
+                );
+            }
+
         }
 
         $orderCode = $lockedAppointment['order_id'];
@@ -755,7 +933,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $lockedAppointment['notes'],
                 $lockedAppointment['material_image'],
                 $lockedAppointment['referral_image'],
-                $rackId,
+                $fabricSource === 'boutique' ? null : $rackId,
                 $basePrice,
                 $extraCharges,
                 $totalAmount,
@@ -777,13 +955,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $appointmentId
         ]);
 
-        $stmt = $pdo->prepare("
+        if ($fabricSource === 'customer') {
+
+            $stmt = $pdo->prepare("
             UPDATE racks
             SET status = 'Occupied'
             WHERE id = ?
         ");
 
-        $stmt->execute([$rackId]);
+            $stmt->execute([$rackId]);
+
+        }
 
         $pdo->commit();
 
@@ -850,7 +1032,7 @@ include 'includes/header.php';
 
         </div>
 
-        <form id="measurementForm" method="POST">
+        <form id="measurementForm" method="POST" data-workflow-status="<?= htmlspecialchars($workflowStatus) ?>">
 
             <input type="hidden" name="category_id" value="<?= $categoryId ?>">
 
@@ -914,7 +1096,78 @@ gap:15px;
 
                 <?php if (!$isEditMode): ?>
 
-                    <button type="button" id="assignRackBtn" class="assign-rack-btn" onclick="openRackModal()">
+                    <?php if (empty($measurementId)): ?>
+
+                        <button type="button" id="saveMeasurementsBtn" class="assign-rack-btn">
+
+                            <i class="ri-save-line"></i>
+
+                            <span>Save Measurements</span>
+
+                        </button>
+
+                    <?php else: ?>
+
+                        <button type="button" id="visitCompletedBtn" class="assign-rack-btn">
+
+                            <i class="ri-checkbox-circle-line"></i>
+
+                            <span>Visit Completed</span>
+
+                        </button>
+
+                    <?php endif; ?>
+
+                    <div id="fabricSourceSection" class="fabric-source-options" style="display:none;">
+
+                        <span class="current-rack-text">Fabric Source:</span>
+
+                        <label><input type="radio" name="fabric_source" value="customer"> Customer Fabric</label>
+
+                        <label><input type="radio" name="fabric_source" value="boutique"> Boutique Fabric</label>
+
+                        <div id="customerFabricDetails" class="customer-fabric-details" style="display:none;">
+
+                            <div>
+                                <?php if (!empty($appointment['material_image'])): ?>
+
+                                    <?php
+                                    $materialImagePreview = strpos($appointment['material_image'], '/') === false
+                                        ? '../customer/uploads/' . $appointment['material_image']
+                                        : '../' . $appointment['material_image'];
+                                    ?>
+
+                                    <label class="input-label">Current Fabric Image</label>
+
+                                    <img src="<?= htmlspecialchars($materialImagePreview) ?>" alt="Current Fabric"
+                                        style="width:100%; max-width:220px; max-height:160px; object-fit:contain; border-radius:8px; background:#f1f5f9; margin-bottom:8px;">
+
+                                    <label class="input-label">Replace Fabric Image (Optional)</label>
+
+                                <?php else: ?>
+
+                                    <label class="input-label">Fabric Image</label>
+
+                                <?php endif; ?>
+
+                                <input type="file" name="fabric_image" class="form-input"
+                                    accept="image/jpeg,image/png,image/webp">
+                            </div>
+
+                        </div>
+
+                        <button type="button" id="continueFabricBtn" class="assign-rack-btn">
+
+                            <i class="ri-arrow-right-line"></i>
+
+                            <span>Continue</span>
+
+                        </button>
+
+                    </div>
+
+                    <button type="button" id="assignRackBtn" class="assign-rack-btn" onclick="openRackModal()"
+                        style="display:none;">
 
                         <i class="ri-stack-line"></i>
 
@@ -932,24 +1185,28 @@ gap:15px;
 
                     </button>
 
-                    <button type="button" class="assign-rack-btn" onclick="openRackModal()">
+                    <?php if (!empty($currentRackId)): ?>
 
-                        <i class="ri-exchange-line"></i>
+                        <button type="button" class="assign-rack-btn" onclick="openRackModal()">
 
-                        <span>Change Rack</span>
+                            <i class="ri-exchange-line"></i>
 
-                    </button>
+                            <span>Change Rack</span>
 
-                    <?php if (!empty($currentRackName)): ?>
+                        </button>
 
-                        <span class="current-rack-text">
+                        <?php if (!empty($currentRackName)): ?>
 
-                            Current Rack:
-                            <strong>
-                                <?= htmlspecialchars($currentRackName) ?>
-                            </strong>
+                            <span class="current-rack-text">
 
-                        </span>
+                                Current Rack:
+                                <strong>
+                                    <?= htmlspecialchars($currentRackName) ?>
+                                </strong>
+
+                            </span>
+
+                        <?php endif; ?>
 
                     <?php endif; ?>
 
@@ -1167,9 +1424,322 @@ gap:15px;
     .current-rack-text strong {
         color: #be185d;
     }
+
+    .fabric-source-options {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .fabric-source-options label {
+        font-size: 13px;
+        color: #475569;
+        cursor: pointer;
+    }
+
+    .customer-fabric-details {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        padding: 14px;
+        border: 1px solid #fce7f3;
+        border-radius: 8px;
+        background: #fffafb;
+    }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    function submitWorkflowRequest(data, onSuccess) {
+
+        fetch(window.location.href, {
+
+            method: "POST",
+
+            body: data
+
+        })
+
+            .then(r => r.json())
+
+            .then(res => {
+
+                if (res.success) {
+
+                    onSuccess(res);
+
+                    return;
+
+                }
+
+                let errorTitle = "Error";
+
+                if (res.error_type === "MEASUREMENTS_EMPTY") {
+
+                    errorTitle = "Measurements Required";
+
+                } else if (res.error_type === "FABRIC_SOURCE_REQUIRED") {
+
+                    errorTitle = "Fabric Source Required";
+
+                } else if (res.error_type === "FABRIC_IMAGE_REQUIRED") {
+
+                    errorTitle = "Fabric Image Required";
+
+                } else if (res.error_type === "RACK_REQUIRED") {
+
+                    errorTitle = "Rack Required";
+
+                } else if (res.message && res.message.includes("no longer available")) {
+
+                    errorTitle = "Rack Already Occupied";
+
+                } else if (res.message && res.message.includes("complete the visit")) {
+
+                    errorTitle = "Visit Not Completed";
+
+                }
+
+                Swal.fire({
+                    icon: "error",
+                    title: errorTitle,
+                    text: res.message,
+                    confirmButtonColor: "#be185d"
+                });
+
+            })
+
+            .catch(() => {
+
+                Swal.fire({
+                    icon: "error",
+                    title: "Server Error",
+                    text: "Something went wrong.",
+                    confirmButtonColor: "#be185d"
+                });
+
+            });
+
+    }
+
+    const measurementForm = document.getElementById("measurementForm");
+    const fabricSourceSection = document.getElementById("fabricSourceSection");
+    const customerFabricDetails = document.getElementById("customerFabricDetails");
+    const assignRackBtn = document.getElementById("assignRackBtn");
+    const fabricSourceInputs = document.querySelectorAll('input[name="fabric_source"]');
+
+    function showFabricSourceSection() {
+
+        if (fabricSourceSection) {
+
+            fabricSourceSection.style.display = "inline-flex";
+
+        }
+
+    }
+
+    function hideFabricSourceSection() {
+
+        if (fabricSourceSection) {
+
+            fabricSourceSection.style.display = "none";
+
+        }
+
+    }
+
+    function showAssignRackButton() {
+
+        if (assignRackBtn) {
+
+            assignRackBtn.style.display = "inline-flex";
+
+        }
+
+    }
+
+    fabricSourceInputs.forEach(function (input) {
+
+        input.addEventListener("change", function () {
+
+            if (customerFabricDetails) {
+
+                customerFabricDetails.style.display = this.value === "customer" ? "grid" : "none";
+
+            }
+
+        });
+
+    });
+
+    if (measurementForm && ["appointment_confirmed", "visit_completed", "fabric_received", "order_created"].includes(measurementForm.dataset.workflowStatus)) {
+
+        const savedVisitCompletedBtn = document.getElementById("visitCompletedBtn");
+
+        if (
+            savedVisitCompletedBtn &&
+            measurementForm.dataset.workflowStatus !== "appointment_confirmed"
+        ) {
+            savedVisitCompletedBtn.style.display = "none";
+        }
+        if (measurementForm.dataset.workflowStatus === "appointment_confirmed") {
+
+            hideFabricSourceSection();
+
+        }
+
+        if (measurementForm.dataset.workflowStatus === "visit_completed") {
+
+            showFabricSourceSection();
+
+        } else if (measurementForm.dataset.workflowStatus === "fabric_received") {
+
+            hideFabricSourceSection();
+
+            showAssignRackButton();
+
+        }
+
+    }
+
+    const saveMeasurementsBtn = document.getElementById("saveMeasurementsBtn");
+
+    if (saveMeasurementsBtn) {
+
+        saveMeasurementsBtn.onclick = function () {
+
+            let data = new FormData(document.getElementById("measurementForm"));
+
+            data.append("action", "save_measurements");
+
+            submitWorkflowRequest(data, () => {
+
+                Swal.fire({
+                    icon: "success",
+                    title: "Measurements Saved",
+                    text: "Customer measurements saved successfully.",
+                    confirmButtonColor: "#be185d",
+                    timer: 1800,
+                    showConfirmButton: false
+                }).then(() => {
+
+                    window.location.reload();
+
+                });
+
+            });
+
+        };
+
+    }
+
+    const visitCompletedBtn = document.getElementById("visitCompletedBtn");
+
+    if (visitCompletedBtn) {
+
+        visitCompletedBtn.onclick = function () {
+
+            let data = new FormData(document.getElementById("measurementForm"));
+
+            data.append("action", "visit_completed");
+
+            submitWorkflowRequest(data, () => {
+
+                visitCompletedBtn.style.display = "none";
+
+                showFabricSourceSection();
+
+                Swal.fire({
+                    icon: "success",
+                    title: "Visit Completed",
+                    text: "Please select the fabric source.",
+                    confirmButtonColor: "#be185d",
+                    timer: 1800,
+                    showConfirmButton: false
+                });
+
+            });
+
+        };
+
+    }
+
+    const continueFabricBtn = document.getElementById("continueFabricBtn");
+
+    if (continueFabricBtn) {
+
+        continueFabricBtn.onclick = function () {
+
+            const selectedFabric = document.querySelector('input[name="fabric_source"]:checked');
+
+            if (!selectedFabric) {
+
+                Swal.fire({
+                    icon: "error",
+                    title: "Fabric Source Required",
+                    text: "Please select a fabric source.",
+                    confirmButtonColor: "#be185d"
+                });
+
+                return;
+
+            }
+
+            let data = new FormData(document.getElementById("measurementForm"));
+
+            if (selectedFabric.value === "customer") {
+
+                data.append("action", "select_fabric_source");
+
+                submitWorkflowRequest(data, () => {
+
+                    Swal.fire({
+                        icon: "success",
+                        title: "Fabric Received",
+                        text: "Fabric details saved successfully.",
+                        confirmButtonColor: "#be185d",
+                        timer: 1800,
+                        showConfirmButton: false
+                    }).then(() => {
+
+                        hideFabricSourceSection();
+
+                        showAssignRackButton();
+
+                        openRackModal();
+
+                    });
+
+                });
+
+                return;
+
+            }
+
+            data.append("action", "create_order");
+
+            submitWorkflowRequest(data, (res) => {
+
+                Swal.fire({
+                    icon: "success",
+                    title: "Success!",
+                    text: "Measurements saved and order created successfully.",
+                    confirmButtonColor: "#be185d",
+                    timer: 1800,
+                    showConfirmButton: false
+                }).then(() => {
+
+                    window.location.href = res.redirect;
+
+                });
+
+            });
+
+        };
+
+    }
+
     <?php if ($isEditMode): ?>
 
         document.getElementById("updateMeasurementBtn").onclick = function () {
@@ -1289,6 +1859,10 @@ gap:15px;
                 : '"create_order"' ?>
         );
 
+        <?php if (!$isEditMode): ?>
+            data.set("fabric_source", "customer");
+        <?php endif; ?>
+
         fetch(window.location.href, {
 
             method: "POST",
@@ -1337,6 +1911,14 @@ gap:15px;
                     } else if (res.error_type === "INVALID_MEASUREMENT") {
 
                         errorTitle = "Invalid Measurement";
+
+                    } else if (res.error_type === "RACK_REQUIRED") {
+
+                        errorTitle = "Rack Required";
+
+                    } else if (res.message && res.message.includes("no longer available")) {
+
+                        errorTitle = "Rack Already Occupied";
 
                     }
 
