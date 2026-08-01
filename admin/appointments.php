@@ -283,7 +283,7 @@ include 'includes/header.php';
             <?php if (!empty($appointments)): ?>
 
                 <?php foreach ($appointments as $row): ?>
-                    <div class="appointment-card">
+                    <div class="appointment-card" style="position:relative;">
                         <div class="appointment-date-box">
                             <div class="month"><?= strtoupper(date('M', strtotime($row['appointment_date']))) ?></div>
                             <div class="day"><?= date('d', strtotime($row['appointment_date'])) ?></div>
@@ -291,7 +291,7 @@ include 'includes/header.php';
 
                         <div style="flex: 1;">
                             <div style="display: flex; justify-content: space-between; align-items: start;">
-                                <div>
+                                <div style="width:55%;">
                                     <h4 class="appointment-title">
                                         <?= htmlspecialchars($row['customer_name']) ?> -
                                         <?= htmlspecialchars($row['garment'] ?? 'General') ?>
@@ -341,7 +341,25 @@ include 'includes/header.php';
                                     </div>
                                 </div>
 
-                                <div style="display:flex;align-items:center;gap:10px;">
+                                <div style="
+                                display:flex;
+                                align-items:center;
+                                gap:10px;
+                                margin-left:auto;
+                                padding-right:45px;
+                            ">
+
+                                    <span style="
+                                        background:#eef2ff;
+                                        color:#4338ca;
+                                        padding:4px 10px;
+                                        border-radius:20px;
+                                        font-size:12px;
+                                        font-weight:600;
+                                        text-transform:capitalize;">
+                                        <?= ucwords(str_replace('_', ' ', $row['workflow_status'])) ?>
+                                    </span>
+
                                     <?php if (($row['appointment_source'] ?? '') === 'customer') { ?>
 
                                         <span class="badge badge-primary">
@@ -356,13 +374,10 @@ include 'includes/header.php';
 
                                     <?php } ?>
 
-                                    <!-- 3 DOT MENU -->
                                     <button class="btn-icon-only action-btn" data-id="<?= $row['id'] ?>"
                                         data-source="appointments"
-                                        style="border:none;background:none;cursor:pointer;padding:5px;">
-
+                                        style="border:none;background:none;cursor:pointer;padding:5px;position:absolute;right:20px;top:18px;">
                                         <i class="ri-more-2-fill" style="font-size:20px;"></i>
-
                                     </button>
 
                                 </div>
@@ -371,7 +386,7 @@ include 'includes/header.php';
 
                         <div style="display: flex; gap: 0.5rem; flex-direction: column;">
 
-                            <?php if (($row['visit_type'] ?? '') !== 'store'): ?>
+                            <?php if (($row['visit_type'] ?? '') !== 'store' && $row['status'] != 'cancelled'): ?>
 
                                 <button
                                     onclick="openSupervisorModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['customer_name']) ?>', <?= $row['supervisor_id'] ?? 'null' ?>)"

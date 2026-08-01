@@ -450,7 +450,7 @@ include 'includes/header.php';
             <input type="hidden" name="category_id" value="<?php echo $categoryId; ?>">
             <input type="hidden" name="sub_category_id" value="<?php echo $subCategoryId; ?>">
             <div style="margin-bottom:20px;">
-                <label class="input-label">Do you want to provide measurements?</label>
+                <label class="input-label section-heading">Do you want to provide measurements?</label>
 
                 <label style="margin-right:20px;">
                     <input type="radio" name="has_measurements" value="yes">
@@ -522,7 +522,7 @@ include 'includes/header.php';
                 </select>
             </div>
             <div id="deliveryError" class="error"></div>
-            <div class="section-title">
+            <div class="section-title required-label">
                 Delivery Method <span style="color:red;">*</span>
             </div>
 
@@ -608,6 +608,13 @@ include 'includes/header.php';
         font-weight: 500;
     }
 
+    .section-heading {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 0.75rem;
+    }
+
     .form-input {
         width: 100%;
         padding: 0.75rem;
@@ -637,6 +644,14 @@ include 'includes/header.php';
 
     .input-error {
         border: 1px solid red !important;
+    }
+
+    .required-label {
+        display: block !important;
+    }
+
+    .required-label span {
+        color: red;
     }
 
     @media (max-width: 768px) {

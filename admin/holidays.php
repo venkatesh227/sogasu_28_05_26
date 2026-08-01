@@ -44,7 +44,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'add_holiday') {
             FROM appointments
 
             WHERE appointment_date = ?
-            AND status = 'scheduled'
+            AND status IN ('scheduled', 'confirmed')
 
         ");
 
